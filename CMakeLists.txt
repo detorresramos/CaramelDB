@@ -82,7 +82,7 @@ file(GLOB CPP_SOURCE "${PROJECT_SOURCE_DIR}/src/*.cc")
 include_directories(${PROJECT_SOURCE_DIR}/src)
 
 set(CARAMEL_SOURCES
-    ${PROJECT_SOURCE_DIR}/src/CSF.cc
+    ${PROJECT_SOURCE_DIR}/src/Dummy.cc
 )
 add_library(caramel STATIC ${CARAMEL_SOURCES})
 target_link_libraries(caramel PUBLIC OpenMP::OpenMP_CXX)

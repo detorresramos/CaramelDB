@@ -2,6 +2,6 @@ enable_testing()
 
 include(GoogleTest)
 
-add_executable(CSFTest CSFTest.cc)
+add_executable(DummyTest DummyTest.cc)
 
-target_link_libraries(CSFTest gtest gtest_main caramel)
+target_link_libraries(DummyTest gtest gtest_main caramel)

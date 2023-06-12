@@ -4,9 +4,9 @@
 
 namespace caramel {
 
-class CSF {
+class Dummy {
 public:
-  CSF() {}
+  Dummy() {}
 
   bool helloWorld();
 };

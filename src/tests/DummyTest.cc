@@ -1,11 +1,11 @@
 #include <gtest/gtest.h>
 #include <memory>
-#include <src/CSF.h>
+#include <src/Dummy.h>
 
 namespace caramel::tests {
 
-TEST(CSFTest, SomeExampleNameHere) {
-  auto x = CSF();
+TEST(DummyTest, SomeExampleNameHere) {
+  auto x = Dummy();
 
   bool result = x.helloWorld();
 

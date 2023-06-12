@@ -1,5 +1,5 @@
 #include <memory.h>
-#include <src/CSF.h>
+#include <src/Dummy.h>
 
 // Pybind11 library
 #include <pybind11/cast.h>
@@ -12,9 +12,9 @@ namespace py = pybind11;
 namespace caramel::python {
 
 void defineCaramelModule(py::module_ &module) {
-  py::class_<CSF, std::shared_ptr<CSF>>(module, "CSF")
+  py::class_<Dummy, std::shared_ptr<Dummy>>(module, "Dummy")
       .def(py::init<>())
-      .def("hello", &CSF::helloWorld);
+      .def("hello", &Dummy::helloWorld);
 }
 
 PYBIND11_MODULE(caramel, module) { // NOLINT

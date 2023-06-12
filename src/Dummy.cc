@@ -1,8 +1,8 @@
-#include "CSF.h"
+#include "Dummy.h"
 
 namespace caramel {
 
-bool CSF::helloWorld() {
+bool Dummy::helloWorld() {
   std::cout << "Hello World!" << std::endl;
   return true;
 }
