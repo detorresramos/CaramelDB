@@ -17,14 +17,15 @@ def main():
     os.chdir(bin_directory)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-m",
-        "--build_mode",
-        default="Release",
-        choices=["Release", "Debug"],
-        metavar="MODE",  # Don't print the choices because they're ugly
-        help='The releast mode to build with (see CMakeLists.txt for the specific compiler flags for each mode). Default is "Release".',
-    )
+    # TODO(any): add debug mode compilation with this option
+    # parser.add_argument(
+    #     "-m",
+    #     "--build_mode",
+    #     default="Release",
+    #     choices=["Release", "Debug"],
+    #     metavar="MODE",  # Don't print the choices because they're ugly
+    #     help='The mode to build with (see CMakeLists.txt for the specific compiler flags for each mode). Default is "Release".',
+    # )
     parser.add_argument(
         "-t",
         "--target",
@@ -42,12 +43,12 @@ def main():
 
     if args.target == "package":
         # Set environment variables, and run pip install
-        os.environ["CARAMEL_BUILD_MODE"] = args.build_mode
+        # os.environ["CARAMEL_BUILD_MODE"] = args.build_mode
 
         checked_system_call(f"pip3 install . --verbose --force --no-dependencies")
 
     else:
-        cmake_command = f"cmake -B build -S . -DPYTHON_EXECUTABLE=$(which python3) -DCMAKE_BUILD_TYPE={args.build_mode}"
+        cmake_command = f"cmake -B build -S . -DPYTHON_EXECUTABLE=$(which python3)" # + "-DCMAKE_BUILD_TYPE={args.build_mode}"
         build_command = f"cmake --build build --target {args.target}"
 
         checked_system_call(cmake_command)

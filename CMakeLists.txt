@@ -73,7 +73,7 @@ endif(NOT OpenMP_FOUND)
 # Add compiler flags that should be used - Wall : enable all warnings - O3:
 # enable all optimizations.
 # TODO(any): use other compile flags and modes
-set(CMAKE_CXX_FLAGS "-O3 -W")
+set(CMAKE_CXX_FLAGS "-O3 -Wall -Wextra -Werror -Wno-unused-function -Wno-ignored-optimization-argument -Wno-psabi -pedantic")
 
 # Specify the non-header source files that should be compiled
 file(GLOB CPP_SOURCE "${PROJECT_SOURCE_DIR}/src/*.cc")
