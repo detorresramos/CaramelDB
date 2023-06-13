@@ -40,7 +40,6 @@ ln -s /opt/homebrew/bin/g++-11 /opt/homebrew/bin/g++
 # Install cmake
 brew install cmake
 
-
 # Install openmp (from LLVM)
 brew install libomp
 

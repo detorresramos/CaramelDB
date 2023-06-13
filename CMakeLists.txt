@@ -26,7 +26,7 @@ message("\tC compiler: ${CMAKE_C_COMPILER}")
 message("====================================")
 
 # Add OpenMP
-find_package(OpenMP REQUIRED)
+find_package(OpenMP)
 if(NOT OpenMP_FOUND)
     message("OpenMP Not Found. Building the Package using LLVM's OpenMP.")
     set(LLVM_OPENMP_VERSION "13.0.1")
