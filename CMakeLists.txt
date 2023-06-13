@@ -30,7 +30,7 @@ find_package(OpenMP)
 if(NOT OpenMP_FOUND)
     message("OpenMP Not Found. Building the Package using LLVM's OpenMP.")
     set(LLVM_OPENMP_VERSION "13.0.1")
-    set(LLVM_OPENMP_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/openmp")
+    set(LLVM_OPENMP_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/openmp")
 
     if(NOT EXISTS ${LLVM_OPENMP_SOURCE_DIR})
         message("Downloading openmp-${LLVM_OPENMP_VERSION} into ${LLVM_OPENMP_SOURCE_DIR}")
