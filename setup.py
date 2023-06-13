@@ -122,6 +122,7 @@ setup(
     author_email="detorresramos1@gmail.com",
     description="A Succinct Read-Only Lookup Table via Compressed Static Functions",
     long_description="",
+    license_files=("LICENSE",),
     ext_modules=[CMakeExtension("caramel")],
     cmdclass={"build_ext": CMakeBuild},
     zip_safe=False,
