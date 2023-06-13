@@ -34,13 +34,13 @@ include_directories(".")
 include_directories(${CMAKE_BINARY_DIR})
 include_directories(deps)
 add_subdirectory(src)
+add_subdirectory(tests)
 
 add_subdirectory(deps/pybind11 EXCLUDE_FROM_ALL)
 add_subdirectory(deps/googletest EXCLUDE_FROM_ALL)
 
 # Add OpenMP
 find_package(OpenMP REQUIRED)
-
 if(NOT OpenMP_FOUND)
     message("OpenMP Not Found. Building the Package using LLVM's OpenMP.")
     set(LLVM_OPENMP_VERSION "13.0.1")

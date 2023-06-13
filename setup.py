@@ -118,7 +118,7 @@ setup(
     name="caramel",
     version="0.0.1",
     packages=find_packages(),
-    author="David Torres, Vihan Lakshman, Ben Coleman, Chen Luo",
+    author="Ben Coleman, Vihan Lakshman, David Torres, Chen Luo",
     author_email="detorresramos1@gmail.com",
     description="A Succinct Read-Only Lookup Table via Compressed Static Functions",
     long_description="",
