@@ -58,7 +58,6 @@ endif(NOT OpenMP_FOUND)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-
 # Add compiler flags that should be used - Wall : enable all warnings - O3:
 # enable all optimizations.
 # TODO(any): use other compile flags and modes
@@ -71,8 +70,6 @@ include_directories(deps)
 
 find_package(Python3 COMPONENTS Interpreter Development)
 
-# find_package(pybind11, REQUIRED)
-
 # Enable testing
 include(CTest)
 
@@ -81,12 +78,6 @@ include_directories(${CMAKE_BINARY_DIR})
 
 add_subdirectory(src)
 add_subdirectory(tests)
-
-# Specify the non-header source files that should be compiled
-# file(GLOB CPP_SOURCE "${PROJECT_SOURCE_DIR}/src/*.cc")
-
-# where to find header files
-# include_directories(${PROJECT_SOURCE_DIR}/src)
 
 set(CARAMEL_SOURCES
     ${PROJECT_SOURCE_DIR}/src/Dummy.cc
