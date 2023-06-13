@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 import argparse
-import sys
-import re
 import os
+import re
+import sys
 
 
 def checked_system_call(cmd):

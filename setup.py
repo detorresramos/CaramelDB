@@ -1,11 +1,11 @@
+import multiprocessing
 import os
 import re
 import subprocess
-import multiprocessing
 import sys
 from pathlib import Path
 
-from setuptools import Extension, setup, find_packages
+from setuptools import Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
 
 # Convert distutils Windows platform specifiers to CMake -A arguments
@@ -96,7 +96,6 @@ class CMakeBuild(build_ext):
             if archs:
                 cmake_args += ["-DCMAKE_OSX_ARCHITECTURES={}".format(";".join(archs))]
 
-
         jobs = multiprocessing.cpu_count() * 2
         build_args += [f"-j{jobs}"]
 
@@ -106,6 +105,7 @@ class CMakeBuild(build_ext):
 
         subprocess.check_call(["cmake", ext.sourcedir] + cmake_args, cwd=build_dir)
         subprocess.check_call(["cmake", "--build", "."] + build_args, cwd=build_dir)
+
 
 setup(
     name="caramel",
