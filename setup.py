@@ -51,7 +51,7 @@ class CMakeBuild(build_ext):
             f"-DPYTHON_EXECUTABLE={sys.executable}",
             f"-DCMAKE_BUILD_TYPE={cfg}",  # not used on MSVC, but no harm
         ]
-        build_args = ["-t", "_caramel"]
+        build_args = ["-t", "caramel"]
         # Adding CMake arguments set as environment variable
         # (needed e.g. to build for ARM OSx on conda-forge)
         if "CMAKE_ARGS" in os.environ:
@@ -116,7 +116,7 @@ setup(
     description="A Succinct Read-Only Lookup Table via Compressed Static Functions",
     long_description="",
     license_files=("LICENSE",),
-    ext_modules=[CMakeExtension("caramel._caramel")],
+    ext_modules=[CMakeExtension("caramel")],
     cmdclass={"build_ext": CMakeBuild},
     zip_safe=False,
     extras_require={"test": ["pytest>=6.0"]},

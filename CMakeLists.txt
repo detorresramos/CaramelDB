@@ -71,6 +71,8 @@ include_directories(deps)
 
 find_package(Python3 COMPONENTS Interpreter Development)
 
+# find_package(pybind11, REQUIRED)
+
 # Enable testing
 include(CTest)
 
@@ -89,11 +91,11 @@ add_subdirectory(tests)
 set(CARAMEL_SOURCES
     ${PROJECT_SOURCE_DIR}/src/Dummy.cc
 )
-add_library(caramel STATIC ${CARAMEL_SOURCES})
-target_link_libraries(caramel PUBLIC OpenMP::OpenMP_CXX)
+add_library(caramel_lib STATIC ${CARAMEL_SOURCES})
+target_link_libraries(caramel_lib PUBLIC OpenMP::OpenMP_CXX)
 
-pybind11_add_module(_caramel ${PROJECT_SOURCE_DIR}/python_bindings/PythonBindings.cc)
-target_link_libraries(_caramel PUBLIC caramel)
+pybind11_add_module(caramel ${PROJECT_SOURCE_DIR}/python_bindings/PythonBindings.cc)
+target_link_libraries(caramel PUBLIC caramel_lib)
 
 message("===================================================")
 message("\tProject Directory = ${PROJECT_SOURCE_DIR}")
