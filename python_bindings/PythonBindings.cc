@@ -17,7 +17,7 @@ void defineCaramelModule(py::module_ &module) {
       .def("hello", &Dummy::helloWorld);
 }
 
-PYBIND11_MODULE(caramel, module) { // NOLINT
+PYBIND11_MODULE(_caramel, module) { // NOLINT
 
   defineCaramelModule(module);
 }

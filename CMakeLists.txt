@@ -25,20 +25,6 @@ message("\tC++ compiler: ${CMAKE_CXX_COMPILER}")
 message("\tC compiler: ${CMAKE_C_COMPILER}")
 message("====================================")
 
-find_package(Python3 COMPONENTS Interpreter Development)
-
-# Enable testing
-include(CTest)
-
-include_directories(".")
-include_directories(${CMAKE_BINARY_DIR})
-include_directories(deps)
-add_subdirectory(src)
-add_subdirectory(tests)
-
-add_subdirectory(deps/pybind11 EXCLUDE_FROM_ALL)
-add_subdirectory(deps/googletest EXCLUDE_FROM_ALL)
-
 # Add OpenMP
 find_package(OpenMP REQUIRED)
 if(NOT OpenMP_FOUND)
@@ -70,16 +56,35 @@ if(NOT OpenMP_FOUND)
     add_library(OpenMP::OpenMP_CXX ALIAS omp)
 endif(NOT OpenMP_FOUND)
 
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+
 # Add compiler flags that should be used - Wall : enable all warnings - O3:
 # enable all optimizations.
 # TODO(any): use other compile flags and modes
 set(CMAKE_CXX_FLAGS "-O3 -Wall -Wextra -Werror -Wno-unused-function -Wno-ignored-optimization-argument -Wno-psabi -pedantic")
 
+add_subdirectory(deps/pybind11 EXCLUDE_FROM_ALL)
+add_subdirectory(deps/googletest EXCLUDE_FROM_ALL)
+
+include_directories(deps)
+
+find_package(Python3 COMPONENTS Interpreter Development)
+
+# Enable testing
+include(CTest)
+
+include_directories(".")
+include_directories(${CMAKE_BINARY_DIR})
+
+add_subdirectory(src)
+add_subdirectory(tests)
+
 # Specify the non-header source files that should be compiled
-file(GLOB CPP_SOURCE "${PROJECT_SOURCE_DIR}/src/*.cc")
+# file(GLOB CPP_SOURCE "${PROJECT_SOURCE_DIR}/src/*.cc")
 
 # where to find header files
-include_directories(${PROJECT_SOURCE_DIR}/src)
+# include_directories(${PROJECT_SOURCE_DIR}/src)
 
 set(CARAMEL_SOURCES
     ${PROJECT_SOURCE_DIR}/src/Dummy.cc

@@ -16,7 +16,6 @@ PLAT_TO_CMAKE = {
     "win-arm64": "ARM64",
 }
 
-
 # A CMakeExtension needs a sourcedir instead of a file list.
 # The name must be the _single_ output extension from the CMake build.
 # If you need multiple extensions, see scikit-build.
@@ -28,9 +27,11 @@ class CMakeExtension(Extension):
 
 class CMakeBuild(build_ext):
     def build_extension(self, ext: CMakeExtension) -> None:
-        # Must be in this form due to bug in .resolve() only fixed in Python 3.10+
-        ext_fullpath = Path.cwd() / self.get_ext_fullpath(ext.name)  # type: ignore[no-untyped-call]
-        extdir = ext_fullpath.parent.resolve()
+        extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
+
+        # required for auto-detection & inclusion of auxiliary "native" libs
+        if not extdir.endswith(os.path.sep):
+            extdir += os.path.sep
 
         # Using this requires trailing slash for auto-detection & inclusion of
         # auxiliary "native" libs
@@ -50,7 +51,7 @@ class CMakeBuild(build_ext):
             f"-DPYTHON_EXECUTABLE={sys.executable}",
             f"-DCMAKE_BUILD_TYPE={cfg}",  # not used on MSVC, but no harm
         ]
-        build_args = ["-t", "caramel"]
+        build_args = ["-t", "_caramel"]
         # Adding CMake arguments set as environment variable
         # (needed e.g. to build for ARM OSx on conda-forge)
         if "CMAKE_ARGS" in os.environ:
@@ -66,11 +67,7 @@ class CMakeBuild(build_ext):
                 try:
                     import ninja  # noqa: F401
 
-                    ninja_executable_path = Path(ninja.BIN_DIR) / "ninja"
-                    cmake_args += [
-                        "-GNinja",
-                        f"-DCMAKE_MAKE_PROGRAM:FILEPATH={ninja_executable_path}",
-                    ]
+                    cmake_args += ["-GNinja"]
                 except ImportError:
                     pass
         else:
@@ -103,16 +100,12 @@ class CMakeBuild(build_ext):
         jobs = multiprocessing.cpu_count() * 2
         build_args += [f"-j{jobs}"]
 
-        build_temp = Path(self.build_temp) / ext.name
-        if not build_temp.exists():
-            build_temp.mkdir(parents=True)
+        build_dir = "build/"
+        if not os.path.exists(build_dir):
+            os.makedirs(build_dir)
 
-        subprocess.run(
-            ["cmake", ext.sourcedir] + cmake_args, cwd=build_temp, check=True
-        )
-        subprocess.run(
-            ["cmake", "--build", "."] + build_args, cwd=build_temp, check=True
-        )
+        subprocess.check_call(["cmake", ext.sourcedir] + cmake_args, cwd=build_dir)
+        subprocess.check_call(["cmake", "--build", "."] + build_args, cwd=build_dir)
 
 setup(
     name="caramel",
@@ -123,7 +116,7 @@ setup(
     description="A Succinct Read-Only Lookup Table via Compressed Static Functions",
     long_description="",
     license_files=("LICENSE",),
-    ext_modules=[CMakeExtension("caramel")],
+    ext_modules=[CMakeExtension("caramel._caramel")],
     cmdclass={"build_ext": CMakeBuild},
     zip_safe=False,
     extras_require={"test": ["pytest>=6.0"]},
