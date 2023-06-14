@@ -1,0 +1,19 @@
+# VSCode settings
+.vscode
+.cache
+compile_commands.json
+
+# CMake Build and Testing output
+__pycache__
+build
+caramel.egg-info
+
+# Mac stuff
+.DS_Store
+
+# Wheels
+dist
+
+# Temporary
+Testing
+.pytest_cache
