@@ -10,15 +10,19 @@ class BitArray {
 public:
   BitArray(uint32_t num_bits) : _num_bits(num_bits) {}
 
+
+//TODO how can we take in either 1 or 0
+// alternatively how to we handle non "bit" values
+
   // get at index
   uint32_t operator[](uint32_t index) const;
 
   // set at index
   uint32_t &operator[](uint32_t index);
 
-  BitArray operator^(const BitArray &other) const;
+  BitArray operator^=(const BitArray &other) const;
 
-  BitArray operator&(const BitArray &other) const;
+  BitArray operator&=(const BitArray &other) const;
 
   // index of first nonzero bit, std::nullopt otherwise
   std::optional<uint32_t> find(uint32_t var) const;

@@ -4,6 +4,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 namespace caramel {
 
@@ -20,10 +21,12 @@ public:
   DenseSystem(uint32_t solution_size) : _solution_size(solution_size) {}
 
   void addEquation(uint32_t equation_id,
-                   std::vector<uint32_t> participating_variables,
+                   const std::vector<uint32_t> &participating_variables,
                    uint32_t constant);
 
-  std::pair<BitArray, uint32_t> getEquation(uint32_t equation_id);
+  std::pair<BitArray, uint32_t> getEquation(uint32_t equation_id) {
+    return std::make_pair(_equations[equation_id], _constants[equation_id]);
+  }
 
   void xorEquations(uint32_t equation_to_modify, uint32_t equation_to_xor);
 
@@ -31,9 +34,15 @@ public:
 
   uint32_t getFirstVar(uint32_t equation_id);
 
-  bool isUnsolvable(uint32_t equation_id);
+  bool isUnsolvable(uint32_t equation_id) {
+    bool is_empty = !_equations[equation_id].any();
+    return is_empty && _constants[equation_id] != 0;
+  }
 
-  bool isIdentity(uint32_t equation_id);
+  bool isIdentity(uint32_t equation_id) {
+    bool is_empty = !_equations[equation_id].any();
+    return is_empty && _constants[equation_id] == 0;
+  }
 
   uint32_t numEquations() const { return _equations.size(); }
 
