@@ -18,7 +18,7 @@ BitArray::BitArray(uint32_t num_bits) : _num_bits(num_bits) {
 }
 
 // get at index
-void BitArray::clearBit(uint32_t index) const {
+void BitArray::clearBit(uint32_t index) {
   if (_num_bits <= index) {
     throw std::invalid_argument(
         "Index out of range for clearBit: " + std::to_string(index) + ".");
@@ -67,7 +67,7 @@ std::optional<uint32_t> BitArray::find() const {
   uint32_t location = 0;
   for (uint32_t byte = 0; byte < _num_bytes; byte++) {
     if (byte != 0) {
-      for (uint32_t i = 0; i < CHAR_BIT; i++) {
+      for (uint32_t bit = 0; bit < CHAR_BIT; bit++) {
         _backing_array[byte] >>= 1;
         if (_backing_array[byte] == 0) {
           return location;
@@ -91,6 +91,21 @@ void BitArray::setAll() {
   //   mask = UCHAR_MAX << (CHAR_BIT - bits);
   //   m_Array[BIT_CHAR(m_NumBits - 1)] = mask;
   // }
+}
+
+bool BitArray::scalarProduct(const BitArray &bitarray1,
+                                 const BitArray &bitarray2) {
+  if (bitarray1.numBits() != bitarray2.numBits()) {
+    throw std::invalid_argument(
+        "scalarProduct recieved two bitarrays of different sizes.");
+  }
+
+  bool product = false;
+  for (uint32_t bit = 0; bit < bitarray1.numBits(); bit++) {
+    product ^ bitarray1[bit] && bitarray2[bit];
+  }
+
+  return product;
 }
 
 } // namespace caramel

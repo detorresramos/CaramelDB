@@ -16,8 +16,6 @@ namespace caramel {
 
 #define BIT_IN_CHAR(bit) (1 << (CHAR_BIT - 1 - ((bit) % CHAR_BIT)))
 
-// TODO: should we just typedef a char* and have static methods?
-// TODO move implementations to .cc file
 class BitArray {
 public:
   BitArray(uint32_t num_bits);
@@ -28,10 +26,8 @@ public:
     return ((_backing_array[BIT_CHAR(index)] & BIT_IN_CHAR(index)) != 0);
   }
 
-  // get at index
-  void clearBit(uint32_t index) const;
+  void clearBit(uint32_t index);
 
-  // sets bit at index to 1
   void setBit(uint32_t index);
 
   BitArray &operator^=(const BitArray &other);
@@ -51,6 +47,8 @@ public:
   // set all bits to 0
   void clearAll() { std::fill_n(_backing_array, _num_bytes, 0); }
 
+  static bool scalarProduct(const BitArray &bitarray1, const BitArray &bitarray2);
+
   ~BitArray() { delete[] _backing_array; }
 
 private:
@@ -58,7 +56,5 @@ private:
   uint32_t _num_bytes;
   unsigned char *_backing_array;
 };
-
-uint32_t scalarProduct(const BitArray &bitarray1, const BitArray &bitarray2);
 
 } // namespace caramel

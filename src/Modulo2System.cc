@@ -6,9 +6,8 @@ void DenseSystem::addEquation(
     uint32_t equation_id, const std::vector<uint32_t> &participating_variables,
     uint32_t constant) {
   BitArray equation = BitArray(_solution_size);
-  equation.clearAll();
   for (auto var : participating_variables) {
-    equation[var] = 1;
+    equation.setBit(var);
   }
 
   _equations[equation_id] = equation;

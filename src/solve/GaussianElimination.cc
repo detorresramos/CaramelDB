@@ -46,15 +46,16 @@ gaussianElimination(DenseSystem &dense_system,
 
   uint32_t solution_size = dense_system.solutionSize();
   BitArray solution = BitArray(solution_size);
-  solution.clearAll();
   for (uint32_t i = relevant_equation_ids.size(); i >= 0; i--) {
     uint32_t equation_id = relevant_equation_ids[i];
     auto [equation, constant] = dense_system.getEquation(equation_id);
     if (dense_system.isIdentity(equation_id)) {
       continue;
     }
-    solution[first_vars[equation_id]] =
-        np.bitwise_xor(constant, scalarProduct(equation, solution));
+
+    if (constant ^ BitArray::scalarProduct(equation, solution)) {
+      solution.setBit(first_vars[equation_id]);
+    }
   }
 
   return solution;
