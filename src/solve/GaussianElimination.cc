@@ -46,7 +46,7 @@ gaussianElimination(DenseSystem &dense_system,
 
   uint32_t solution_size = dense_system.solutionSize();
   BitArray solution = BitArray(solution_size);
-  solution.setall(0);
+  solution.clearAll();
   for (uint32_t i = relevant_equation_ids.size(); i >= 0; i--) {
     uint32_t equation_id = relevant_equation_ids[i];
     auto [equation, constant] = dense_system.getEquation(equation_id);
