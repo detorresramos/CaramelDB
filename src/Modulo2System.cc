@@ -34,7 +34,7 @@ void DenseSystem::swapEquations(uint32_t equation_id_1,
 
 uint32_t DenseSystem::getFirstVar(uint32_t equation_id) {
   // returns the first non-zero bit index in equation_id's equation
-  std::optional<uint32_t> first_var = _equations[equation_id].find(1);
+  std::optional<uint32_t> first_var = _equations[equation_id].find();
   // the equation is all 0s
   if (!first_var.has_value()) {
     if (_constants[equation_id]) {
