@@ -1,6 +1,6 @@
-#include "BitArray.h"
-#include "Modulo2System.h"
 #include "Solve.h"
+#include <src/BitArray.h>
+#include <src/Modulo2System.h>
 #include <vector>
 
 namespace caramel {

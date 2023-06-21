@@ -1,7 +1,7 @@
 #pragma once
 
-#include "BitArray.h"
-#include "Modulo2System.h"
+#include <src/BitArray.h>
+#include <src/Modulo2System.h>
 
 namespace caramel {
 

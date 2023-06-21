@@ -12,7 +12,13 @@ class SparseSystem {
 public:
   SparseSystem(uint32_t solution_size) : _solution_size(solution_size) {}
 
+  uint32_t numEquations() const { return _equations.size(); }
+
+  uint32_t solutionSize() const { return _solution_size; }
+
 private:
+  std::unordered_map<uint32_t, std::vector<uint32_t>> _equations;
+  std::unordered_map<uint32_t, uint32_t> _constants;
   uint32_t _solution_size;
 };
 

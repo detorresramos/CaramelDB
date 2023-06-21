@@ -20,7 +20,7 @@ namespace caramel {
 #define BIT_IN_CHAR(bit) (1 << (CHAR_BIT - 1 - ((bit) % CHAR_BIT)))
 
 /* number of characters required to contain number of bits */
-#define BITS_TO_CHARS(bits)   ((((bits) - 1) / CHAR_BIT) + 1)
+#define BITS_TO_CHARS(bits) ((((bits)-1) / CHAR_BIT) + 1)
 
 class BitArray {
 public:
@@ -50,7 +50,8 @@ public:
   // set all bits to 0
   void clearAll() { std::fill_n(_backing_array, _num_bytes, 0); }
 
-  static bool scalarProduct(const BitArray &bitarray1, const BitArray &bitarray2);
+  static bool scalarProduct(const BitArray &bitarray1,
+                            const BitArray &bitarray2);
 
   ~BitArray() { delete[] _backing_array; }
 
