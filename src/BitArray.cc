@@ -1,5 +1,4 @@
 #include "BitArray.h"
-#include <iostream>
 
 namespace caramel {
 
@@ -8,8 +7,6 @@ BitArray::BitArray(uint32_t num_bits) : _num_bits(num_bits) {
     throw std::invalid_argument("Error: Bit Array must have at least 1 bit.");
   }
 
-  // TODO are there any rounding errors/edge cases we can test
-  // TODO make a macro for dividing by 8
   _num_bytes = BITS_TO_CHARS(num_bits);
 
   /* allocate space for bit array */
@@ -18,7 +15,6 @@ BitArray::BitArray(uint32_t num_bits) : _num_bits(num_bits) {
   clearAll();
 }
 
-// get at index
 void BitArray::clearBit(uint32_t index) {
   if (_num_bits <= index) {
     throw std::invalid_argument(
@@ -30,7 +26,6 @@ void BitArray::clearBit(uint32_t index) {
   _backing_array[BIT_CHAR(index)] &= mask;
 }
 
-// sets bit at index to 1
 void BitArray::setBit(uint32_t index) {
   if (_num_bits <= index) {
     throw std::invalid_argument(
