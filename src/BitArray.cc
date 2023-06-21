@@ -78,18 +78,6 @@ std::optional<uint32_t> BitArray::find() const {
   return std::nullopt;
 }
 
-void BitArray::setAll() {
-  std::fill_n(_backing_array, _num_bytes, UCHAR_MAX);
-
-  // TODO: DONT UNDERSTAND THIS CODE HERE
-  // /* zero any spare bits so increment and decrement are consistent */
-  // bits = m_NumBits % CHAR_BIT;
-  // if (bits != 0) {
-  //   mask = UCHAR_MAX << (CHAR_BIT - bits);
-  //   m_Array[BIT_CHAR(m_NumBits - 1)] = mask;
-  // }
-}
-
 bool BitArray::scalarProduct(const BitArray &bitarray1,
                              const BitArray &bitarray2) {
   if (bitarray1.numBits() != bitarray2.numBits()) {

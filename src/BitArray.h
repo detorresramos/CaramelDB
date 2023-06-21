@@ -47,9 +47,6 @@ public:
   // true if any bits are 1 and false otherwise
   bool any() const { return find().has_value(); }
 
-  // set all bits to 1
-  void setAll();
-
   // set all bits to 0
   void clearAll() { std::fill_n(_backing_array, _num_bytes, 0); }
 
