@@ -5,10 +5,14 @@
 namespace caramel::tests {
 
 TEST(BitArrayTest, TestFind) {
-  BitArray bitarray = BitArray(5);
+  uint32_t num_bits = 18;
+  BitArray bitarray = BitArray(num_bits);
 
-  bitarray.setBit(1);
-  ASSERT_EQ(bitarray.find(), 1);
+  for (uint32_t i = 0; i < num_bits; i++) {
+    bitarray.setBit(i);
+    ASSERT_EQ(bitarray.find(), i);
+    bitarray.clearAll();
+  }
 }
 
 } // namespace caramel::tests

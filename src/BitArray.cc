@@ -1,4 +1,5 @@
 #include "BitArray.h"
+#include <iostream>
 
 namespace caramel {
 
@@ -9,7 +10,7 @@ BitArray::BitArray(uint32_t num_bits) : _num_bits(num_bits) {
 
   // TODO are there any rounding errors/edge cases we can test
   // TODO make a macro for dividing by 8
-  _num_bytes = num_bits / CHAR_BIT;
+  _num_bytes = BITS_TO_CHARS(num_bits);
 
   /* allocate space for bit array */
   _backing_array = new unsigned char[_num_bytes];
@@ -66,13 +67,14 @@ BitArray &BitArray::operator&=(const BitArray &other) {
 std::optional<uint32_t> BitArray::find() const {
   uint32_t location = 0;
   for (uint32_t byte = 0; byte < _num_bytes; byte++) {
-    if (byte != 0) {
+    if (_backing_array[byte] != 0) {
+      auto temp = _backing_array[byte];
       for (uint32_t bit = 0; bit < CHAR_BIT; bit++) {
-        _backing_array[byte] >>= 1;
-        if (_backing_array[byte] == 0) {
-          return location;
+        temp >>= 1;
+        if (temp == 0) {
+          // we invert the position here within the byte because of endianness
+          return location + CHAR_BIT - 1 - bit;
         }
-        location++;
       }
     } else {
       location += CHAR_BIT;
@@ -94,7 +96,7 @@ void BitArray::setAll() {
 }
 
 bool BitArray::scalarProduct(const BitArray &bitarray1,
-                                 const BitArray &bitarray2) {
+                             const BitArray &bitarray2) {
   if (bitarray1.numBits() != bitarray2.numBits()) {
     throw std::invalid_argument(
         "scalarProduct recieved two bitarrays of different sizes.");

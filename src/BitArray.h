@@ -7,14 +7,20 @@
 
 namespace caramel {
 
+/* make CHAR_BIT 8 if it's not defined in limits.h */
 #ifndef CHAR_BIT
 #warning CHAR_BIT not defined.  Assuming 8 bits.
 #define CHAR_BIT 8
 #endif
 
+/* array index for character containing bit */
 #define BIT_CHAR(bit) ((bit) / CHAR_BIT)
 
+/* position of bit within character */
 #define BIT_IN_CHAR(bit) (1 << (CHAR_BIT - 1 - ((bit) % CHAR_BIT)))
+
+/* number of characters required to contain number of bits */
+#define BITS_TO_CHARS(bits)   ((((bits) - 1) / CHAR_BIT) + 1)
 
 class BitArray {
 public:
