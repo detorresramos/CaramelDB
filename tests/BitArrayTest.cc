@@ -4,6 +4,20 @@
 
 namespace caramel::tests {
 
+TEST(BitArrayTest, TestSingleBitModifications) {
+  uint32_t num_bits = 18;
+  BitArray bitarray = BitArray(num_bits);
+  ASSERT_FALSE(bitarray.any());
+
+  bitarray.setBit(8);
+  ASSERT_TRUE(bitarray[8]);
+  ASSERT_TRUE(bitarray.any());
+
+  bitarray.clearBit(8);
+  ASSERT_FALSE(bitarray.any());
+  ASSERT_FALSE(bitarray[8]);
+}
+
 TEST(BitArrayTest, TestFind) {
   uint32_t num_bits = 18;
   BitArray bitarray = BitArray(num_bits);
@@ -13,6 +27,57 @@ TEST(BitArrayTest, TestFind) {
     ASSERT_EQ(bitarray.find(), i);
     bitarray.clearAll();
   }
+}
+
+TEST(BitArrayTest, TestXorEquals) {
+  uint32_t num_bits = 18;
+  BitArray bitarray1 = BitArray(num_bits);
+  bitarray1.setBit(3);
+
+  BitArray bitarray2 = BitArray(num_bits);
+  bitarray2.setBit(3);
+  bitarray2.setBit(4);
+
+  bitarray1 ^= bitarray2;
+
+  ASSERT_FALSE(bitarray1[3]);
+  ASSERT_TRUE(bitarray1[4]);
+}
+
+TEST(BitArrayTest, TestAndEquals) {
+  uint32_t num_bits = 18;
+  BitArray bitarray1 = BitArray(num_bits);
+  bitarray1.setBit(3);
+
+  BitArray bitarray2 = BitArray(num_bits);
+  bitarray2.setBit(3);
+  bitarray2.setBit(4);
+
+  bitarray1 &= bitarray2;
+
+  ASSERT_TRUE(bitarray1[3]);
+  ASSERT_FALSE(bitarray1[4]);
+}
+
+TEST(BitArrayTest, TestScalarProduct) {
+  uint32_t num_bits = 7;
+  BitArray bitarray1 = BitArray(num_bits);
+  bitarray1.setBit(3);
+
+  BitArray bitarray2 = BitArray(num_bits);
+  bitarray2.setBit(3);
+  bitarray2.setBit(4);
+
+  uint32_t product = BitArray::scalarProduct(bitarray1, bitarray2);
+  ASSERT_EQ(product, 1);
+
+  bitarray2.setBit(5);
+  product = BitArray::scalarProduct(bitarray1, bitarray2);
+  ASSERT_EQ(product, 1);
+
+  bitarray1.setBit(5);
+  product = BitArray::scalarProduct(bitarray1, bitarray2);
+  ASSERT_EQ(product, 0);
 }
 
 } // namespace caramel::tests

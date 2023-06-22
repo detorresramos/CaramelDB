@@ -85,12 +85,12 @@ bool BitArray::scalarProduct(const BitArray &bitarray1,
         "scalarProduct recieved two bitarrays of different sizes.");
   }
 
-  bool product = false;
+  uint32_t product = 0;
   for (uint32_t bit = 0; bit < bitarray1.numBits(); bit++) {
-    product ^ bitarray1[bit] && bitarray2[bit];
+    product += bitarray1[bit] && bitarray2[bit];
   }
 
-  return product;
+  return product % 2;
 }
 
 } // namespace caramel
