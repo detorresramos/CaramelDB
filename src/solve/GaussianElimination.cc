@@ -1,7 +1,5 @@
 #include "Solve.h"
 
-#include <iostream>
-
 namespace caramel {
 
 BitArrayPtr
