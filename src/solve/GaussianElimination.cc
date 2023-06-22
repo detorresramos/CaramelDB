@@ -1,5 +1,7 @@
 #include "Solve.h"
 
+#include <iostream>
+
 namespace caramel {
 
 BitArrayPtr
@@ -10,9 +12,9 @@ gaussianElimination(DenseSystem &dense_system,
     first_vars[equation_id] = dense_system.getFirstVar(equation_id);
   }
 
-  uint32_t num_equations = relevant_equation_ids.size();
-  for (uint32_t top_index = 0; top_index < num_equations - 1; top_index++) {
-    for (uint32_t bot_index = top_index + 1; bot_index < num_equations;
+  int num_equations = relevant_equation_ids.size();
+  for (int top_index = 0; top_index < num_equations - 1; top_index++) {
+    for (int bot_index = top_index + 1; bot_index < num_equations;
          bot_index++) {
       uint32_t top_eq_id = relevant_equation_ids[top_index];
       uint32_t bot_eq_id = relevant_equation_ids[bot_index];
@@ -43,14 +45,13 @@ gaussianElimination(DenseSystem &dense_system,
 
   uint32_t solution_size = dense_system.solutionSize();
   BitArrayPtr solution = BitArray::make(solution_size);
-  for (uint32_t i = relevant_equation_ids.size(); i >= 0; i--) {
+  for (int i = relevant_equation_ids.size() - 1; i >= 0; i--) {
     uint32_t equation_id = relevant_equation_ids[i];
     if (dense_system.isIdentity(equation_id)) {
       continue;
     }
 
     auto [equation, constant] = dense_system.getEquation(equation_id);
-    // TODO is this actually an XOR here?
     if (constant ^ BitArray::scalarProduct(equation, solution)) {
       solution->setBit(first_vars[equation_id]);
     }

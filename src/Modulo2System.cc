@@ -5,6 +5,15 @@ namespace caramel {
 void DenseSystem::addEquation(
     uint32_t equation_id, const std::vector<uint32_t> &participating_variables,
     uint32_t constant) {
+  for (auto var : participating_variables) {
+    if (var > _solution_size) {
+      throw std::invalid_argument("Adding equation with var " +
+                                  std::to_string(var) +
+                                  " greater than solution size of " +
+                                  std::to_string(_solution_size) + ".");
+    }
+  }
+  
   BitArrayPtr equation = BitArray::make(_solution_size);
   for (auto var : participating_variables) {
     equation->setBit(var);

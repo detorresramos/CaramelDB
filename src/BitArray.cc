@@ -1,5 +1,7 @@
 #include "BitArray.h"
 
+#include <iostream>
+
 namespace caramel {
 
 BitArray::BitArray(uint32_t num_bits) : _num_bits(num_bits) {
