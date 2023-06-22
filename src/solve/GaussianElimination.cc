@@ -1,4 +1,4 @@
-#include "Solve.h"
+#include "GaussianElimination.h"
 
 namespace caramel {
 

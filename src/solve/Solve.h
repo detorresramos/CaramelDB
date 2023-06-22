@@ -5,6 +5,6 @@
 
 namespace caramel {
 
-BitArray solveModulo2System(SparseSystem &sparse_system);
+BitArrayPtr solveModulo2System(SparseSystem &sparse_system);
 
 } // namespace caramel
