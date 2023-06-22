@@ -60,6 +60,8 @@ public:
   static bool scalarProduct(const BitArrayPtr &bitarray1,
                             const BitArrayPtr &bitarray2);
 
+  std::string str() const;
+
   ~BitArray() { delete[] _backing_array; }
 
 private:

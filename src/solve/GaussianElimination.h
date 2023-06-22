@@ -1,11 +1,11 @@
 #pragma once
 
-#include "BitArray.h"
-#include "Modulo2System.h"
+#include <src/BitArray.h>
+#include <src/Modulo2System.h>
 
 namespace caramel {
 
-BitArray
+BitArrayPtr
 gaussianElimination(DenseSystem &dense_system,
                     const std::vector<uint32_t> &relevant_equation_ids);
 }

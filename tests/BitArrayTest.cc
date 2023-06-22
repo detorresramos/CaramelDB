@@ -18,6 +18,14 @@ TEST(BitArrayTest, TestSingleBitModifications) {
   ASSERT_FALSE(bitarray[8]);
 }
 
+TEST(BitArrayTest, TestOutOfBoundsBitAccess) {
+  uint32_t num_bits = 18;
+  BitArray bitarray = BitArray(num_bits);
+
+  ASSERT_ANY_THROW(bitarray.setBit(18));
+  ASSERT_ANY_THROW(bitarray.clearBit(18));
+}
+
 TEST(BitArrayTest, TestFind) {
   uint32_t num_bits = 18;
   BitArray bitarray = BitArray(num_bits);
@@ -78,6 +86,14 @@ TEST(BitArrayTest, TestScalarProduct) {
   bitarray1->setBit(5);
   product = BitArray::scalarProduct(bitarray1, bitarray2);
   ASSERT_EQ(product, 0);
+}
+
+TEST(BitArrayTest, TestToString) {
+  uint32_t num_bits = 7;
+  BitArrayPtr bitarray = BitArray::make(num_bits);
+  bitarray->setBit(3);
+
+  ASSERT_EQ(bitarray->str(), "0001000");
 }
 
 } // namespace caramel::tests

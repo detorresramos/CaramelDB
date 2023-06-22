@@ -93,4 +93,12 @@ bool BitArray::scalarProduct(const BitArrayPtr &bitarray1,
   return product % 2;
 }
 
+std::string BitArray::str() const {
+  std::string output;
+  for (uint32_t bit = 0; bit < _num_bits; bit++) {
+    output += std::to_string((*this)[bit]);
+  }
+  return output;
+}
+
 } // namespace caramel
