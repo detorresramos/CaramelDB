@@ -5,7 +5,7 @@
 
 namespace caramel {
 
-BitArray
+BitArrayPtr
 gaussianElimination(DenseSystem &dense_system,
                     const std::vector<uint32_t> &relevant_equation_ids) {
   std::unordered_map<uint32_t, uint32_t> first_vars;
@@ -45,16 +45,17 @@ gaussianElimination(DenseSystem &dense_system,
   }
 
   uint32_t solution_size = dense_system.solutionSize();
-  BitArray solution = BitArray(solution_size);
+  BitArrayPtr solution = BitArray::make(solution_size);
   for (uint32_t i = relevant_equation_ids.size(); i >= 0; i--) {
     uint32_t equation_id = relevant_equation_ids[i];
-    auto [equation, constant] = dense_system.getEquation(equation_id);
     if (dense_system.isIdentity(equation_id)) {
       continue;
     }
 
+    auto [equation, constant] = dense_system.getEquation(equation_id);
+    // TODO is this actually an XOR here?
     if (constant ^ BitArray::scalarProduct(equation, solution)) {
-      solution.setBit(first_vars[equation_id]);
+      solution->setBit(first_vars[equation_id]);
     }
   }
 

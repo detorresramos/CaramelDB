@@ -82,9 +82,9 @@ add_subdirectory(tests)
 
 set(CARAMEL_SOURCES
     ${PROJECT_SOURCE_DIR}/src/Dummy.cc
-    # ${PROJECT_SOURCE_DIR}/src/Modulo2System.cc
+    ${PROJECT_SOURCE_DIR}/src/Modulo2System.cc
     ${PROJECT_SOURCE_DIR}/src/BitArray.cc
-    # ${PROJECT_SOURCE_DIR}/src/solve/GaussianElimination.cc
+    ${PROJECT_SOURCE_DIR}/src/solve/GaussianElimination.cc
 )
 add_library(caramel_lib STATIC ${CARAMEL_SOURCES})
 target_link_libraries(caramel_lib PUBLIC OpenMP::OpenMP_CXX)

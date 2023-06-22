@@ -78,16 +78,16 @@ std::optional<uint32_t> BitArray::find() const {
   return std::nullopt;
 }
 
-bool BitArray::scalarProduct(const BitArray &bitarray1,
-                             const BitArray &bitarray2) {
-  if (bitarray1.numBits() != bitarray2.numBits()) {
+bool BitArray::scalarProduct(const BitArrayPtr &bitarray1,
+                             const BitArrayPtr &bitarray2) {
+  if (bitarray1->numBits() != bitarray2->numBits()) {
     throw std::invalid_argument(
         "scalarProduct recieved two bitarrays of different sizes.");
   }
 
   uint32_t product = 0;
-  for (uint32_t bit = 0; bit < bitarray1.numBits(); bit++) {
-    product += bitarray1[bit] && bitarray2[bit];
+  for (uint32_t bit = 0; bit < bitarray1->numBits(); bit++) {
+    product += (*bitarray1)[bit] && (*bitarray2)[bit];
   }
 
   return product % 2;

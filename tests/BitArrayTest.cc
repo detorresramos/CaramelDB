@@ -61,21 +61,21 @@ TEST(BitArrayTest, TestAndEquals) {
 
 TEST(BitArrayTest, TestScalarProduct) {
   uint32_t num_bits = 7;
-  BitArray bitarray1 = BitArray(num_bits);
-  bitarray1.setBit(3);
+  BitArrayPtr bitarray1 = BitArray::make(num_bits);
+  bitarray1->setBit(3);
 
-  BitArray bitarray2 = BitArray(num_bits);
-  bitarray2.setBit(3);
-  bitarray2.setBit(4);
+  BitArrayPtr bitarray2 = BitArray::make(num_bits);
+  bitarray2->setBit(3);
+  bitarray2->setBit(4);
 
   uint32_t product = BitArray::scalarProduct(bitarray1, bitarray2);
   ASSERT_EQ(product, 1);
 
-  bitarray2.setBit(5);
+  bitarray2->setBit(5);
   product = BitArray::scalarProduct(bitarray1, bitarray2);
   ASSERT_EQ(product, 1);
 
-  bitarray1.setBit(5);
+  bitarray1->setBit(5);
   product = BitArray::scalarProduct(bitarray1, bitarray2);
   ASSERT_EQ(product, 0);
 }

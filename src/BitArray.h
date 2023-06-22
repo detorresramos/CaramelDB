@@ -22,9 +22,16 @@ namespace caramel {
 /* number of characters required to contain number of bits */
 #define BITS_TO_CHARS(bits) ((((bits)-1) / CHAR_BIT) + 1)
 
+class BitArray;
+using BitArrayPtr = std::shared_ptr<BitArray>;
+
 class BitArray {
 public:
   BitArray(uint32_t num_bits);
+
+  static std::shared_ptr<BitArray> make(uint32_t num_bits) {
+    return std::make_shared<BitArray>(num_bits);
+  }
 
   uint32_t numBits() const { return _num_bits; }
 
@@ -50,8 +57,8 @@ public:
   // set all bits to 0
   void clearAll() { std::fill_n(_backing_array, _num_bytes, 0); }
 
-  static bool scalarProduct(const BitArray &bitarray1,
-                            const BitArray &bitarray2);
+  static bool scalarProduct(const BitArrayPtr &bitarray1,
+                            const BitArrayPtr &bitarray2);
 
   ~BitArray() { delete[] _backing_array; }
 

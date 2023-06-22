@@ -30,7 +30,7 @@ public:
                    const std::vector<uint32_t> &participating_variables,
                    uint32_t constant);
 
-  std::pair<BitArray, uint32_t> getEquation(uint32_t equation_id) {
+  std::pair<BitArrayPtr, uint32_t> getEquation(uint32_t equation_id) {
     return std::make_pair(_equations[equation_id], _constants[equation_id]);
   }
 
@@ -41,12 +41,12 @@ public:
   uint32_t getFirstVar(uint32_t equation_id);
 
   bool isUnsolvable(uint32_t equation_id) {
-    bool is_empty = !_equations[equation_id].any();
+    bool is_empty = !_equations[equation_id]->any();
     return is_empty && _constants[equation_id] != 0;
   }
 
   bool isIdentity(uint32_t equation_id) {
-    bool is_empty = !_equations[equation_id].any();
+    bool is_empty = !_equations[equation_id]->any();
     return is_empty && _constants[equation_id] == 0;
   }
 
@@ -55,7 +55,7 @@ public:
   uint32_t solutionSize() const { return _solution_size; }
 
 private:
-  std::unordered_map<uint32_t, BitArray> _equations;
+  std::unordered_map<uint32_t, BitArrayPtr> _equations;
   std::unordered_map<uint32_t, uint32_t> _constants;
   uint32_t _solution_size;
 };
