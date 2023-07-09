@@ -12,6 +12,10 @@ class SparseSystem {
 public:
   SparseSystem(uint32_t solution_size) : _solution_size(solution_size) {}
 
+  std::pair<std::vector<uint32_t>, uint32_t> getEquation(uint32_t equation_id) {
+    return std::make_pair(_equations[equation_id], _constants[equation_id]);
+  }
+
   uint32_t numEquations() const { return _equations.size(); }
 
   uint32_t solutionSize() const { return _solution_size; }
@@ -65,5 +69,8 @@ public:
   explicit UnsolvableSystemException(const std::string &message)
       : std::logic_error("System not solvable: " + message){};
 };
+
+using DenseSystemPtr = std::shared_ptr<DenseSystem>;
+using SparseSystemPtr = std::shared_ptr<SparseSystem>;
 
 } // namespace caramel

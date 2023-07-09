@@ -47,12 +47,16 @@ public:
 
   BitArray &operator&=(const BitArray &other);
 
+  BitArray operator&(const BitArray &other) const;
+
   // index of first nonzero bit, std::nullopt otherwise
   // TODO unit test this one
   std::optional<uint32_t> find() const;
 
   // true if any bits are 1 and false otherwise
   bool any() const { return find().has_value(); }
+
+  void setAll();
 
   // set all bits to 0
   void clearAll() { std::fill_n(_backing_array, _num_bytes, 0); }
