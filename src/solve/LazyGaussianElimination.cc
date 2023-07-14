@@ -120,10 +120,12 @@ lazyGaussianElimination(SparseSystemPtr &sparse_system,
     if (sparse_equation_ids.empty()) {
       // If there are no sparse equations with priority 0 or 1, then
       // we make another variable active and see if this status changes.
-      uint32_t variable_id = sorted_variable_ids.pop(); // TODO use a stack?
+      uint32_t variable_id = sorted_variable_ids.back();
+      sorted_variable_ids.pop_back();
       // Skip variables with weight = 0 (these are already solved).
       while (variable_weight[variable_id] != 0) {
-        variable_id = sorted_variable_ids.pop();
+        variable_id = sorted_variable_ids.back();
+        sorted_variable_ids.pop_back();
       }
       // Mark variable as no longer idle
       idle_variable_indicator->clearBit(variable_id);
@@ -139,7 +141,8 @@ lazyGaussianElimination(SparseSystemPtr &sparse_system,
     } else {
       // There is at least one sparse equation with priority 0 or 1.
       num_remaining_equations--;
-      uint32_t equation_id = sparse_equation_ids.pop();
+      uint32_t equation_id = sorted_variable_ids.back();
+      sorted_variable_ids.pop_back();
       if (equation_priority[equation_id] == 0) {
         auto [equation, constant] = dense_system->getEquation(equation_id);
         bool equation_is_nonempty = equation->any();
