@@ -12,6 +12,13 @@ class SparseSystem {
 public:
   SparseSystem(uint32_t solution_size) : _solution_size(solution_size) {}
 
+  void addEquation(uint32_t equation_id,
+                   const std::vector<uint32_t> &participating_variables,
+                   uint32_t constant) {
+    _equations[equation_id] = participating_variables;
+    _constants[equation_id] = constant;
+  }
+
   std::pair<std::vector<uint32_t>, uint32_t> getEquation(uint32_t equation_id) {
     return std::make_pair(_equations[equation_id], _constants[equation_id]);
   }

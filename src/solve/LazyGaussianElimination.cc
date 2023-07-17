@@ -1,4 +1,5 @@
 #include "LazyGaussianElimination.h"
+#include <iostream>
 #include <numeric>
 #include <tuple>
 #include <unordered_set>
@@ -36,16 +37,16 @@ constructDenseSystem(SparseSystemPtr &sparse_system,
       } else {
         vars_to_add.erase(variable_id);
       }
-      // Update weight and priority for de-duped variables.
-      dense_system->addEquation(
-          equation_id,
-          std::vector<uint32_t>(vars_to_add.begin(), vars_to_add.end()),
-          constant);
-      for (uint32_t variable_id : vars_to_add) {
-        variable_weight[variable_id] += 1;
-        equation_priority[equation_id] += 1;
-        var_to_equations[variable_id].push_back(equation_id);
-      }
+    }
+    // Update weight and priority for de-duped variables.
+    dense_system->addEquation(
+        equation_id,
+        std::vector<uint32_t>(vars_to_add.begin(), vars_to_add.end()),
+        constant);
+    for (uint32_t variable_id : vars_to_add) {
+      variable_weight[variable_id]++;
+      equation_priority[equation_id]++;
+      var_to_equations[variable_id].push_back(equation_id);
     }
   }
 
@@ -70,12 +71,12 @@ countsortVariableIds(const std::vector<uint32_t> &variable_weight,
   std::iota(std::begin(sorted_variable_ids), std::end(sorted_variable_ids), 0);
   std::vector<uint32_t> counts(num_equations + 1, 0);
   for (uint32_t variable_id = 0; variable_id < num_variables; variable_id++) {
-    counts[variable_weight[variable_id]] += 1;
+    counts[variable_weight[variable_id]]++;
   }
   counts = cumsum(counts);
   for (int variable_id = num_variables - 1; variable_id >= 0; variable_id--) {
     uint32_t count_idx = variable_weight[variable_id];
-    counts[count_idx] -= 1;
+    counts[count_idx]--;
     sorted_variable_ids[counts[count_idx]] = variable_id;
   }
   return sorted_variable_ids;
@@ -123,7 +124,7 @@ lazyGaussianElimination(SparseSystemPtr &sparse_system,
       uint32_t variable_id = sorted_variable_ids.back();
       sorted_variable_ids.pop_back();
       // Skip variables with weight = 0 (these are already solved).
-      while (variable_weight[variable_id] != 0) {
+      while (variable_weight[variable_id] == 0) {
         variable_id = sorted_variable_ids.back();
         sorted_variable_ids.pop_back();
       }
@@ -141,9 +142,9 @@ lazyGaussianElimination(SparseSystemPtr &sparse_system,
     } else {
       // There is at least one sparse equation with priority 0 or 1.
       num_remaining_equations--;
-      uint32_t equation_id = sorted_variable_ids.back();
-      sorted_variable_ids.pop_back();
-      if (equation_priority[equation_id] == 0) {
+      uint32_t equation_id = sparse_equation_ids.back();
+      sparse_equation_ids.pop_back();
+      if (equation_priority.at(equation_id) == 0) {
         auto [equation, constant] = dense_system->getEquation(equation_id);
         bool equation_is_nonempty = equation->any();
         if (equation_is_nonempty) {
@@ -156,7 +157,7 @@ lazyGaussianElimination(SparseSystemPtr &sparse_system,
         }
         // The remaining case corresponds to an identity equation
         //(which is empty, but so is the output so it's fine).
-      } else if (equation_priority[equation_id] == 1) {
+      } else if (equation_priority.at(equation_id) == 1) {
         // If there is only 1 idle variable, the equation is solved.
         // We need to find the pivot - the variable_id of the only
         // remaining idle variable in the equation.
