@@ -65,6 +65,8 @@ public:
 
   uint32_t solutionSize() const { return _solution_size; }
 
+  std::string str() const;
+
 private:
   std::unordered_map<uint32_t, BitArrayPtr> _equations;
   std::unordered_map<uint32_t, uint32_t> _constants;

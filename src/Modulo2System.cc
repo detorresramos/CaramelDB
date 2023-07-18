@@ -1,4 +1,5 @@
 #include "Modulo2System.h"
+#include <map>
 
 namespace caramel {
 
@@ -13,7 +14,7 @@ void DenseSystem::addEquation(
                                   std::to_string(_solution_size) + ".");
     }
   }
-  
+
   BitArrayPtr equation = BitArray::make(_solution_size);
   for (auto var : participating_variables) {
     equation->setBit(var);
@@ -56,6 +57,18 @@ uint32_t DenseSystem::getFirstVar(uint32_t equation_id) {
   }
 
   return *first_var;
+}
+
+std::string DenseSystem::str() const {
+  std::string output;
+  std::map<uint32_t, BitArrayPtr> sorted_map(_equations.begin(),
+                                             _equations.end());
+  for (auto [equation_id, equation] : sorted_map) {
+    output += equation->str() + " | " +
+              std::to_string(_constants.at(equation_id)) + "(Equation [" +
+              std::to_string(equation_id) + "])\n";
+  }
+  return output;
 }
 
 } // namespace caramel

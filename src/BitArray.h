@@ -49,6 +49,10 @@ public:
 
   BitArray operator&(const BitArray &other) const;
 
+  BitArray &operator=(const BitArray &other);
+
+  bool operator==(const BitArray &other) const;
+
   // index of first nonzero bit, std::nullopt otherwise
   // TODO unit test this one
   std::optional<uint32_t> find() const;

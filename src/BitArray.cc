@@ -1,5 +1,4 @@
 #include "BitArray.h"
-
 namespace caramel {
 
 BitArray::BitArray(uint32_t num_bits) : _num_bits(num_bits) {
@@ -65,6 +64,38 @@ BitArray BitArray::operator&(const BitArray &other) const {
   result &= other;
 
   return result;
+}
+
+BitArray &BitArray::operator=(const BitArray &other) {
+  if (*this == other) {
+    /* don't do anything for a self assignment */
+    return *this;
+  }
+
+  if (_num_bits != other.numBits()) {
+    /* don't do assignment with different array sizes */
+    return *this;
+  }
+
+  if ((_num_bits == 0) || (other.numBits() == 0)) {
+    /* don't do assignment with unallocated array */
+    return *this;
+  }
+
+  /* copy bits from source */
+  int size = BITS_TO_CHARS(_num_bits);
+
+  std::copy(other._backing_array, &other._backing_array[size], _backing_array);
+  return *this;
+}
+
+bool BitArray::operator==(const BitArray &other) const {
+  if (_num_bits != other.numBits()) {
+    /* unequal sizes */
+    return false;
+  }
+
+  return (_backing_array == other._backing_array);
 }
 
 std::optional<uint32_t> BitArray::find() const {
