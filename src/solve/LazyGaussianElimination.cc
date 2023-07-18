@@ -8,7 +8,7 @@ namespace caramel {
 
 std::tuple<std::unordered_map<uint32_t, std::vector<uint32_t>>,
            std::vector<uint32_t>, std::vector<uint32_t>, DenseSystemPtr>
-constructDenseSystem(SparseSystemPtr &sparse_system,
+constructDenseSystem(const SparseSystemPtr &sparse_system,
                      const std::vector<uint32_t> &equation_ids) {
   uint32_t num_equations = sparse_system->numEquations();
   uint32_t num_variables = sparse_system->solutionSize();
@@ -84,7 +84,7 @@ countsortVariableIds(const std::vector<uint32_t> &variable_weight,
 
 std::tuple<std::vector<uint32_t>, std::vector<uint32_t>, std::vector<uint32_t>,
            DenseSystemPtr>
-lazyGaussianElimination(SparseSystemPtr &sparse_system,
+lazyGaussianElimination(const SparseSystemPtr &sparse_system,
                         const std::vector<uint32_t> &equation_ids) {
   uint32_t num_equations = sparse_system->numEquations();
   uint32_t num_variables = sparse_system->solutionSize();

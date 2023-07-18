@@ -1,3 +1,4 @@
+#include "TestUtils.h"
 #include <gtest/gtest.h>
 #include <memory>
 #include <src/solve/GaussianElimination.h>
@@ -42,11 +43,7 @@ TEST(LazyGaussianEliminationTest, TestLazyFromDenseSolvableSystem) {
   dense_solution =
       solveLazyFromDense(solved_ids, solved_vars, dense_system, dense_solution);
 
-  DenseSystemPtr original_system = sparseToDense(sparse_system);
-  for (auto equation_id : sparse_system->equationIds()) {
-    auto [equation, constant] = original_system->getEquation(equation_id);
-    ASSERT_EQ(BitArray::scalarProduct(equation, dense_solution), constant);
-  }
+  verifySolution(sparse_system, dense_solution);
 }
 
 } // namespace caramel::tests

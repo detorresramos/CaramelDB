@@ -4,12 +4,19 @@
 
 namespace caramel {
 
-BitArrayPtr solveModulo2System(SparseSystem &sparse_system) {
-  LazyGaussianOutput lazy_output =
-      lazyGaussianElimination(sparse_system, equation_ids);
+BitArrayPtr solveModulo2System(const SparseSystemPtr &sparse_system) {
+  // TODO hypergraph peeling
+  std::vector<uint32_t> unpeeled_ids = sparse_system->equationIds();
 
-  BitArrayPtr solution = gaussianElimination(lazy_output.dense_system,
-                                             lazy_output.dense_equation_ids);
+  auto [dense_ids, solved_ids, solved_vars, dense_system] =
+      lazyGaussianElimination(sparse_system, unpeeled_ids);
+
+  BitArrayPtr dense_solution = gaussianElimination(dense_system, dense_ids);
+
+  dense_solution =
+      solveLazyFromDense(solved_ids, solved_vars, dense_system, dense_solution);
+
+  return dense_solution;
 }
 
 } // namespace caramel

@@ -7,7 +7,7 @@ namespace caramel {
 
 std::tuple<std::vector<uint32_t>, std::vector<uint32_t>, std::vector<uint32_t>,
            DenseSystemPtr>
-lazyGaussianElimination(SparseSystemPtr &sparse_system,
+lazyGaussianElimination(const SparseSystemPtr &sparse_system,
                         const std::vector<uint32_t> &equation_ids);
 
 BitArrayPtr solveLazyFromDense(const std::vector<uint32_t> &solved_ids,
