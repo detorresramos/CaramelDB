@@ -19,7 +19,7 @@ constructDenseSystem(SparseSystemPtr &sparse_system,
   // The equation priority is the number of idle variables in equation_id.
   std::vector<uint32_t> equation_priority(num_equations, 0);
 
-  DenseSystemPtr dense_system = std::make_shared<DenseSystem>(num_variables);
+  DenseSystemPtr dense_system = DenseSystem::make(num_variables);
 
   std::unordered_map<uint32_t, std::vector<uint32_t>> var_to_equations;
   for (uint32_t equation_id : equation_ids) {
@@ -188,6 +188,34 @@ lazyGaussianElimination(SparseSystemPtr &sparse_system,
 
   return {dense_equation_ids, solved_equation_ids, solved_variable_ids,
           dense_system};
+}
+
+BitArrayPtr solveLazyFromDense(const std::vector<uint32_t> &solved_ids,
+                               const std::vector<uint32_t> &solved_vars,
+                               const DenseSystemPtr &dense_system,
+                               const BitArrayPtr &dense_solution) {
+  // Solve the lazy gaussian elimination variables using the solutions to the
+  // dense linear system (that were found using regular gaussian elimination).
+  // dense_solution: The solution to dense_system, from GaussianElimiation.
+
+  assert(solved_ids.size() == solved_vars.size());
+  for (uint32_t i = 0; i < solved_ids.size(); i++) {
+    uint32_t equation_id = solved_ids[i];
+    uint32_t variable_id = solved_vars[i];
+    // The only non - dense variable that still needs to be solved is
+    // variable_id(by the invariants of the lazy gaussian elimination)
+    // The solution is zero at this index, so the bit to set is just
+    // the constant XOR < equation_coefficients, solution_so_far>
+    auto [equation, constant] = dense_system->getEquation(equation_id);
+    uint32_t value =
+        constant ^ BitArray::scalarProduct(equation, dense_solution) % 2;
+    value = 1 & value;
+    if (value) {
+      dense_solution->setBit(variable_id);
+    }
+  }
+
+  return dense_solution;
 }
 
 } // namespace caramel

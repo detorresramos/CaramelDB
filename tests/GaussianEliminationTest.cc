@@ -9,9 +9,9 @@ TEST(GaussianEliminationTest, TestSimple) {
   std::vector<uint32_t> constants = {1, 0, 1};
   std::string solution_str = "100";
 
-  auto system = DenseSystem(solution_str.size());
+  auto system = DenseSystem::make(solution_str.size());
   for (uint32_t i = 0; i < matrix.size(); i++) {
-    system.addEquation(/* equation_id = */ i,
+    system->addEquation(/* equation_id = */ i,
                        /* participating_variables = */ matrix[i],
                        /* constant = */ constants[i]);
   }
@@ -27,9 +27,9 @@ TEST(GaussianEliminationTest, TestWithSwaps) {
     solution_str += "0";
   }
 
-  auto system = DenseSystem(solution_str.size());
+  auto system = DenseSystem::make(solution_str.size());
   for (uint32_t i = 0; i < matrix.size(); i++) {
-    system.addEquation(/* equation_id = */ i,
+    system->addEquation(/* equation_id = */ i,
                        /* participating_variables = */ matrix[i],
                        /* constant = */ constants[i]);
   }
@@ -45,9 +45,9 @@ TEST(GaussianEliminationTest, TestEmpty) {
     solution_str += "0";
   }
 
-  auto system = DenseSystem(solution_str.size());
+  auto system = DenseSystem::make(solution_str.size());
   for (uint32_t i = 0; i < matrix.size(); i++) {
-    system.addEquation(/* equation_id = */ i,
+    system->addEquation(/* equation_id = */ i,
                        /* participating_variables = */ matrix[i],
                        /* constant = */ constants[i]);
   }
@@ -59,9 +59,9 @@ TEST(GaussianEliminationTest, TestUnsolvable) {
   std::vector<std::vector<uint32_t>> matrix = {{0, 1}, {0, 1}, {0, 2}};
   std::vector<uint32_t> constants = {0, 1, 1};
 
-  auto system = DenseSystem(3);
+  auto system = DenseSystem::make(3);
   for (uint32_t i = 0; i < matrix.size(); i++) {
-    system.addEquation(/* equation_id = */ i,
+    system->addEquation(/* equation_id = */ i,
                        /* participating_variables = */ matrix[i],
                        /* constant = */ constants[i]);
   }
@@ -74,9 +74,9 @@ TEST(GaussianEliminationTest, TestSettingMultipleSolutionBits) {
   std::vector<uint32_t> constants = {1, 1, 1, 1};
   std::string solution_str = "01010";
 
-  auto system = DenseSystem(solution_str.size());
+  auto system = DenseSystem::make(solution_str.size());
   for (uint32_t i = 0; i < matrix.size(); i++) {
-    system.addEquation(/* equation_id = */ i,
+    system->addEquation(/* equation_id = */ i,
                        /* participating_variables = */ matrix[i],
                        /* constant = */ constants[i]);
   }
