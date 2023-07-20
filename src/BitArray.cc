@@ -15,6 +15,35 @@ BitArray::BitArray(uint32_t num_bits) : _num_bits(num_bits) {
   clearAll();
 }
 
+std::shared_ptr<BitArray> BitArray::fromNumber(uint32_t number,
+                                               uint32_t length) {
+  if (length == 0) {
+    throw std::invalid_argument("Length must not be 0.");
+  }
+
+  if (number >= (1 << length)) {
+    throw std::invalid_argument("int_value must be between 0 and " +
+                                std::to_string(1 << length) + ", got " +
+                                std::to_string(number) + ".");
+  }
+
+  BitArrayPtr array = make(length);
+
+  if (number == 0) {
+    return array;
+  }
+
+  for (uint32_t i = 0; i < length; i++) {
+    // Get the ith bit by shifting right i bits and masking with 1
+    uint32_t bit = (number >> i) & 1U;
+    if (bit) {
+      array->setBit(bit);
+    }
+  }
+
+  return array;
+}
+
 void BitArray::clearBit(uint32_t index) {
   if (_num_bits <= index) {
     throw std::invalid_argument(

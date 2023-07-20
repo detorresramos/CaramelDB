@@ -5,6 +5,7 @@ include(GoogleTest)
 set(CARAMEL_TESTS
     DummyTest
     BitArrayTest
+    CodecTest
     GaussianEliminationTest
     LazyGaussianEliminationTest)
 
