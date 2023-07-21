@@ -12,8 +12,8 @@ TEST(GaussianEliminationTest, TestSimple) {
   auto system = DenseSystem::make(solution_str.size());
   for (uint32_t i = 0; i < matrix.size(); i++) {
     system->addEquation(/* equation_id = */ i,
-                       /* participating_variables = */ matrix[i],
-                       /* constant = */ constants[i]);
+                        /* participating_variables = */ matrix[i],
+                        /* constant = */ constants[i]);
   }
 
   ASSERT_EQ(gaussianElimination(system, {2, 0, 1})->str(), solution_str);
@@ -30,8 +30,8 @@ TEST(GaussianEliminationTest, TestWithSwaps) {
   auto system = DenseSystem::make(solution_str.size());
   for (uint32_t i = 0; i < matrix.size(); i++) {
     system->addEquation(/* equation_id = */ i,
-                       /* participating_variables = */ matrix[i],
-                       /* constant = */ constants[i]);
+                        /* participating_variables = */ matrix[i],
+                        /* constant = */ constants[i]);
   }
 
   ASSERT_EQ(gaussianElimination(system, {0, 1, 2})->str(), solution_str);
@@ -48,8 +48,8 @@ TEST(GaussianEliminationTest, TestEmpty) {
   auto system = DenseSystem::make(solution_str.size());
   for (uint32_t i = 0; i < matrix.size(); i++) {
     system->addEquation(/* equation_id = */ i,
-                       /* participating_variables = */ matrix[i],
-                       /* constant = */ constants[i]);
+                        /* participating_variables = */ matrix[i],
+                        /* constant = */ constants[i]);
   }
 
   ASSERT_EQ(gaussianElimination(system, {})->str(), solution_str);
@@ -62,11 +62,12 @@ TEST(GaussianEliminationTest, TestUnsolvable) {
   auto system = DenseSystem::make(3);
   for (uint32_t i = 0; i < matrix.size(); i++) {
     system->addEquation(/* equation_id = */ i,
-                       /* participating_variables = */ matrix[i],
-                       /* constant = */ constants[i]);
+                        /* participating_variables = */ matrix[i],
+                        /* constant = */ constants[i]);
   }
 
-  ASSERT_THROW(gaussianElimination(system, {0, 1, 2}), UnsolvableSystemException);
+  ASSERT_THROW(gaussianElimination(system, {0, 1, 2}),
+               UnsolvableSystemException);
 }
 
 TEST(GaussianEliminationTest, TestSettingMultipleSolutionBits) {
@@ -77,8 +78,8 @@ TEST(GaussianEliminationTest, TestSettingMultipleSolutionBits) {
   auto system = DenseSystem::make(solution_str.size());
   for (uint32_t i = 0; i < matrix.size(); i++) {
     system->addEquation(/* equation_id = */ i,
-                       /* participating_variables = */ matrix[i],
-                       /* constant = */ constants[i]);
+                        /* participating_variables = */ matrix[i],
+                        /* constant = */ constants[i]);
   }
 
   ASSERT_EQ(gaussianElimination(system, {0, 1, 2, 3})->str(), solution_str);
