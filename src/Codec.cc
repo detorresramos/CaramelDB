@@ -1,5 +1,4 @@
 #include "Codec.h"
-#include <iostream>
 
 namespace caramel {
 

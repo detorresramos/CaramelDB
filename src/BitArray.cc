@@ -1,5 +1,4 @@
 #include "BitArray.h"
-#include <iostream>
 
 namespace caramel {
 

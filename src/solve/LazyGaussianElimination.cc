@@ -1,5 +1,4 @@
 #include "LazyGaussianElimination.h"
-#include <iostream>
 #include <numeric>
 #include <tuple>
 #include <unordered_set>
