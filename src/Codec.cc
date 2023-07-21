@@ -1,4 +1,5 @@
 #include "Codec.h"
+#include <iostream>
 
 namespace caramel {
 
@@ -11,14 +12,13 @@ namespace caramel {
     - https://github.com/madler/brotli/blob/master/huff.c
     - https://people.eng.unimelb.edu.au/ammoffat/inplace.c
 */
-void minRedundancyCodewordLengths(std::vector<uint32_t> A) {
-  uint32_t n = A.size();
-
-  uint32_t root; /* next root node to be used */
-  uint32_t leaf; /* next leaf to be used */
-  uint32_t next; /* next value to be assigned */
-  uint32_t avbl; /* number of available nodes */
-  uint32_t used; /* number of internal nodes */
+void minRedundancyCodewordLengths(std::vector<uint32_t> &A) {
+  int n = A.size();
+  int root;      /* next root node to be used */
+  int leaf;      /* next leaf to be used */
+  int next;      /* next value to be assigned */
+  int avbl;      /* number of available nodes */
+  int used;      /* number of internal nodes */
   uint32_t dpth; /* current depth of leaves */
 
   /* check for pathological cases */
@@ -52,9 +52,9 @@ void minRedundancyCodewordLengths(std::vector<uint32_t> A) {
 
   /* second pass, right to left, setting internal depths */
   A[n - 2] = 0;
-  for (next = n - 3; next >= 0; next--)
+  for (next = n - 3; next >= 0; next--) {
     A[next] = A[A[next]] + 1;
-
+  }
   /* third pass, right to left, setting leaf depths */
   avbl = 1;
   used = 0;
@@ -126,7 +126,7 @@ cannonicalHuffman(const std::vector<uint32_t> &symbols) {
 
   std::vector<uint32_t> ordered_symbols;
   for (auto [symbol, freq] : symbol_frequency_pairs) {
-    codeword_lengths.push_back(symbol);
+    ordered_symbols.push_back(symbol);
   }
 
   return {codedict, code_length_counts, ordered_symbols};
@@ -149,14 +149,13 @@ cannonicalHuffman(const std::vector<uint32_t> &symbols) {
 uint32_t cannonicalDecode(const BitArrayPtr &bitarray,
                           const std::vector<uint32_t> &code_length_counts,
                           const std::vector<uint32_t> &symbols) {
-  uint32_t code = 0;
-  uint32_t first = 0;
-  uint32_t index = 0;
+  int code = 0;
+  int first = 0;
+  int index = 0;
   for (uint32_t i = 1; i < code_length_counts.size(); i++) {
-
     uint32_t next_bit = (*bitarray)[i - 1];
     code = code | next_bit;
-    uint32_t count = code_length_counts[i];
+    int count = code_length_counts[i];
     if (code - count < first) {
       return symbols[index + (code - first)];
     }

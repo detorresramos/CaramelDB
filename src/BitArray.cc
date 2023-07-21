@@ -1,4 +1,5 @@
 #include "BitArray.h"
+#include <iostream>
 
 namespace caramel {
 
@@ -37,7 +38,7 @@ std::shared_ptr<BitArray> BitArray::fromNumber(uint32_t number,
     // Get the ith bit by shifting right i bits and masking with 1
     uint32_t bit = (number >> i) & 1U;
     if (bit) {
-      array->setBit(bit);
+      array->setBit(length - i - 1);
     }
   }
 
