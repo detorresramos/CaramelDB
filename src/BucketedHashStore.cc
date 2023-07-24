@@ -1,6 +1,6 @@
 #include "BucketedHashStore.h"
 #include "SpookyHash.h"
-
+#include <iostream>
 namespace caramel {
 
 Uint128Signature hashKey(const std::string &key, uint64_t seed) {
@@ -16,8 +16,10 @@ uint32_t getBucketID(Uint128Signature signature, uint32_t num_buckets) {
   // Use first 64 bits of the signature to identify the segment
   uint64_t bucket_hash = signature.first;
   // This outputs a uniform integer from [0, self._num_buckets]
-  uint64_t bucket_id = (bucket_hash >> 1) * (num_buckets << 1);
-  // bucket_id = bucket_id >> 64;
+  uint32_t bucket_id =
+      ((__uint128_t)(bucket_hash >> 1) * (__uint128_t)(num_buckets << 1)) >> 64;
+  // TODO(any) should we rewrite this function to not use __uint128_t due to
+  // platform incompatabilities?
   return bucket_id;
 }
 
@@ -36,8 +38,9 @@ construct(const std::vector<std::string> &keys,
   for (uint32_t i = 0; i < keys.size(); i++) {
     Uint128Signature signature = hashKey(keys[i], seed);
     uint32_t bucket_id = getBucketID(signature, num_buckets);
-    if (std::find(key_buckets[i].begin(), key_buckets[i].end(), signature) !=
-        key_buckets[i].end()) {
+    std::cout << "bucket_id " << bucket_id << std::endl;
+    if (std::find(key_buckets[bucket_id].begin(), key_buckets[bucket_id].end(),
+                  signature) == key_buckets[bucket_id].end()) {
       throw std::runtime_error("Detected a key collision under 128-bit hash. "
                                "Likely due to a duplicate key.");
     }
@@ -59,8 +62,11 @@ partitionToBuckets(const std::vector<std::string> &keys,
   uint32_t size = keys.size();
   uint32_t num_buckets = 1 + (size / bucket_size); // TODO check this division?
 
+  std::cout << "num buckets " << num_buckets << std::endl;
+
   for (uint64_t seed = 0; seed < num_attempts; seed++) {
     try {
+      std::cout << "seed " << seed << std::endl;
       return construct(keys, values, num_buckets, seed);
     } catch (const std::exception &e) {
       if (seed == num_attempts - 1) {
