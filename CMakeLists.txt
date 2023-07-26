@@ -88,6 +88,7 @@ set(CARAMEL_SOURCES
     ${PROJECT_SOURCE_DIR}/src/BucketedHashStore.cc
     ${PROJECT_SOURCE_DIR}/src/SpookyHash.cc
     ${PROJECT_SOURCE_DIR}/src/solve/GaussianElimination.cc
+    ${PROJECT_SOURCE_DIR}/src/solve/HypergraphPeeler.cc
     ${PROJECT_SOURCE_DIR}/src/solve/LazyGaussianElimination.cc
     ${PROJECT_SOURCE_DIR}/src/solve/Solve.cc
 )

@@ -8,6 +8,7 @@ set(CARAMEL_TESTS
     CodecTest
     BucketedHashStoreTest
     GaussianEliminationTest
+    HypergraphPeelerTest
     LazyGaussianEliminationTest)
 
 foreach(CARAMEL_TEST IN LISTS CARAMEL_TESTS)
