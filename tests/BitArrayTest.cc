@@ -96,4 +96,22 @@ TEST(BitArrayTest, TestToString) {
   ASSERT_EQ(bitarray->str(), "0001000");
 }
 
+TEST(BitArrayTest, BitArrayFromNumber) {
+  ASSERT_EQ(BitArray::fromNumber(/* number = */ 0, /* length = */ 2)->str(),
+            "00");
+  ASSERT_EQ(BitArray::fromNumber(/* number = */ 1, /* length = */ 2)->str(),
+            "01");
+  ASSERT_EQ(BitArray::fromNumber(/* number = */ 2, /* length = */ 2)->str(),
+            "10");
+  ASSERT_EQ(BitArray::fromNumber(/* number = */ 3, /* length = */ 2)->str(),
+            "11");
+  ASSERT_EQ(BitArray::fromNumber(/* number = */ 4, /* length = */ 3)->str(),
+            "100");
+  ASSERT_EQ(BitArray::fromNumber(/* number = */ 4, /* length = */ 4)->str(),
+            "0100");
+
+  ASSERT_THROW(BitArray::fromNumber(/* number = */ 4, /* length = */ 2)->str(),
+               std::invalid_argument);
+}
+
 } // namespace caramel::tests

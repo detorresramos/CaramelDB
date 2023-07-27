@@ -33,6 +33,9 @@ public:
     return std::make_shared<BitArray>(num_bits);
   }
 
+  static std::shared_ptr<BitArray> fromNumber(uint32_t int_value,
+                                              uint32_t length);
+
   uint32_t numBits() const { return _num_bits; }
 
   bool operator[](const uint32_t index) const {
