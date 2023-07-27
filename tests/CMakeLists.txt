@@ -2,8 +2,13 @@ enable_testing()
 
 include(GoogleTest)
 
-add_executable(DummyTest DummyTest.cc)
+set(CARAMEL_TESTS
+    DummyTest
+    BitArrayTest
+    GaussianEliminationTest)
 
-target_link_libraries(DummyTest PRIVATE gtest_main caramel_lib)
-
-gtest_discover_tests(DummyTest)
+foreach(CARAMEL_TEST IN LISTS CARAMEL_TESTS)
+    add_executable(${CARAMEL_TEST} ${CARAMEL_TEST}.cc)
+    target_link_libraries(${CARAMEL_TEST} PRIVATE gtest_main caramel_lib)
+    gtest_discover_tests(${CARAMEL_TEST})
+endforeach()

@@ -27,6 +27,7 @@ message("====================================")
 
 # Add OpenMP
 find_package(OpenMP)
+
 if(NOT OpenMP_FOUND)
     message("OpenMP Not Found. Building the Package using LLVM's OpenMP.")
     set(LLVM_OPENMP_VERSION "13.0.1")
@@ -81,6 +82,9 @@ add_subdirectory(tests)
 
 set(CARAMEL_SOURCES
     ${PROJECT_SOURCE_DIR}/src/Dummy.cc
+    ${PROJECT_SOURCE_DIR}/src/Modulo2System.cc
+    ${PROJECT_SOURCE_DIR}/src/BitArray.cc
+    ${PROJECT_SOURCE_DIR}/src/solve/GaussianElimination.cc
 )
 add_library(caramel_lib STATIC ${CARAMEL_SOURCES})
 target_link_libraries(caramel_lib PUBLIC OpenMP::OpenMP_CXX)
