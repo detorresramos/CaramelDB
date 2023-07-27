@@ -1,21 +1,9 @@
+#include "TestUtils.h"
 #include <gtest/gtest.h>
 #include <random>
 #include <src/Codec.h>
 
 namespace caramel::tests {
-
-std::vector<uint32_t> genRandomVector(uint32_t size) {
-  std::random_device rd;
-  std::mt19937 gen(rd());
-  std::uniform_int_distribution<uint32_t> dist(0, 100);
-
-  std::vector<uint32_t> vector(size);
-  for (size_t i = 0; i < size; ++i) {
-    vector[i] = dist(gen);
-  }
-
-  return vector;
-}
 
 TEST(CodecTest, TestSingleCannonicalHuffman) {
   std::vector<uint32_t> symbols = {2, 3, 4, 5, 6, 7, 3, 4, 5, 6};

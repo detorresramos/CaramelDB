@@ -6,6 +6,7 @@ set(CARAMEL_TESTS
     DummyTest
     BitArrayTest
     CodecTest
+    BucketedHashStoreTest
     GaussianEliminationTest
     LazyGaussianEliminationTest)
 
