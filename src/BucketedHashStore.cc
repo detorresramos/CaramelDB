@@ -1,13 +1,12 @@
 #include "BucketedHashStore.h"
 #include "SpookyHash.h"
-#include <iostream>
 namespace caramel {
 
 Uint128Signature hashKey(const std::string &key, uint64_t seed) {
   const void *msgPtr = static_cast<const void *>(key.data());
   size_t length = key.size();
   uint64_t hash1 = seed;
-  uint64_t hash2;
+  uint64_t hash2 = seed;
   SpookyHash::Hash128(msgPtr, length, &hash1, &hash2);
   return {hash1, hash2};
 }
@@ -38,9 +37,8 @@ construct(const std::vector<std::string> &keys,
   for (uint32_t i = 0; i < keys.size(); i++) {
     Uint128Signature signature = hashKey(keys[i], seed);
     uint32_t bucket_id = getBucketID(signature, num_buckets);
-    std::cout << "bucket_id " << bucket_id << std::endl;
     if (std::find(key_buckets[bucket_id].begin(), key_buckets[bucket_id].end(),
-                  signature) == key_buckets[bucket_id].end()) {
+                  signature) != key_buckets[bucket_id].end()) {
       throw std::runtime_error("Detected a key collision under 128-bit hash. "
                                "Likely due to a duplicate key.");
     }
@@ -62,11 +60,8 @@ partitionToBuckets(const std::vector<std::string> &keys,
   uint32_t size = keys.size();
   uint32_t num_buckets = 1 + (size / bucket_size); // TODO check this division?
 
-  std::cout << "num buckets " << num_buckets << std::endl;
-
   for (uint64_t seed = 0; seed < num_attempts; seed++) {
     try {
-      std::cout << "seed " << seed << std::endl;
       return construct(keys, values, num_buckets, seed);
     } catch (const std::exception &e) {
       if (seed == num_attempts - 1) {
