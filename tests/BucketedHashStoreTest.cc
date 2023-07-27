@@ -52,7 +52,17 @@ TEST(BucketedHashStoreTest, TestPartitioning) {
   auto keys = manyRandomStrings(size);
   auto values = genRandomVector(size);
 
-  auto [key_buckets, value_buckets, seed] = partitionToBuckets(keys, values, 20);
+  auto [key_buckets, value_buckets, seed] =
+      partitionToBuckets(keys, values, 20);
+
+  for (auto key : keys) {
+    Uint128Signature signature = hashKey(key, 0);
+    uint32_t bucket_id = getBucketID(signature, 6);
+    if (std::find(key_buckets[bucket_id].begin(), key_buckets[bucket_id].end(),
+                  signature) == key_buckets[bucket_id].end()) {
+      throw std::invalid_argument("Key not found in its bucket.");
+    }
+  }
 }
 
 TEST(BucketedHashStoreTest, TestDuplicateKey) {
