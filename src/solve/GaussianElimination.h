@@ -29,7 +29,7 @@ Throws UnsolvableSystemException.
 */
 
 BitArrayPtr
-gaussianElimination(DenseSystem &dense_system,
+gaussianElimination(const DenseSystemPtr &dense_system,
                     const std::vector<uint32_t> &relevant_equation_ids);
 
 } // namespace caramel

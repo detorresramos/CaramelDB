@@ -59,6 +59,46 @@ BitArray &BitArray::operator&=(const BitArray &other) {
   return *this;
 }
 
+BitArray BitArray::operator&(const BitArray &other) const {
+  BitArray result(this->numBits());
+  result = *this;
+  result &= other;
+
+  return result;
+}
+
+BitArray &BitArray::operator=(const BitArray &other) {
+  if (*this == other) {
+    /* don't do anything for a self assignment */
+    return *this;
+  }
+
+  if (_num_bits != other.numBits()) {
+    /* don't do assignment with different array sizes */
+    return *this;
+  }
+
+  if ((_num_bits == 0) || (other.numBits() == 0)) {
+    /* don't do assignment with unallocated array */
+    return *this;
+  }
+
+  /* copy bits from source */
+  int size = BITS_TO_CHARS(_num_bits);
+
+  std::copy(other._backing_array, &other._backing_array[size], _backing_array);
+  return *this;
+}
+
+bool BitArray::operator==(const BitArray &other) const {
+  if (_num_bits != other.numBits()) {
+    /* unequal sizes */
+    return false;
+  }
+
+  return (_backing_array == other._backing_array);
+}
+
 std::optional<uint32_t> BitArray::find() const {
   uint32_t location = 0;
   for (uint32_t byte = 0; byte < _num_bytes; byte++) {
@@ -76,6 +116,20 @@ std::optional<uint32_t> BitArray::find() const {
     }
   }
   return std::nullopt;
+}
+
+void BitArray::setAll() {
+  int size = BITS_TO_CHARS(_num_bits);
+
+  /* set bits in all bytes to 1 */
+  std::fill_n(_backing_array, size, UCHAR_MAX);
+
+  /* zero any spare bits so increment and decrement are consistent */
+  int bits = _num_bits % CHAR_BIT;
+  if (bits != 0) {
+    unsigned char mask = UCHAR_MAX << (CHAR_BIT - bits);
+    _backing_array[BIT_CHAR(_num_bits - 1)] = mask;
+  }
 }
 
 bool BitArray::scalarProduct(const BitArrayPtr &bitarray1,

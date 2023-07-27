@@ -5,7 +5,8 @@ include(GoogleTest)
 set(CARAMEL_TESTS
     DummyTest
     BitArrayTest
-    GaussianEliminationTest)
+    GaussianEliminationTest
+    LazyGaussianEliminationTest)
 
 foreach(CARAMEL_TEST IN LISTS CARAMEL_TESTS)
     add_executable(${CARAMEL_TEST} ${CARAMEL_TEST}.cc)
