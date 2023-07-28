@@ -27,4 +27,9 @@ std::tuple<std::vector<uint32_t>, std::vector<uint32_t>, std::vector<uint32_t>,
 peelHypergraph(const SparseSystemPtr &sparse_system,
                const std::vector<uint32_t> &equation_ids);
 
+BitArrayPtr solvePeeledFromDense(const std::vector<uint32_t> &peeled_ids,
+                                 const std::vector<uint32_t> &solution_order,
+                                 const SparseSystemPtr &sparse_system,
+                                 const BitArrayPtr &dense_solution);
+
 } // namespace caramel
