@@ -152,7 +152,6 @@ peelHypergraph(const SparseSystemPtr &sparse_system,
 }
 
 
-#include <iostream>
 BitArrayPtr solvePeeledFromDense(const std::vector<uint32_t> &peeled_ids,
                                  const std::vector<uint32_t> &solution_order,
                                  const SparseSystemPtr &sparse_system,
