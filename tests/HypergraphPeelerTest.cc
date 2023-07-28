@@ -53,16 +53,7 @@ TEST(HypergraphPeelerTest, TestPeeledFromDenseSolvableSystem) {
 
   solution = solvePeeledFromDense(peeled, order, sparse_system, solution);
 
-
-  DenseSystemPtr original_system = sparseToDense(sparse_system);
-  // Check the solution.
-  for (uint32_t equation_id : equation_ids) {
-    auto [equation, constant] = original_system->getEquation(equation_id);
-    bool result = BitArray::scalarProduct(equation, solution) % 2;
-    ASSERT_EQ(result, constant)
-      << "Equation " << equation_id << " has solution " << constant
-      << " but solvePeeledFromDense obtained solution " << result;
-  }
+  verifySolution(sparse_system, solution);
 }
 
 } // namespace caramel::tests

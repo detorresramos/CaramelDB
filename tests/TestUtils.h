@@ -16,7 +16,10 @@ inline void verifySolution(const SparseSystemPtr &original_sparse_system,
   DenseSystemPtr original_system = sparseToDense(original_sparse_system);
   for (auto equation_id : original_sparse_system->equationIds()) {
     auto [equation, constant] = original_system->getEquation(equation_id);
-    ASSERT_EQ(BitArray::scalarProduct(equation, solution), constant);
+    ASSERT_EQ(BitArray::scalarProduct(equation, solution), constant)
+      << "Equation " << equation_id << " has solution " << constant
+      << " but solvePeeledFromDense obtained solution "
+      << BitArray::scalarProduct(equation, solution);
   }
 }
 
