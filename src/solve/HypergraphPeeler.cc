@@ -3,7 +3,6 @@
 #include <set>
 #include <tuple>
 
-#include <iostream>
 
 namespace caramel {
 
