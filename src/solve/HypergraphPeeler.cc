@@ -152,6 +152,8 @@ peelHypergraph(const SparseSystemPtr &sparse_system,
           sparse_system};
 }
 
+
+#include <iostream>
 BitArrayPtr solvePeeledFromDense(const std::vector<uint32_t> &peeled_ids,
                                  const std::vector<uint32_t> &solution_order,
                                  const SparseSystemPtr &sparse_system,
@@ -174,6 +176,7 @@ BitArrayPtr solvePeeledFromDense(const std::vector<uint32_t> &peeled_ids,
     for (uint32_t participating_var : participating_vars) {
       accumulator ^= (*dense_solution)[participating_var];
     }
+    accumulator ^= constant;
     if (accumulator) {
       dense_solution->setBit(variable_id);
     } else {
