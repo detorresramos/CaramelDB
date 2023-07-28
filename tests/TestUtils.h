@@ -23,6 +23,27 @@ inline void verifySolution(const SparseSystemPtr &original_sparse_system,
   }
 }
 
+inline SparseSystemPtr genRandomSparseSystem(uint32_t num_equations,
+                                             uint32_t num_variables) {
+  auto sparse_system = SparseSystem::make(num_variables);
+
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_int_distribution<uint32_t> var_dist(0, num_variables - 1);
+  std::uniform_int_distribution<uint32_t> const_dist(0, 1);
+
+  for (uint32_t equation_id = 0; equation_id < num_equations; equation_id++) {
+
+    std::vector<uint32_t> vars;
+    for (int i = 0; i < 3; i++) { vars.push_back(var_dist(gen)); }
+    uint32_t constant = const_dist(gen);
+
+    sparse_system->addEquation(equation_id, vars, constant);
+  }
+
+  return sparse_system;
+}
+
 inline std::vector<uint32_t> genRandomVector(uint32_t size) {
   std::random_device rd;
   std::mt19937 gen(rd());
