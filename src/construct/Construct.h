@@ -2,7 +2,7 @@
 
 #include "BucketedHashStore.h"
 #include "Codec.h"
-#include "Modulo2System.h"
+#include <src/Modulo2System.h>
 
 namespace caramel {
 

@@ -84,9 +84,11 @@ set(CARAMEL_SOURCES
     ${PROJECT_SOURCE_DIR}/src/Dummy.cc
     ${PROJECT_SOURCE_DIR}/src/Modulo2System.cc
     ${PROJECT_SOURCE_DIR}/src/BitArray.cc
-    ${PROJECT_SOURCE_DIR}/src/Codec.cc
-    ${PROJECT_SOURCE_DIR}/src/BucketedHashStore.cc
-    ${PROJECT_SOURCE_DIR}/src/SpookyHash.cc
+    ${PROJECT_SOURCE_DIR}/src/construct/Codec.cc
+    ${PROJECT_SOURCE_DIR}/src/construct/BucketedHashStore.cc
+    ${PROJECT_SOURCE_DIR}/src/construct/SpookyHash.cc
+    # ${PROJECT_SOURCE_DIR}/src/construct/Construct.cc
+    # ${PROJECT_SOURCE_DIR}/src/construct/Csf.cc
     ${PROJECT_SOURCE_DIR}/src/solve/GaussianElimination.cc
     ${PROJECT_SOURCE_DIR}/src/solve/HypergraphPeeler.cc
     ${PROJECT_SOURCE_DIR}/src/solve/LazyGaussianElimination.cc

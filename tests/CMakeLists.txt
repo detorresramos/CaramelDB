@@ -9,8 +9,7 @@ set(CARAMEL_TESTS
     BucketedHashStoreTest
     GaussianEliminationTest
     HypergraphPeelerTest
-    LazyGaussianEliminationTest
-    SolveTest)
+    LazyGaussianEliminationTest)
 
 foreach(CARAMEL_TEST IN LISTS CARAMEL_TESTS)
     add_executable(${CARAMEL_TEST} ${CARAMEL_TEST}.cc)

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "BitArray.h"
+#include <src/BitArray.h>
 #include <unordered_map>
 #include <vector>
 
