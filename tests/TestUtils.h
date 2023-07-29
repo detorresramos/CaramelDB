@@ -16,8 +16,32 @@ inline void verifySolution(const SparseSystemPtr &original_sparse_system,
   DenseSystemPtr original_system = sparseToDense(original_sparse_system);
   for (auto equation_id : original_sparse_system->equationIds()) {
     auto [equation, constant] = original_system->getEquation(equation_id);
-    ASSERT_EQ(BitArray::scalarProduct(equation, solution), constant);
+    ASSERT_EQ(BitArray::scalarProduct(equation, solution), constant)
+      << "Equation " << equation_id << " has solution " << constant
+      << " but solvePeeledFromDense obtained solution "
+      << BitArray::scalarProduct(equation, solution);
   }
+}
+
+inline SparseSystemPtr genRandomSparseSystem(uint32_t num_equations,
+                                             uint32_t num_variables) {
+  auto sparse_system = SparseSystem::make(num_variables);
+
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_int_distribution<uint32_t> var_dist(0, num_variables - 1);
+  std::uniform_int_distribution<uint32_t> const_dist(0, 1);
+
+  for (uint32_t equation_id = 0; equation_id < num_equations; equation_id++) {
+
+    std::vector<uint32_t> vars;
+    for (int i = 0; i < 3; i++) { vars.push_back(var_dist(gen)); }
+    uint32_t constant = const_dist(gen);
+
+    sparse_system->addEquation(equation_id, vars, constant);
+  }
+
+  return sparse_system;
 }
 
 inline std::vector<uint32_t> genRandomVector(uint32_t size) {

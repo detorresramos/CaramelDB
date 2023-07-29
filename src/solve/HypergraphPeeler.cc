@@ -3,7 +3,6 @@
 #include <set>
 #include <tuple>
 
-#include <iostream>
 
 namespace caramel {
 
@@ -150,6 +149,39 @@ peelHypergraph(const SparseSystemPtr &sparse_system,
 
   return {unpeeled_equation_ids, peeled_equation_ids, vertex_stack,
           sparse_system};
+}
+
+
+BitArrayPtr solvePeeledFromDense(const std::vector<uint32_t> &peeled_ids,
+                                 const std::vector<uint32_t> &solution_order,
+                                 const SparseSystemPtr &sparse_system,
+                                 const BitArrayPtr &dense_solution) {
+  // Solve the peeled hypergraph representation of the linear system using the
+  // solution to the unpeelable 2-core of the system (dense_solution), from
+  // either LazyGaussianElimination or from GaussianElimination.
+
+  // peeled_ids and solution_order should be the same size. We omit the check
+  // for performance (and also because this is covered by the unit tests).
+
+  for (size_t i = 0; i < peeled_ids.size(); i++) {
+    uint32_t equation_id = peeled_ids[i];
+    uint32_t variable_id = solution_order[i];
+
+    // Update dense_solution to include the solution to this variable.
+    auto [participating_vars, constant] =
+        sparse_system->getEquation(equation_id);
+    bool accumulator = false;
+    for (uint32_t participating_var : participating_vars) {
+      accumulator ^= (*dense_solution)[participating_var];
+    }
+    accumulator ^= constant;
+    if (accumulator) {
+      dense_solution->setBit(variable_id);
+    } else {
+      dense_solution->clearBit(variable_id);
+    }
+  }
+  return dense_solution;
 }
 
 } // namespace caramel

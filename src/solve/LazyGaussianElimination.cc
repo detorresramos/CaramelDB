@@ -177,6 +177,7 @@ lazyGaussianElimination(const SparseSystemPtr &sparse_system,
               sparse_equation_ids.push_back(other_equation_id);
             } else if (equation_priority[other_equation_id] == 0) {
               // Check if solvable or identity?
+              // TODO check if we should throw UnsolvableSystemException here.
             }
             dense_system->xorEquations(other_equation_id, equation_id);
           }
@@ -206,6 +207,9 @@ BitArrayPtr solveLazyFromDense(const std::vector<uint32_t> &solved_ids,
     // The solution is zero at this index, so the bit to set is just
     // the constant XOR < equation_coefficients, solution_so_far>
     auto [equation, constant] = dense_system->getEquation(equation_id);
+    // TODO: The mod-2 might be less efficient than alternatives (this is a 
+    // holdover from the Python implementation where bitwise ops were hard).
+    // If X = BitArray::scalarProduct, check if we can replace X % 2 with X & 1.
     uint32_t value =
         constant ^ BitArray::scalarProduct(equation, dense_solution) % 2;
     value = 1 & value;
