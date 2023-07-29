@@ -1,4 +1,6 @@
 #include "Construct.h"
+#include "BucketedHashStore.h"
+#include "Codec.h"
 #include "SpookyHash.h"
 #include <src/solve/Solve.h>
 
@@ -88,6 +90,31 @@ constructAndSolveSubsystem(const std::vector<Uint128Signature> &key_signatures,
 }
 
 CsfPtr constructCsf(const std::vector<std::string> &keys,
-                    const std::vector<uint32_t> &values);
+                    const std::vector<uint32_t> &values) {
+  auto huffman_output = cannonicalHuffman(values);
+  auto &codedict = std::get<0>(huffman_output);
+  auto &code_length_counts = std::get<0>(huffman_output);
+  auto &ordered_symbols = std::get<0>(huffman_output);
+
+  auto buckets = partitionToBuckets(keys, values);
+  auto &bucketed_key_signatures = std::get<0>(buckets);
+  auto &bucketed_values = std::get<1>(buckets);
+  uint32_t hash_store_seed = std::get<2>(buckets);
+
+  uint32_t num_buckets = bucketed_key_signatures.size();
+
+  std::vector<SubsystemSolutionSeedPair> solutions_and_seeds(num_buckets);
+
+#pragma omp parallel for default(none)                                         \
+    shared(bucketed_key_signatures, bucketed_values, codedict,                 \
+           solutions_and_seeds, num_buckets)
+  for (uint32_t i = 0; i < num_buckets; i++) {
+    solutions_and_seeds[i] = constructAndSolveSubsystem(
+        bucketed_key_signatures[i], bucketed_values[i], codedict);
+  }
+
+  return Csf::make(solutions_and_seeds, code_length_counts, ordered_symbols,
+                   hash_store_seed);
+}
 
 } // namespace caramel
