@@ -1,3 +1,12 @@
+# This ignores all binaries (files without any extension)
+# It has to come first in the gitignore because it does
+# so destructively. Begin by ignoring all:
+*
+# Unignore all with extensions:
+!*.*
+# Unignore all dirs:
+!*/
+
 # VSCode settings
 .vscode
 .cache
@@ -8,6 +17,20 @@ __pycache__
 build
 caramel.egg-info
 
+# Standard CMake gitignores
+CMakeLists.txt.user
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+DartConfiguration.tcl
+_deps
+
 # Mac stuff
 .DS_Store
 
@@ -17,3 +40,15 @@ dist
 # Temporary
 Testing
 .pytest_cache
+
+# Builds
+src/*.cmake
+tests/*.cmake
+*.a
+*.so
+
+# Dependencies
+deps/
+*.tar.gz
+*.tar.bz2
+*.zip
