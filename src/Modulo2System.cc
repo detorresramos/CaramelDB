@@ -19,6 +19,10 @@ void DenseSystem::addEquation(
   BitArrayPtr equation = BitArray::make(_solution_size);
   for (auto var : participating_variables) {
     equation->setBit(var);
+    // Note: If it simplifies / speeds up the code, we can insert by XOR:
+    // equation = 0, then equation[v] ^= True for v in participating_variables.
+    // This removes the need to de-dupe the input variables since an even number
+    // of XORs will yield 0 and an odd number yields 1.
   }
 
   _equations[equation_id] = equation;
