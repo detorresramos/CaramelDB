@@ -2,7 +2,7 @@
 #include <gtest/gtest.h>
 #include <random>
 #include <set>
-#include <src/BucketedHashStore.h>
+#include <src/construct/BucketedHashStore.h>
 
 namespace caramel::tests {
 

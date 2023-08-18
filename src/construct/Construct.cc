@@ -1,6 +1,7 @@
 #include "Construct.h"
 #include "BucketedHashStore.h"
 #include "Codec.h"
+#include "ConstructUtils.h"
 #include "SpookyHash.h"
 #include <src/solve/Solve.h>
 
@@ -31,16 +32,8 @@ constructModulo2System(const std::vector<Uint128Signature> &key_signatures,
   for (uint32_t i = 0; i < key_signatures.size(); i++) {
     Uint128Signature key_signature = key_signatures.at(i);
 
-    // TODO lets do sebastiano's trick here instead of modding
-    // TODO lets write a custom hash function that generates three 64 bit hashes
-    // instead of hashing 3 times
-    std::vector<uint32_t> start_var_locations;
-    const uint32_t bits_per_equation = 3;
-    for (uint32_t bit = 0; bit < bits_per_equation; bit++) {
-      start_var_locations.push_back(
-          SpookyHash::Hash64(&key_signature, /* length = */ 8, seed) %
-          num_variables);
-    }
+    std::vector<uint32_t> start_var_locations =
+        getStartVarLocations(key_signature, seed, num_variables);
 
     BitArrayPtr coded_value = codedict.at(values.at(i));
     for (uint32_t offset = 0; offset < coded_value->numBits(); offset++) {
@@ -77,7 +70,7 @@ constructAndSolveSubsystem(const std::vector<Uint128Signature> &key_signatures,
 
       return {solution, seed};
     } catch (const UnsolvableSystemException &e) {
-      seed += 3;
+      seed++;
       num_tries++;
 
       if (num_tries == max_num_attempts) {
@@ -93,8 +86,8 @@ CsfPtr constructCsf(const std::vector<std::string> &keys,
                     const std::vector<uint32_t> &values) {
   auto huffman_output = cannonicalHuffman(values);
   auto &codedict = std::get<0>(huffman_output);
-  auto &code_length_counts = std::get<0>(huffman_output);
-  auto &ordered_symbols = std::get<0>(huffman_output);
+  auto &code_length_counts = std::get<1>(huffman_output);
+  auto &ordered_symbols = std::get<2>(huffman_output);
 
   auto buckets = partitionToBuckets(keys, values);
   auto &bucketed_key_signatures = std::get<0>(buckets);

@@ -7,6 +7,7 @@ set(CARAMEL_TESTS
     BitArrayTest
     CodecTest
     BucketedHashStoreTest
+    ConstructCsfTest
     GaussianEliminationTest
     HypergraphPeelerTest
     LazyGaussianEliminationTest)

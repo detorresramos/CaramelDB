@@ -2,12 +2,10 @@
 
 #include "BucketedHashStore.h"
 #include "Codec.h"
+#include "Csf.h"
 #include <src/Modulo2System.h>
 
 namespace caramel {
-
-class Csf;
-using CsfPtr = std::shared_ptr<Csf>;
 
 /*
 Constructs a binary system of linear equations to solve for each bit of the
@@ -27,8 +25,6 @@ SparseSystemPtr
 constructModulo2System(const std::vector<Uint128Signature> &key_signatures,
                        const std::vector<uint32_t> &values,
                        const CodeDict &codedict, uint32_t seed);
-
-using SubsystemSolutionSeedPair = std::pair<BitArrayPtr, uint32_t>;
 
 SubsystemSolutionSeedPair
 constructAndSolveSubsystem(const std::vector<Uint128Signature> &key_signatures,
