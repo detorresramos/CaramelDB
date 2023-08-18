@@ -10,7 +10,8 @@ set(CARAMEL_TESTS
     ConstructCsfTest
     GaussianEliminationTest
     HypergraphPeelerTest
-    LazyGaussianEliminationTest)
+    LazyGaussianEliminationTest
+    SolveTest)
 
 foreach(CARAMEL_TEST IN LISTS CARAMEL_TESTS)
     add_executable(${CARAMEL_TEST} ${CARAMEL_TEST}.cc)
