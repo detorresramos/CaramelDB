@@ -81,7 +81,6 @@ add_subdirectory(src)
 add_subdirectory(tests)
 
 set(CARAMEL_SOURCES
-    ${PROJECT_SOURCE_DIR}/src/Dummy.cc
     ${PROJECT_SOURCE_DIR}/src/Modulo2System.cc
     ${PROJECT_SOURCE_DIR}/src/BitArray.cc
     ${PROJECT_SOURCE_DIR}/src/construct/Codec.cc
