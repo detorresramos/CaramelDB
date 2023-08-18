@@ -7,6 +7,62 @@
 
 namespace caramel {
 
+CsfPtr constructCsf(const std::vector<std::string> &keys,
+                    const std::vector<uint32_t> &values) {
+  auto huffman_output = cannonicalHuffman(values);
+  auto &codedict = std::get<0>(huffman_output);
+  auto &code_length_counts = std::get<1>(huffman_output);
+  auto &ordered_symbols = std::get<2>(huffman_output);
+
+  auto buckets = partitionToBuckets(keys, values);
+  auto &bucketed_key_signatures = std::get<0>(buckets);
+  auto &bucketed_values = std::get<1>(buckets);
+  uint32_t hash_store_seed = std::get<2>(buckets);
+
+  uint32_t num_buckets = bucketed_key_signatures.size();
+
+  std::vector<SubsystemSolutionSeedPair> solutions_and_seeds(num_buckets);
+
+#pragma omp parallel for default(none)                                         \
+    shared(bucketed_key_signatures, bucketed_values, codedict,                 \
+           solutions_and_seeds, num_buckets)
+  for (uint32_t i = 0; i < num_buckets; i++) {
+    solutions_and_seeds[i] = constructAndSolveSubsystem(
+        bucketed_key_signatures[i], bucketed_values[i], codedict);
+  }
+
+  return Csf::make(solutions_and_seeds, code_length_counts, ordered_symbols,
+                   hash_store_seed);
+}
+
+SubsystemSolutionSeedPair
+constructAndSolveSubsystem(const std::vector<Uint128Signature> &key_signatures,
+                           const std::vector<uint32_t> &values,
+                           const CodeDict &codedict) {
+  uint32_t seed = 0;
+  uint32_t num_tries = 0;
+  uint32_t max_num_attempts = 10;
+  while (true) {
+    try {
+      SparseSystemPtr sparse_system =
+          constructModulo2System(key_signatures, values, codedict, seed);
+
+      BitArrayPtr solution = solveModulo2System(sparse_system);
+
+      return {solution, seed};
+    } catch (const UnsolvableSystemException &e) {
+      seed++;
+      num_tries++;
+
+      if (num_tries == max_num_attempts) {
+        throw std::runtime_error("Tried to solve system " +
+                                 std::to_string(num_tries) +
+                                 " times with no success.");
+      }
+    }
+  }
+}
+
 SparseSystemPtr
 constructModulo2System(const std::vector<Uint128Signature> &key_signatures,
                        const std::vector<uint32_t> &values,
@@ -52,62 +108,6 @@ constructModulo2System(const std::vector<Uint128Signature> &key_signatures,
   }
 
   return sparse_system;
-}
-
-SubsystemSolutionSeedPair
-constructAndSolveSubsystem(const std::vector<Uint128Signature> &key_signatures,
-                           const std::vector<uint32_t> &values,
-                           const CodeDict &codedict) {
-  uint32_t seed = 0;
-  uint32_t num_tries = 0;
-  uint32_t max_num_attempts = 10;
-  while (true) {
-    try {
-      SparseSystemPtr sparse_system =
-          constructModulo2System(key_signatures, values, codedict, seed);
-
-      BitArrayPtr solution = solveModulo2System(sparse_system);
-
-      return {solution, seed};
-    } catch (const UnsolvableSystemException &e) {
-      seed++;
-      num_tries++;
-
-      if (num_tries == max_num_attempts) {
-        throw std::runtime_error("Tried to solve system " +
-                                 std::to_string(num_tries) +
-                                 " times with no success.");
-      }
-    }
-  }
-}
-
-CsfPtr constructCsf(const std::vector<std::string> &keys,
-                    const std::vector<uint32_t> &values) {
-  auto huffman_output = cannonicalHuffman(values);
-  auto &codedict = std::get<0>(huffman_output);
-  auto &code_length_counts = std::get<1>(huffman_output);
-  auto &ordered_symbols = std::get<2>(huffman_output);
-
-  auto buckets = partitionToBuckets(keys, values);
-  auto &bucketed_key_signatures = std::get<0>(buckets);
-  auto &bucketed_values = std::get<1>(buckets);
-  uint32_t hash_store_seed = std::get<2>(buckets);
-
-  uint32_t num_buckets = bucketed_key_signatures.size();
-
-  std::vector<SubsystemSolutionSeedPair> solutions_and_seeds(num_buckets);
-
-#pragma omp parallel for default(none)                                         \
-    shared(bucketed_key_signatures, bucketed_values, codedict,                 \
-           solutions_and_seeds, num_buckets)
-  for (uint32_t i = 0; i < num_buckets; i++) {
-    solutions_and_seeds[i] = constructAndSolveSubsystem(
-        bucketed_key_signatures[i], bucketed_values[i], codedict);
-  }
-
-  return Csf::make(solutions_and_seeds, code_length_counts, ordered_symbols,
-                   hash_store_seed);
 }
 
 } // namespace caramel

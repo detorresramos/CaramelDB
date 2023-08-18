@@ -7,6 +7,12 @@
 
 namespace caramel {
 
+/**
+ * Constructs a Csf from the given keys and values.
+ */
+CsfPtr constructCsf(const std::vector<std::string> &keys,
+                    const std::vector<uint32_t> &values);
+
 /*
 Constructs a binary system of linear equations to solve for each bit of the
 encoded values for each key.
@@ -30,8 +36,5 @@ SubsystemSolutionSeedPair
 constructAndSolveSubsystem(const std::vector<Uint128Signature> &key_signatures,
                            const std::vector<uint32_t> &values,
                            const CodeDict &codedict);
-
-CsfPtr constructCsf(const std::vector<std::string> &keys,
-                    const std::vector<uint32_t> &values);
 
 } // namespace caramel
