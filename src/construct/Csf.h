@@ -1,4 +1,5 @@
 #pragma once
+#include <cereal/access.hpp>
 #include <memory>
 #include <src/BitArray.h>
 #include <vector>
@@ -29,9 +30,19 @@ public:
 
   uint32_t query(const std::string &key) const;
 
+  void save(const std::string &filename) const;
+
+  static CsfPtr load(const std::string &filename);
+
   uint32_t size() const;
 
 private:
+  // Private constructor for cereal
+  Csf() {}
+
+  friend class cereal::access;
+  template <class Archive> void serialize(Archive &archive);
+
   std::vector<SubsystemSolutionSeedPair> _solutions_and_seeds;
   std::vector<uint32_t> _code_length_counts;
   std::vector<uint32_t> _ordered_symbols;

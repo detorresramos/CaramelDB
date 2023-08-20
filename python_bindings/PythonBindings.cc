@@ -18,7 +18,9 @@ void defineCaramelModule(py::module_ &module) {
                        const std::vector<uint32_t> &values) {
         return constructCsf(keys, values);
       }))
-      .def("query", &Csf::query, py::arg("key"));
+      .def("query", &Csf::query, py::arg("key"))
+      .def("save", &Csf::save, py::arg("filename"))
+      .def_static("load", &Csf::load, py::arg("filename"));
 }
 
 PYBIND11_MODULE(caramel, module) { // NOLINT

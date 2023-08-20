@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cereal/access.hpp>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -76,6 +77,12 @@ public:
   ~BitArray() { delete[] _backing_array; }
 
 private:
+  // Private constructor for cereal
+  BitArray() {}
+
+  friend class cereal::access;
+  template <class Archive> void serialize(Archive &archive);
+
   uint32_t _num_bits;
   uint32_t _num_bytes;
   unsigned char *_backing_array;

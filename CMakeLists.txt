@@ -64,6 +64,12 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # TODO(any): use other compile flags and modes
 set(CMAKE_CXX_FLAGS "-O3 -Wall -Wextra -Werror -Wno-unused-function -Wno-ignored-optimization-argument -Wno-psabi -pedantic")
 
+# PERFORMANCE_COMPARISON is always enabled by default in cereal CMakeLists which
+# requires the boost and we dont want to add the boost dependencies, hence
+# skipping the performance comparison.
+set(SKIP_PERFORMANCE_COMPARISON ON)
+add_subdirectory(deps/cereal EXCLUDE_FROM_ALL)
+
 add_subdirectory(deps/pybind11 EXCLUDE_FROM_ALL)
 add_subdirectory(deps/googletest EXCLUDE_FROM_ALL)
 
@@ -94,7 +100,7 @@ set(CARAMEL_SOURCES
     ${PROJECT_SOURCE_DIR}/src/solve/Solve.cc
 )
 add_library(caramel_lib STATIC ${CARAMEL_SOURCES})
-target_link_libraries(caramel_lib PUBLIC OpenMP::OpenMP_CXX)
+target_link_libraries(caramel_lib PUBLIC OpenMP::OpenMP_CXX cereal::cereal)
 
 pybind11_add_module(caramel ${PROJECT_SOURCE_DIR}/python_bindings/PythonBindings.cc)
 target_link_libraries(caramel PUBLIC caramel_lib)

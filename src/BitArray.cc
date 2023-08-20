@@ -1,4 +1,5 @@
 #include "BitArray.h"
+#include <cereal/archives/binary.hpp>
 
 namespace caramel {
 
@@ -182,6 +183,13 @@ std::string BitArray::str() const {
     output += std::to_string((*this)[bit]);
   }
   return output;
+}
+
+template void BitArray::serialize(cereal::BinaryInputArchive &);
+template void BitArray::serialize(cereal::BinaryOutputArchive &);
+
+template <class Archive> void BitArray::serialize(Archive &archive) {
+  archive(_num_bits, _num_bytes, _backing_array);
 }
 
 } // namespace caramel
