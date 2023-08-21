@@ -4,6 +4,7 @@
 #include "ConstructUtils.h"
 #include "SpookyHash.h"
 #include <cereal/archives/binary.hpp>
+#include <cereal/types/memory.hpp>
 #include <cereal/types/utility.hpp>
 #include <cereal/types/vector.hpp>
 #include <src/Utils.h>

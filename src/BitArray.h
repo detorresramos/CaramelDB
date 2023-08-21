@@ -31,6 +31,8 @@ class BitArray {
 public:
   BitArray(uint32_t num_bits);
 
+  BitArray(const BitArray &other);
+
   static std::shared_ptr<BitArray> make(uint32_t num_bits) {
     return std::make_shared<BitArray>(num_bits);
   }

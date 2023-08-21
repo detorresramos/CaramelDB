@@ -1,5 +1,6 @@
 #include "BitArray.h"
 #include <cereal/archives/binary.hpp>
+#include <cereal/types/vector.hpp>
 
 namespace caramel {
 
@@ -15,6 +16,12 @@ BitArray::BitArray(uint32_t num_bits) : _num_bits(num_bits) {
 
   clearAll();
 }
+
+  BitArray::BitArray(const BitArray& other) {
+    _num_bits = other._num_bits;
+    _num_bytes = other._num_bytes;
+    _backing_array = other._backing_array;
+  }
 
 std::shared_ptr<BitArray> BitArray::fromNumber(uint32_t number,
                                                uint32_t length) {
@@ -184,7 +191,8 @@ std::string BitArray::str() const {
 template void BitArray::serialize(cereal::BinaryInputArchive &);
 template void BitArray::serialize(cereal::BinaryOutputArchive &);
 
-template <class Archive> void BitArray::serialize(Archive &archive) {
+template <class Archive> 
+void BitArray::serialize(Archive &archive) {
   archive(_num_bits, _num_bytes, _backing_array);
 }
 
