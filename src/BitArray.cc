@@ -11,7 +11,7 @@ BitArray::BitArray(uint32_t num_bits) : _num_bits(num_bits) {
   _num_bytes = BITS_TO_CHARS(num_bits);
 
   /* allocate space for bit array */
-  _backing_array = new unsigned char[_num_bytes];
+  _backing_array = std::vector<unsigned char>(_num_bytes);
 
   clearAll();
 }
@@ -113,10 +113,8 @@ BitArray &BitArray::operator=(const BitArray &other) {
     return *this;
   }
 
-  /* copy bits from source */
-  int size = BITS_TO_CHARS(_num_bits);
+  _backing_array = other._backing_array;
 
-  std::copy(other._backing_array, &other._backing_array[size], _backing_array);
   return *this;
 }
 
@@ -149,10 +147,8 @@ std::optional<uint32_t> BitArray::find() const {
 }
 
 void BitArray::setAll() {
-  int size = BITS_TO_CHARS(_num_bits);
-
   /* set bits in all bytes to 1 */
-  std::fill_n(_backing_array, size, UCHAR_MAX);
+  std::fill(_backing_array.begin(), _backing_array.end(), UCHAR_MAX);
 
   /* zero any spare bits so increment and decrement are consistent */
   int bits = _num_bits % CHAR_BIT;

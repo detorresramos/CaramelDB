@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace caramel {
 
@@ -67,14 +68,14 @@ public:
   void setAll();
 
   // set all bits to 0
-  void clearAll() { std::fill_n(_backing_array, _num_bytes, 0); }
+  void clearAll() {
+    std::fill(_backing_array.begin(), _backing_array.end(), 0);
+  }
 
   static bool scalarProduct(const BitArrayPtr &bitarray1,
                             const BitArrayPtr &bitarray2);
 
   std::string str() const;
-
-  ~BitArray() { delete[] _backing_array; }
 
 private:
   // Private constructor for cereal
@@ -85,7 +86,7 @@ private:
 
   uint32_t _num_bits;
   uint32_t _num_bytes;
-  unsigned char *_backing_array;
+  std::vector<unsigned char> _backing_array;
 };
 
 } // namespace caramel
