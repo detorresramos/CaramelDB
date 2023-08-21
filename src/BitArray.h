@@ -88,6 +88,9 @@ private:
 
   uint32_t _num_bits;
   uint32_t _num_bytes;
+
+  // This is a vector because cereal doesn't allow serialization of pointers
+  // (ex. char*). Not sure if this will inhibit adding SIMD operations
   std::vector<unsigned char> _backing_array;
 };
 

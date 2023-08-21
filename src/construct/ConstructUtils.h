@@ -1,6 +1,5 @@
 #pragma once
 #include "SpookyHash.h"
-#include <fstream>
 #include <vector>
 
 namespace caramel {

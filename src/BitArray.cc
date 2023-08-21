@@ -11,10 +11,7 @@ BitArray::BitArray(uint32_t num_bits) : _num_bits(num_bits) {
 
   _num_bytes = BITS_TO_CHARS(num_bits);
 
-  /* allocate space for bit array */
-  _backing_array = std::vector<unsigned char>(_num_bytes);
-
-  clearAll();
+  _backing_array = std::vector<unsigned char>(_num_bytes, 0);
 }
 
   BitArray::BitArray(const BitArray& other) {
