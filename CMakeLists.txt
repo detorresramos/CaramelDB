@@ -14,6 +14,11 @@ set(CMAKE_C_VISIBILITY_PRESET hidden)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 
+if(DEFINED ENV{CARAMEL_BUILD_MODE})
+    set(CMAKE_BUILD_TYPE $ENV{CARAMEL_BUILD_MODE})
+    message(STATUS "Setting build type to ${CMAKE_BUILD_TYPE} based on CARAMEL_BUILD_MODE environment variable.")
+endif()
+
 # Project versioning
 find_package(Git REQUIRED)
 message(STATUS "Project name: ${PROJECT_NAME}")
@@ -62,7 +67,25 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # Add compiler flags that should be used - Wall : enable all warnings - O3:
 # enable all optimizations.
 # TODO(any): use other compile flags and modes
-set(CMAKE_CXX_FLAGS "-O3 -Wall -Wextra -Werror -Wno-unused-function -Wno-ignored-optimization-argument -Wno-psabi -pedantic")
+# set(CMAKE_CXX_FLAGS "-O3 -Wall -Wextra -Werror -Wno-unused-function -Wno-ignored-optimization-argument -Wno-psabi -pedantic")
+
+
+set(CARAMEL_COMPILE_OPTIONS
+    -Wall
+    -Wextra
+    -Werror
+    -Wno-unused-function
+    -Wno-ignored-optimization-argument
+    -Wno-psabi
+    -pedantic
+    $<$<CONFIG:Debug>:-Og>
+    $<$<CONFIG:Debug>:-g>
+    $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
+    $<$<CONFIG:Release>:-DNDEBUG>
+    $<$<CONFIG:Release>:-Ofast>
+    $<$<CONFIG:Release>:-fno-finite-math-only>
+    $<$<CONFIG:Release>:-funroll-loops>
+    $<$<CONFIG:Release>:-ftree-vectorize>)
 
 # PERFORMANCE_COMPARISON is always enabled by default in cereal CMakeLists which
 # requires the boost and we dont want to add the boost dependencies, hence
@@ -104,6 +127,9 @@ target_link_libraries(caramel_lib PUBLIC OpenMP::OpenMP_CXX cereal::cereal)
 
 pybind11_add_module(caramel ${PROJECT_SOURCE_DIR}/python_bindings/PythonBindings.cc)
 target_link_libraries(caramel PUBLIC caramel_lib)
+
+target_compile_options(caramel_lib PRIVATE ${CARAMEL_COMPILE_OPTIONS})
+target_compile_options(caramel PRIVATE ${CARAMEL_COMPILE_OPTIONS})
 
 message("===================================================")
 message("\tProject Directory = ${PROJECT_SOURCE_DIR}")
