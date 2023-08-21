@@ -1,5 +1,8 @@
 #include "BucketedHashStore.h"
 #include "SpookyHash.h"
+#include <algorithm>
+#include <stdexcept>
+
 namespace caramel {
 
 Uint128Signature hashKey(const std::string &key, uint64_t seed) {

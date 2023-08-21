@@ -1,5 +1,6 @@
 #include "Modulo2System.h"
 #include <map>
+#include <stdexcept>
 #include <unordered_set>
 
 namespace caramel {
