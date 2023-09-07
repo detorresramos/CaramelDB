@@ -28,7 +28,8 @@ std::shared_ptr<BitArray> BitArray::fromNumber(uint32_t number,
     throw std::invalid_argument("Length must not be 0.");
   }
 
-  if (number >= (1 << length)) {
+  uint32_t one = 1;
+  if (number >= (one << length)) {
     throw std::invalid_argument("int_value must be between 0 and " +
                                 std::to_string(1 << length) + ", got " +
                                 std::to_string(number) + ".");
