@@ -149,6 +149,8 @@ cannonicalHuffman(const std::vector<uint32_t> &symbols) {
 uint32_t cannonicalDecode(const BitArrayPtr &bitarray,
                           const std::vector<uint32_t> &code_length_counts,
                           const std::vector<uint32_t> &symbols) {
+  // instead of storing the symbols, if we have variable length stuff, store a
+  // vector of pointers
   int code = 0;
   int first = 0;
   int index = 0;
