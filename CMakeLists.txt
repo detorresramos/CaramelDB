@@ -93,12 +93,6 @@ set(CARAMEL_COMPILE_OPTIONS
 set(SKIP_PERFORMANCE_COMPARISON ON)
 add_subdirectory(deps/cereal EXCLUDE_FROM_ALL)
 
-# PERFORMANCE_COMPARISON is always enabled by default in cereal CMakeLists which
-# requires the boost and we dont want to add the boost dependencies, hence
-# skipping the performance comparison.
-set(SKIP_PERFORMANCE_COMPARISON ON)
-add_subdirectory(deps/cereal EXCLUDE_FROM_ALL)
-
 add_subdirectory(deps/pybind11 EXCLUDE_FROM_ALL)
 add_subdirectory(deps/googletest EXCLUDE_FROM_ALL)
 
