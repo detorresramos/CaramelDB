@@ -119,7 +119,7 @@ BitArray &BitArray::operator&=(const BitArray &other) {
 
   // Handle remaining bytes if _num_bytes is not a multiple of 16.
   for (; i < _num_bytes; i++) {
-    _backing_array[i] = _backing_array[i] ^ other._backing_array[i];
+    _backing_array[i] = _backing_array[i] & other._backing_array[i];
   }
 
   return *this;
