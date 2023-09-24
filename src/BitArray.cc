@@ -79,19 +79,22 @@ BitArray &BitArray::operator^=(const BitArray &other) {
   }
 
   uint32_t i = 0;
-    const uint32_t simd_end = _num_bytes / 16 * 16; // Process in chunks of 16 bytes.
+  const uint32_t simd_end =
+      _num_bytes / 16 * 16; // Process in chunks of 16 bytes.
 
-    for (; i < simd_end; i += 16) {
-        __m128i a = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&_backing_array[i]));
-        __m128i b = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&other._backing_array[i]));
-        __m128i result = _mm_xor_si128(a, b);
-        _mm_storeu_si128(reinterpret_cast<__m128i*>(&_backing_array[i]), result);
-    }
+  for (; i < simd_end; i += 16) {
+    __m128i a =
+        _mm_loadu_si128(reinterpret_cast<const __m128i *>(&_backing_array[i]));
+    __m128i b = _mm_loadu_si128(
+        reinterpret_cast<const __m128i *>(&other._backing_array[i]));
+    __m128i result = _mm_xor_si128(a, b);
+    _mm_storeu_si128(reinterpret_cast<__m128i *>(&_backing_array[i]), result);
+  }
 
-    // Handle remaining bytes if _num_bytes is not a multiple of 16.
-    for (; i < _num_bytes; i++) {
-        _backing_array[i] = _backing_array[i] ^ other._backing_array[i];
-    }
+  // Handle remaining bytes if _num_bytes is not a multiple of 16.
+  for (; i < _num_bytes; i++) {
+    _backing_array[i] = _backing_array[i] ^ other._backing_array[i];
+  }
 
   return *this;
 }
@@ -101,8 +104,22 @@ BitArray &BitArray::operator&=(const BitArray &other) {
     throw std::invalid_argument("Trying to & two BitArray of different sizes.");
   }
 
-  for (uint32_t i = 0; i < _num_bytes; i++) {
-    _backing_array[i] = _backing_array[i] & other._backing_array[i];
+  uint32_t i = 0;
+  const uint32_t simd_end =
+      _num_bytes / 16 * 16; // Process in chunks of 16 bytes.
+
+  for (; i < simd_end; i += 16) {
+    __m128i a =
+        _mm_loadu_si128(reinterpret_cast<const __m128i *>(&_backing_array[i]));
+    __m128i b = _mm_loadu_si128(
+        reinterpret_cast<const __m128i *>(&other._backing_array[i]));
+    __m128i result = _mm_and_si128(a, b);
+    _mm_storeu_si128(reinterpret_cast<__m128i *>(&_backing_array[i]), result);
+  }
+
+  // Handle remaining bytes if _num_bytes is not a multiple of 16.
+  for (; i < _num_bytes; i++) {
+    _backing_array[i] = _backing_array[i] ^ other._backing_array[i];
   }
 
   return *this;
@@ -148,7 +165,7 @@ bool BitArray::operator==(const BitArray &other) const {
 
 std::optional<uint32_t> BitArray::find() const {
   uint32_t location = 0;
-  for (const auto byte: _backing_array) {
+  for (const auto byte : _backing_array) {
     if (byte != 0) {
       return location + _location_of_first_bit[byte];
     } else {
