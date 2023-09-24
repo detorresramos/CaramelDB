@@ -1,4 +1,6 @@
 #include "BitArray.h"
+#include <cereal/archives/binary.hpp>
+#include <cereal/types/vector.hpp>
 
 namespace caramel {
 
@@ -9,11 +11,14 @@ BitArray::BitArray(uint32_t num_bits) : _num_bits(num_bits) {
 
   _num_bytes = BITS_TO_CHARS(num_bits);
 
-  /* allocate space for bit array */
-  _backing_array = new unsigned char[_num_bytes];
-
-  clearAll();
+  _backing_array = std::vector<unsigned char>(_num_bytes, 0);
 }
+
+  BitArray::BitArray(const BitArray& other) {
+    _num_bits = other._num_bits;
+    _num_bytes = other._num_bytes;
+    _backing_array = other._backing_array;
+  }
 
 std::shared_ptr<BitArray> BitArray::fromNumber(uint32_t number,
                                                uint32_t length) {
@@ -112,10 +117,8 @@ BitArray &BitArray::operator=(const BitArray &other) {
     return *this;
   }
 
-  /* copy bits from source */
-  int size = BITS_TO_CHARS(_num_bits);
+  _backing_array = other._backing_array;
 
-  std::copy(other._backing_array, &other._backing_array[size], _backing_array);
   return *this;
 }
 
@@ -148,10 +151,8 @@ std::optional<uint32_t> BitArray::find() const {
 }
 
 void BitArray::setAll() {
-  int size = BITS_TO_CHARS(_num_bits);
-
   /* set bits in all bytes to 1 */
-  std::fill_n(_backing_array, size, UCHAR_MAX);
+  std::fill(_backing_array.begin(), _backing_array.end(), UCHAR_MAX);
 
   /* zero any spare bits so increment and decrement are consistent */
   int bits = _num_bits % CHAR_BIT;
@@ -182,6 +183,14 @@ std::string BitArray::str() const {
     output += std::to_string((*this)[bit]);
   }
   return output;
+}
+
+template void BitArray::serialize(cereal::BinaryInputArchive &);
+template void BitArray::serialize(cereal::BinaryOutputArchive &);
+
+template <class Archive> 
+void BitArray::serialize(Archive &archive) {
+  archive(_num_bits, _num_bytes, _backing_array);
 }
 
 } // namespace caramel
