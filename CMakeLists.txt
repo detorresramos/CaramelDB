@@ -73,7 +73,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CARAMEL_COMPILE_OPTIONS
     -Wall
     -Wextra
-    -Werror
+    #    -Werror
     -Wno-unused-function
     -Wno-ignored-optimization-argument
     -Wno-psabi
