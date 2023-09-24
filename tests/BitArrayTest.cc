@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <memory>
 #include <src/BitArray.h>
+#include <stdexcept>
 
 namespace caramel::tests {
 

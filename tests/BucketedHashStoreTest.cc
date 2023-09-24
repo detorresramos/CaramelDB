@@ -1,8 +1,10 @@
 #include "TestUtils.h"
+#include <algorithm>
 #include <gtest/gtest.h>
 #include <random>
 #include <set>
 #include <src/construct/BucketedHashStore.h>
+#include <stdexcept>
 
 namespace caramel::tests {
 

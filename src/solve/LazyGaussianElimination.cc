@@ -1,4 +1,5 @@
 #include "LazyGaussianElimination.h"
+#include <cassert>
 #include <numeric>
 #include <tuple>
 #include <unordered_set>
@@ -207,7 +208,7 @@ BitArrayPtr solveLazyFromDense(const std::vector<uint32_t> &solved_ids,
     // The solution is zero at this index, so the bit to set is just
     // the constant XOR < equation_coefficients, solution_so_far>
     auto [equation, constant] = dense_system->getEquation(equation_id);
-    // TODO: The mod-2 might be less efficient than alternatives (this is a 
+    // TODO: The mod-2 might be less efficient than alternatives (this is a
     // holdover from the Python implementation where bitwise ops were hard).
     // If X = BitArray::scalarProduct, check if we can replace X % 2 with X & 1.
     uint32_t value =

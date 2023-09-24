@@ -7,3 +7,6 @@
 [submodule "deps/cereal"]
 	path = deps/cereal
 	url = https://github.com/USCiLab/cereal
+[submodule "deps/flamegraph"]
+	path = deps/flamegraph
+	url = https://github.com/brendangregg/FlameGraph

@@ -3,6 +3,7 @@
 #include "Codec.h"
 #include "ConstructUtils.h"
 #include "SpookyHash.h"
+#include <cmath>
 #include <src/solve/Solve.h>
 
 namespace caramel {

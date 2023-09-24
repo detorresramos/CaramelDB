@@ -52,3 +52,9 @@ deps/
 *.tar.gz
 *.tar.bz2
 *.zip
+
+# Perf
+*.svg
+*.perf
+*.data
+*.old
