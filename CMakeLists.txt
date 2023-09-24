@@ -64,18 +64,12 @@ endif(NOT OpenMP_FOUND)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# Add compiler flags that should be used - Wall : enable all warnings - O3:
-# enable all optimizations.
-# TODO(any): use other compile flags and modes
-# set(CMAKE_CXX_FLAGS "-O3 -Wall -Wextra -Werror -Wno-unused-function -Wno-ignored-optimization-argument -Wno-psabi -pedantic")
-
-
 set(CARAMEL_COMPILE_OPTIONS
     -Wall
     -Wextra
     # -Werror
     -Wno-unused-function
-    -Wno-ignored-optimization-argument
+    # -Wno-ignored-optimization-argument
     -Wno-psabi
     -pedantic
     $<$<CONFIG:Debug>:-Og>
