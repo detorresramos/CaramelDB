@@ -1,16 +1,10 @@
+#pragma once
+
+#include "SpookyHash.h"
 #include <string>
 #include <vector>
 
 namespace caramel {
-
-struct Uint128Signature {
-  uint64_t first;
-  uint64_t second;
-
-  bool operator==(const Uint128Signature &other) const {
-    return first == other.first && second == other.second;
-  }
-};
 
 std::tuple<std::vector<std::vector<Uint128Signature>>,
            std::vector<std::vector<uint32_t>>, uint64_t>

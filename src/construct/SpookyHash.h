@@ -1,3 +1,5 @@
+#pragma once
+
 //
 // SpookyHash: a 128-bit noncryptographic hash function
 // By Bob Jenkins, public domain
@@ -44,6 +46,16 @@ typedef uint8_t uint8;
 #endif
 
 namespace caramel {
+
+// TODO(any): does this have data type size problems on windows?
+struct Uint128Signature {
+  uint64_t first;
+  uint64_t second;
+
+  bool operator==(const Uint128Signature &other) const {
+    return first == other.first && second == other.second;
+  }
+};
 
 class SpookyHash {
 public:

@@ -1,7 +1,7 @@
 #include "TestUtils.h"
 #include <gtest/gtest.h>
 #include <random>
-#include <src/Codec.h>
+#include <src/construct/Codec.h>
 
 namespace caramel::tests {
 

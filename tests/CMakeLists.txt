@@ -3,10 +3,10 @@ enable_testing()
 include(GoogleTest)
 
 set(CARAMEL_TESTS
-    DummyTest
     BitArrayTest
     CodecTest
     BucketedHashStoreTest
+    ConstructCsfTest
     GaussianEliminationTest
     HypergraphPeelerTest
     LazyGaussianEliminationTest
