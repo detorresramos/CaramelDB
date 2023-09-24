@@ -165,6 +165,14 @@ void BitArray::setAll() {
   }
 }
 
+uint32_t BitArray::numSetBits() const {
+  uint32_t total = 0;
+  for (auto block : _backing_array) {
+    total += _set_bits_in_char[block];
+  }
+  return total;
+}
+
 bool BitArray::scalarProduct(const BitArrayPtr &bitarray1,
                              const BitArrayPtr &bitarray2) {
   if (bitarray1->numBits() != bitarray2->numBits()) {
@@ -172,12 +180,9 @@ bool BitArray::scalarProduct(const BitArrayPtr &bitarray1,
         "scalarProduct recieved two bitarrays of different sizes.");
   }
 
-  uint32_t product = 0;
-  for (uint32_t bit = 0; bit < bitarray1->numBits(); bit++) {
-    product += (*bitarray1)[bit] && (*bitarray2)[bit];
-  }
+  auto temp_result = (*bitarray1) & (*bitarray2);
 
-  return product % 2;
+  return temp_result.numSetBits() % 2;
 }
 
 std::string BitArray::str() const {
