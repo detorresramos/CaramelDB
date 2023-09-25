@@ -106,7 +106,7 @@ constructModulo2System(const std::vector<Uint128Signature> &key_signatures,
         participating_variables.push_back(var_location);
       }
       equations.emplace_back(participating_variables);
-      constants.push_back(bit);
+      constants.emplace_back(bit);
     }
   }
 
