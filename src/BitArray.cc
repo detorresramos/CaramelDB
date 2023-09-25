@@ -165,23 +165,27 @@ bool BitArray::operator==(const BitArray &other) const {
 
 std::optional<uint32_t> BitArray::find() const {
   uint32_t location = 0;
+<<<<<<< HEAD
   for (const auto byte : _backing_array) {
     if (byte != 0) {
       return location + _location_of_first_bit[byte];
+=======
+  for (uint32_t byte = 0; byte < _num_bytes; byte++) {
+    if (_backing_array[byte] != 0) {
+      auto temp = _backing_array[byte];
+      for (uint32_t bit = 0; bit < CHAR_BIT; bit++) {
+        temp >>= 1;
+        if (temp == 0) {
+          // we invert the position here within the byte because of endianness
+          return location + CHAR_BIT - 1 - bit;
+        }
+      }
+>>>>>>> parent of a183acf... optimize find() and any() method
     } else {
       location += CHAR_BIT;
     }
   }
   return std::nullopt;
-}
-
-bool BitArray::any() const {
-  for (const auto block : _backing_array) {
-    if (block != 0) {
-      return true;
-    }
-  }
-  return false;
 }
 
 void BitArray::setAll() {
