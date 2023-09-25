@@ -12,7 +12,7 @@
 namespace caramel {
 
 uint32_t Csf::query(const std::string &key) const {
-  Uint128Signature signature = hashKey(key, _hash_store_seed);
+  __uint128_t signature = hashKey(key, _hash_store_seed);
 
   uint32_t bucket_id =
       getBucketID(signature, /* num_buckets= */ _solutions_and_seeds.size());

@@ -5,27 +5,25 @@
 
 namespace caramel {
 
-Uint128Signature hashKey(const std::string &key, uint64_t seed) {
+__uint128_t hashKey(const std::string &key, uint64_t seed) {
   const void *msgPtr = static_cast<const void *>(key.data());
   size_t length = key.size();
   uint64_t hash1 = seed;
   uint64_t hash2 = seed;
   SpookyHash::Hash128(msgPtr, length, &hash1, &hash2);
-  return {hash1, hash2};
+  return (((__uint128_t)hash1) << 64) + (__uint128_t)hash2;
 }
 
-uint32_t getBucketID(Uint128Signature signature, uint32_t num_buckets) {
+uint32_t getBucketID(__uint128_t signature, uint32_t num_buckets) {
   // Use first 64 bits of the signature to identify the segment
-  uint64_t bucket_hash = signature.first;
+  __uint128_t bucket_hash = signature >> 64;
   // This outputs a uniform integer from [0, self._num_buckets]
   uint32_t bucket_id =
       ((__uint128_t)(bucket_hash >> 1) * (__uint128_t)(num_buckets << 1)) >> 64;
-  // TODO(any) should we rewrite this function to not use __uint128_t due to
-  // platform incompatabilities?
   return bucket_id;
 }
 
-std::tuple<std::vector<std::vector<Uint128Signature>>,
+std::tuple<std::vector<std::vector<__uint128_t>>,
            std::vector<std::vector<uint32_t>>, uint64_t>
 construct(const std::vector<std::string> &keys,
           const std::vector<uint32_t> &values, uint32_t num_buckets,
@@ -34,11 +32,11 @@ construct(const std::vector<std::string> &keys,
     throw std::invalid_argument("Keys and values must match sizes.");
   }
 
-  std::vector<std::vector<Uint128Signature>> key_buckets(num_buckets);
+  std::vector<std::vector<__uint128_t>> key_buckets(num_buckets);
   std::vector<std::vector<uint32_t>> value_buckets(num_buckets);
 
   for (uint32_t i = 0; i < keys.size(); i++) {
-    Uint128Signature signature = hashKey(keys[i], seed);
+    __uint128_t signature = hashKey(keys[i], seed);
     uint32_t bucket_id = getBucketID(signature, num_buckets);
     if (std::find(key_buckets[bucket_id].begin(), key_buckets[bucket_id].end(),
                   signature) != key_buckets[bucket_id].end()) {
@@ -52,7 +50,7 @@ construct(const std::vector<std::string> &keys,
   return {key_buckets, value_buckets, seed};
 }
 
-std::tuple<std::vector<std::vector<Uint128Signature>>,
+std::tuple<std::vector<std::vector<__uint128_t>>,
            std::vector<std::vector<uint32_t>>, uint64_t>
 partitionToBuckets(const std::vector<std::string> &keys,
                    const std::vector<uint32_t> &values, uint32_t bucket_size,

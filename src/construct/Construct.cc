@@ -37,7 +37,7 @@ CsfPtr constructCsf(const std::vector<std::string> &keys,
 }
 
 SubsystemSolutionSeedPair
-constructAndSolveSubsystem(const std::vector<Uint128Signature> &key_signatures,
+constructAndSolveSubsystem(const std::vector<__uint128_t> &key_signatures,
                            const std::vector<uint32_t> &values,
                            const CodeDict &codedict) {
   uint32_t seed = 0;
@@ -65,7 +65,7 @@ constructAndSolveSubsystem(const std::vector<Uint128Signature> &key_signatures,
 }
 
 SparseSystemPtr
-constructModulo2System(const std::vector<Uint128Signature> &key_signatures,
+constructModulo2System(const std::vector<__uint128_t> &key_signatures,
                        const std::vector<uint32_t> &values,
                        const CodeDict &codedict, uint32_t seed) {
   // This is a constant multiplier on the number of variables based on the
@@ -87,7 +87,7 @@ constructModulo2System(const std::vector<Uint128Signature> &key_signatures,
 
   uint32_t equation_id = 0;
   for (uint32_t i = 0; i < key_signatures.size(); i++) {
-    Uint128Signature key_signature = key_signatures.at(i);
+    __uint128_t key_signature = key_signatures.at(i);
 
     std::vector<uint32_t> start_var_locations =
         getStartVarLocations(key_signature, seed, num_variables);

@@ -28,12 +28,12 @@ Arguments:
             SparseSystemPtr to solve for each key's encoded bits.
 */
 SparseSystemPtr
-constructModulo2System(const std::vector<Uint128Signature> &key_signatures,
+constructModulo2System(const std::vector<__uint128_t> &key_signatures,
                        const std::vector<uint32_t> &values,
                        const CodeDict &codedict, uint32_t seed);
 
 SubsystemSolutionSeedPair
-constructAndSolveSubsystem(const std::vector<Uint128Signature> &key_signatures,
+constructAndSolveSubsystem(const std::vector<__uint128_t> &key_signatures,
                            const std::vector<uint32_t> &values,
                            const CodeDict &codedict);
 
