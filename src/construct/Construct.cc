@@ -83,9 +83,11 @@ constructModulo2System(const std::vector<Uint128Signature> &key_signatures,
   uint32_t num_variables =
       std::ceil(static_cast<double>(num_equations) * DELTA);
 
-  auto sparse_system = SparseSystem::make(num_variables);
+  std::vector<std::vector<uint32_t>> equations;
+  equations.reserve(num_equations);
+  std::vector<uint32_t> constants;
+  constants.reserve(num_equations);
 
-  uint32_t equation_id = 0;
   for (uint32_t i = 0; i < key_signatures.size(); i++) {
     Uint128Signature key_signature = key_signatures.at(i);
 
@@ -103,10 +105,13 @@ constructModulo2System(const std::vector<Uint128Signature> &key_signatures,
         }
         participating_variables.push_back(var_location);
       }
-      sparse_system->addEquation(equation_id, participating_variables, bit);
-      equation_id++;
+      equations.emplace_back(participating_variables);
+      constants.push_back(bit);
     }
   }
+
+  auto sparse_system = SparseSystem::make(std::move(equations),
+                                          std::move(constants), num_variables);
 
   return sparse_system;
 }
