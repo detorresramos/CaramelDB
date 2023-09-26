@@ -23,5 +23,5 @@ csf = caramel.CSF(keys, values)
 end_construction = time.time()
 print("Total Construction Time: ", end_construction - start)
 
-for key, value in zip(keys, values):
-    csf.query(key)
+# for key, value in zip(keys, values):
+#     csf.query(key)
