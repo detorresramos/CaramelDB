@@ -77,7 +77,6 @@ set(CARAMEL_COMPILE_OPTIONS
     $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
     $<$<CONFIG:Release>:-DNDEBUG>
     $<$<CONFIG:Release>:-Ofast>
-    $<$<CONFIG:Release>:-fno-finite-math-only>
     $<$<CONFIG:Release>:-funroll-loops>
     $<$<CONFIG:Release>:-ftree-vectorize>)
 
