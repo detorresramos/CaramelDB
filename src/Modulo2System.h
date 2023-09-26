@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BitArray.h"
+#include <numeric>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -10,17 +11,16 @@ namespace caramel {
 
 class SparseSystem {
 public:
-  SparseSystem(uint32_t solution_size) : _solution_size(solution_size) {}
+  SparseSystem(std::vector<std::vector<uint32_t>> &&equations,
+               std::vector<uint32_t> &&constants, uint32_t solution_size)
+      : _equations(equations), _constants(constants),
+        _solution_size(solution_size) {}
 
-  static std::shared_ptr<SparseSystem> make(uint32_t solution_size) {
-    return std::make_shared<SparseSystem>(solution_size);
-  }
-
-  void addEquation(uint32_t equation_id,
-                   const std::vector<uint32_t> &participating_variables,
-                   uint32_t constant) {
-    _equations[equation_id] = participating_variables;
-    _constants[equation_id] = constant;
+  static std::shared_ptr<SparseSystem>
+  make(std::vector<std::vector<uint32_t>> &&equations,
+       std::vector<uint32_t> &&constants, uint32_t solution_size) {
+    return std::make_shared<SparseSystem>(std::move(equations),
+                                          std::move(constants), solution_size);
   }
 
   std::pair<std::vector<uint32_t>, uint32_t> getEquation(uint32_t equation_id) {
@@ -28,10 +28,8 @@ public:
   }
 
   std::vector<uint32_t> equationIds() const {
-    std::vector<uint32_t> equation_ids;
-    for (auto [equation_id, _] : _equations) {
-      equation_ids.push_back(equation_id);
-    }
+    std::vector<uint32_t> equation_ids(_equations.size());
+    std::iota(equation_ids.begin(), equation_ids.end(), 0);
     return equation_ids;
   }
 
@@ -40,8 +38,8 @@ public:
   uint32_t solutionSize() const { return _solution_size; }
 
 private:
-  std::unordered_map<uint32_t, std::vector<uint32_t>> _equations;
-  std::unordered_map<uint32_t, uint32_t> _constants;
+  std::vector<std::vector<uint32_t>> _equations;
+  std::vector<uint32_t> _constants;
   uint32_t _solution_size;
 };
 

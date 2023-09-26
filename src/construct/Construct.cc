@@ -91,23 +91,26 @@ constructModulo2System(const std::vector<Uint128Signature> &key_signatures,
 
   uint32_t num_equations = 0;
   for (const auto &v : values) {
-    num_equations += codedict.at(v)->numBits();
+    num_equations += codedict.find(v)->second->numBits();
   }
 
   uint32_t num_variables =
       std::ceil(static_cast<double>(num_equations) * DELTA);
 
-  auto sparse_system = SparseSystem::make(num_variables);
+  std::vector<std::vector<uint32_t>> equations;
+  equations.reserve(num_equations);
+  std::vector<uint32_t> constants;
+  constants.reserve(num_equations);
 
-  uint32_t equation_id = 0;
   for (uint32_t i = 0; i < key_signatures.size(); i++) {
-    Uint128Signature key_signature = key_signatures.at(i);
+    Uint128Signature key_signature = key_signatures[i];
 
     std::vector<uint32_t> start_var_locations =
         getStartVarLocations(key_signature, seed, num_variables);
 
-    BitArrayPtr coded_value = codedict.at(values.at(i));
-    for (uint32_t offset = 0; offset < coded_value->numBits(); offset++) {
+    BitArrayPtr coded_value = codedict.find(values[i])->second;
+    uint32_t n_bits = coded_value->numBits();
+    for (uint32_t offset = 0; offset < n_bits; offset++) {
       uint32_t bit = (*coded_value)[offset];
       std::vector<uint32_t> participating_variables;
       for (uint32_t start_var_location : start_var_locations) {
@@ -117,10 +120,13 @@ constructModulo2System(const std::vector<Uint128Signature> &key_signatures,
         }
         participating_variables.push_back(var_location);
       }
-      sparse_system->addEquation(equation_id, participating_variables, bit);
-      equation_id++;
+      equations.emplace_back(std::move(participating_variables));
+      constants.emplace_back(bit);
     }
   }
+
+  auto sparse_system = SparseSystem::make(std::move(equations),
+                                          std::move(constants), num_variables);
 
   return sparse_system;
 }
