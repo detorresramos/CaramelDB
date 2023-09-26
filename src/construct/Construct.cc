@@ -24,12 +24,26 @@ CsfPtr constructCsf(const std::vector<std::string> &keys,
 
   std::vector<SubsystemSolutionSeedPair> solutions_and_seeds(num_buckets);
 
+  std::exception_ptr exception = nullptr;
+
 #pragma omp parallel for default(none)                                         \
     shared(bucketed_key_signatures, bucketed_values, codedict,                 \
-           solutions_and_seeds, num_buckets)
+           solutions_and_seeds, num_buckets, exception)
   for (uint32_t i = 0; i < num_buckets; i++) {
-    solutions_and_seeds[i] = constructAndSolveSubsystem(
-        bucketed_key_signatures[i], bucketed_values[i], codedict);
+    if (exception) {
+      continue;
+    }
+    try {
+      solutions_and_seeds[i] = constructAndSolveSubsystem(
+          bucketed_key_signatures[i], bucketed_values[i], codedict);
+    } catch (std::exception& e) {
+#pragma omp critical
+      { exception = std::current_exception(); }
+    }
+  }
+
+  if (exception) {
+    std::rethrow_exception(exception);
   }
 
   return Csf::make(solutions_and_seeds, code_length_counts, ordered_symbols,
@@ -42,7 +56,7 @@ constructAndSolveSubsystem(const std::vector<Uint128Signature> &key_signatures,
                            const CodeDict &codedict) {
   uint32_t seed = 0;
   uint32_t num_tries = 0;
-  uint32_t max_num_attempts = 10;
+  uint32_t max_num_attempts = 128;
   while (true) {
     try {
       SparseSystemPtr sparse_system =
