@@ -57,8 +57,8 @@ public:
                    const std::vector<uint32_t> &participating_variables,
                    uint32_t constant);
 
-  std::pair<BitArrayPtr, uint32_t> getEquation(uint32_t equation_id) {
-    return std::make_pair(_equations[equation_id], _constants[equation_id]);
+  std::pair<BitArrayPtr, uint32_t> getEquation(uint32_t equation_id) const {
+    return _equations.find(equation_id)->second;
   }
 
   void xorEquations(uint32_t equation_to_modify, uint32_t equation_to_xor);
@@ -67,14 +67,16 @@ public:
 
   uint32_t getFirstVar(uint32_t equation_id);
 
-  bool isUnsolvable(uint32_t equation_id) {
-    bool is_empty = !_equations[equation_id]->any();
-    return is_empty && _constants[equation_id] != 0;
+  bool isUnsolvable(uint32_t equation_id) const {
+    auto &[equation, constant] = _equations.find(equation_id)->second;
+    bool is_empty = !equation;
+    return is_empty && constant != 0;
   }
 
-  bool isIdentity(uint32_t equation_id) {
-    bool is_empty = !_equations[equation_id]->any();
-    return is_empty && _constants[equation_id] == 0;
+  bool isIdentity(uint32_t equation_id) const {
+    auto &[equation, constant] = _equations.find(equation_id)->second;
+    bool is_empty = !equation->any();
+    return is_empty && constant == 0;
   }
 
   uint32_t numEquations() const { return _equations.size(); }
@@ -84,8 +86,7 @@ public:
   std::string str() const;
 
 private:
-  std::unordered_map<uint32_t, BitArrayPtr> _equations;
-  std::unordered_map<uint32_t, uint32_t> _constants;
+  std::unordered_map<uint32_t, std::pair<BitArrayPtr, uint32_t>> _equations;
   uint32_t _solution_size;
 };
 

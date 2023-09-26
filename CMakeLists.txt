@@ -19,6 +19,10 @@ if(DEFINED ENV{CARAMEL_BUILD_MODE})
     message(STATUS "Setting build type to ${CMAKE_BUILD_TYPE} based on CARAMEL_BUILD_MODE environment variable.")
 endif()
 
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_definitions(-DDEBUG)
+endif()
+
 # Project versioning
 find_package(Git REQUIRED)
 message(STATUS "Project name: ${PROJECT_NAME}")
