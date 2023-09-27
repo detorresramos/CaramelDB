@@ -7,7 +7,7 @@
 #include <cereal/types/memory.hpp>
 #include <cereal/types/utility.hpp>
 #include <cereal/types/vector.hpp>
-#include <src/Utils.h>
+#include <src/utils/SafeFileIO.h>
 
 namespace caramel {
 

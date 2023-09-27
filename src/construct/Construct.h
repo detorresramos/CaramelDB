@@ -11,7 +11,7 @@ namespace caramel {
  * Constructs a Csf from the given keys and values.
  */
 CsfPtr constructCsf(const std::vector<std::string> &keys,
-                    const std::vector<uint32_t> &values);
+                    const std::vector<uint32_t> &values, bool verbose = true);
 
 /*
 Constructs a binary system of linear equations to solve for each bit of the

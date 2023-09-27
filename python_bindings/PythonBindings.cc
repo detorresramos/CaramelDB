@@ -15,8 +15,9 @@ namespace caramel::python {
 void defineCaramelModule(py::module_ &module) {
   py::class_<Csf, CsfPtr>(module, "CSF")
       .def(py::init([](const std::vector<std::string> &keys,
-                       const std::vector<uint32_t> &values) {
-        return constructCsf(keys, values);
+                       const std::vector<uint32_t> &values,
+                       bool verbose = true) {
+        return constructCsf(keys, values, verbose);
       }))
       .def("query", &Csf::query, py::arg("key"))
       .def("save", &Csf::save, py::arg("filename"))
