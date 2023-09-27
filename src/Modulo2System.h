@@ -4,6 +4,7 @@
 #include <numeric>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -47,14 +48,26 @@ using SparseSystemPtr = std::shared_ptr<SparseSystem>;
 
 class DenseSystem {
 public:
-  DenseSystem(uint32_t solution_size) : _solution_size(solution_size) {}
+  DenseSystem(uint32_t solution_size,
+              std::optional<uint32_t> expected_num_equations = std::nullopt)
+      : _solution_size(solution_size) {
+    if (expected_num_equations.has_value()) {
+      _equations.reserve(expected_num_equations.value());
+    }
+  }
 
-  static std::shared_ptr<DenseSystem> make(uint32_t solution_size) {
-    return std::make_shared<DenseSystem>(solution_size);
+  static std::shared_ptr<DenseSystem>
+  make(uint32_t solution_size,
+       std::optional<uint32_t> expected_num_equations = std::nullopt) {
+    return std::make_shared<DenseSystem>(solution_size, expected_num_equations);
   }
 
   void addEquation(uint32_t equation_id,
                    const std::vector<uint32_t> &participating_variables,
+                   uint32_t constant);
+
+  void addEquation(uint32_t equation_id,
+                   const std::unordered_set<uint32_t> &participating_variables,
                    uint32_t constant);
 
   std::pair<BitArrayPtr, uint32_t> getEquation(uint32_t equation_id) const {

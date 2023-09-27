@@ -31,6 +31,32 @@ void DenseSystem::addEquation(
   _equations[equation_id] = std::make_pair(std::move(equation), constant);
 }
 
+void DenseSystem::addEquation(
+    uint32_t equation_id, const std::unordered_set<uint32_t> &participating_variables,
+    uint32_t constant) {
+#ifdef DEBUG
+  for (auto var : participating_variables) {
+    if (var > _solution_size) {
+      throw std::invalid_argument("Adding equation with var " +
+                                  std::to_string(var) +
+                                  " greater than solution size of " +
+                                  std::to_string(_solution_size) + ".");
+    }
+  }
+#endif
+
+  BitArrayPtr equation = BitArray::make(_solution_size);
+  for (auto var : participating_variables) {
+    equation->setBit(var);
+    // Note: If it simplifies / speeds up the code, we can insert by XOR:
+    // equation = 0, then equation[v] ^= True for v in participating_variables.
+    // This removes the need to de-dupe the input variables since an even number
+    // of XORs will yield 0 and an odd number yields 1.
+  }
+
+  _equations[equation_id] = std::make_pair(std::move(equation), constant);
+}
+
 void DenseSystem::xorEquations(uint32_t equation_to_modify,
                                uint32_t equation_to_xor) {
   auto &[equation_modify, constant_modify] = _equations[equation_to_modify];
