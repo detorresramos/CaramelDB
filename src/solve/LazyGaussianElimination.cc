@@ -7,17 +7,18 @@
 namespace caramel {
 
 std::tuple<std::unordered_map<uint32_t, std::vector<uint32_t>>,
-           std::vector<uint32_t>, std::vector<uint32_t>, DenseSystemPtr>
+           std::unordered_map<uint32_t, uint32_t>, std::vector<uint32_t>,
+           DenseSystemPtr>
 constructDenseSystem(const SparseSystemPtr &sparse_system,
                      const std::vector<uint32_t> &equation_ids) {
-  uint32_t num_equations = sparse_system->numEquations();
   uint32_t num_variables = sparse_system->solutionSize();
 
   // The weight is the number of sparse equations containing variable_id.
   std::vector<uint32_t> variable_weight(num_variables, 0);
 
   // The equation priority is the number of idle variables in equation_id.
-  std::vector<uint32_t> equation_priority(num_equations, 0);
+  std::unordered_map<uint32_t, uint32_t> equation_priority;
+  equation_priority.reserve(equation_ids.size());
 
   DenseSystemPtr dense_system = DenseSystem::make(num_variables);
 
