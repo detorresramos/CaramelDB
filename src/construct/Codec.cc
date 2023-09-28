@@ -12,7 +12,9 @@ namespace caramel {
     - https://github.com/madler/brotli/blob/master/huff.c
     - https://people.eng.unimelb.edu.au/ammoffat/inplace.c
 */
-void minRedundancyCodewordLengths(std::vector<uint32_t> &A) {
+void minRedundancyCodewordLengths(
+    std::vector<uint32_t> &A,
+    const std::unordered_map<uint32_t, uint32_t> &frequencies) {
   int n = A.size();
   int root;      /* next root node to be used */
   int leaf;      /* next leaf to be used */
@@ -29,6 +31,8 @@ void minRedundancyCodewordLengths(std::vector<uint32_t> &A) {
     A[0] = 0;
     return;
   }
+
+  float overall_length = 0;
 
   /* first pass, left to right, setting parent pointers */
   A[0] += A[1];
@@ -67,6 +71,7 @@ void minRedundancyCodewordLengths(std::vector<uint32_t> &A) {
       root--;
     }
     while (avbl > used) {
+      overall_length += dpth * frequencies.at(symbol[size - next - 1]);
       A[next--] = dpth;
       avbl--;
     }
@@ -77,7 +82,8 @@ void minRedundancyCodewordLengths(std::vector<uint32_t> &A) {
 }
 
 std::tuple<CodeDict, std::vector<uint32_t>, std::vector<uint32_t>>
-cannonicalHuffman(const std::vector<uint32_t> &symbols) {
+cannonicalHuffman(const std::vector<uint32_t> &symbols, uint32_t length_limit,
+                  float entropy_threshold) {
   std::unordered_map<uint32_t, uint32_t> frequencies;
   for (uint32_t symbol : symbols) {
     ++frequencies[symbol];
@@ -98,14 +104,33 @@ cannonicalHuffman(const std::vector<uint32_t> &symbols) {
   for (auto [symbol, freq] : symbol_frequency_pairs) {
     codeword_lengths.push_back(freq);
   }
-  minRedundancyCodewordLengths(codeword_lengths);
+  uint32_t overall_length =
+      minRedundancyCodewordLengths(codeword_lengths, frequencies);
 
   // We reverse because code assignment is done in non-decreasing order of bit
   // length instead of frequency
   std::reverse(symbol_frequency_pairs.begin(), symbol_frequency_pairs.end());
   std::reverse(codeword_lengths.begin(), codeword_lengths.end());
 
-  // TODO(any) add length limiting
+  /* We now progress through the symbols, from more frequent
+   * to less frequent, computing for each prefix of symbols
+   * the length of the decoding table and the cumulative
+   * length of such symbols. If we pass the table length limit
+   * or the empirical entropy threshold be break the loop. */
+  long accumulatedOverallLength = 0;
+  uint32_t currentLength = codeword_lengths[0];
+  uint32_t d = 1;
+  for (uint32_t cutpoint = 0; cutpoint < size; cutpoint++) {
+    if (currentLength != codeword_lengths[cutpoint]) {
+      if (++d >= length_limit)
+        break;
+      if (accumulatedOverallLength / (double)overallLength > entropy_threshold)
+        break;
+      currentLength = codeword_lengths[cutpoint];
+    }
+    accumulatedOverallLength +=
+        codeword_lengths[cutpoint] * frequencies.at(symbol[cutpoint]);
+  }
 
   uint32_t code = 0;
   // maps the symbol to a bitarray representing its code

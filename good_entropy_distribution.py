@@ -1,7 +1,7 @@
 import caramel
 import time
 
-num = 100_000_000
+num = 10_000_000
 
 keys = [f"key{i}" for i in range(num)]
 values = []
