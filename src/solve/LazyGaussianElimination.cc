@@ -7,21 +7,25 @@
 namespace caramel {
 
 std::tuple<std::unordered_map<uint32_t, std::vector<uint32_t>>,
-           std::vector<uint32_t>, std::vector<uint32_t>, DenseSystemPtr>
+           std::unordered_map<uint32_t, uint32_t>, std::vector<uint32_t>,
+           DenseSystemPtr>
 constructDenseSystem(const SparseSystemPtr &sparse_system,
                      const std::vector<uint32_t> &equation_ids) {
-  uint32_t num_equations = sparse_system->numEquations();
   uint32_t num_variables = sparse_system->solutionSize();
 
   // The weight is the number of sparse equations containing variable_id.
   std::vector<uint32_t> variable_weight(num_variables, 0);
 
   // The equation priority is the number of idle variables in equation_id.
-  std::vector<uint32_t> equation_priority(num_equations, 0);
+  std::unordered_map<uint32_t, uint32_t> equation_priority;
+  equation_priority.reserve(equation_ids.size());
 
-  DenseSystemPtr dense_system = DenseSystem::make(num_variables);
+  DenseSystemPtr dense_system =
+      DenseSystem::make(num_variables, equation_ids.size());
 
+  std::unordered_set<uint32_t> vars_to_add;
   std::unordered_map<uint32_t, std::vector<uint32_t>> var_to_equations;
+  var_to_equations.reserve(num_variables);
   for (uint32_t equation_id : equation_ids) {
     auto [participating_vars, constant] =
         sparse_system->getEquation(equation_id);
@@ -30,27 +34,24 @@ constructDenseSystem(const SparseSystemPtr &sparse_system,
     // as XOR(solution[hash_1], solution[hash_2] ...). If hash_1 = hash_2 =
     // variable_id, then XOR(solution[hash_1], solution[hash_2]) = 0 and
     // the variable_id did not actually participate in the solution.
-    std::unordered_set<uint32_t> vars_to_add;
     for (uint32_t variable_id : participating_vars) {
-      if (!vars_to_add.count(variable_id)) {
-        vars_to_add.insert(variable_id);
-      } else {
+      auto [_, inserted] = vars_to_add.insert(variable_id);
+      if (!inserted) {
         vars_to_add.erase(variable_id);
       }
     }
+    dense_system->addEquation(equation_id, vars_to_add, constant);
     // Update weight and priority for de-duped variables.
-    dense_system->addEquation(
-        equation_id,
-        std::vector<uint32_t>(vars_to_add.begin(), vars_to_add.end()),
-        constant);
     for (uint32_t variable_id : vars_to_add) {
       variable_weight[variable_id]++;
-      equation_priority[equation_id]++;
       var_to_equations[variable_id].push_back(equation_id);
     }
+    equation_priority[equation_id] += vars_to_add.size();
+    vars_to_add.clear();
   }
 
-  return {var_to_equations, equation_priority, variable_weight, dense_system};
+  return {std::move(var_to_equations), std::move(equation_priority),
+          std::move(variable_weight), dense_system};
 }
 
 std::vector<uint32_t> cumsum(const std::vector<uint32_t> &input) {
@@ -95,7 +96,7 @@ lazyGaussianElimination(const SparseSystemPtr &sparse_system,
   // List of sparse equations with priority 0 or 1. Probably needs a re-name.
   std::vector<uint32_t> sparse_equation_ids;
   for (uint32_t id : equation_ids) {
-    if (equation_priority.at(id) <= 1) {
+    if (equation_priority.find(id)->second <= 1) {
       sparse_equation_ids.push_back(id);
     }
   }
@@ -144,7 +145,8 @@ lazyGaussianElimination(const SparseSystemPtr &sparse_system,
       num_remaining_equations--;
       uint32_t equation_id = sparse_equation_ids.back();
       sparse_equation_ids.pop_back();
-      if (equation_priority.at(equation_id) == 0) {
+      uint32_t priority = equation_priority.find(equation_id)->second;
+      if (priority == 0) {
         auto [equation, constant] = dense_system->getEquation(equation_id);
         bool equation_is_nonempty = equation->any();
         if (equation_is_nonempty) {
@@ -157,11 +159,11 @@ lazyGaussianElimination(const SparseSystemPtr &sparse_system,
         }
         // The remaining case corresponds to an identity equation
         //(which is empty, but so is the output so it's fine).
-      } else if (equation_priority.at(equation_id) == 1) {
+      } else if (priority == 1) {
         // If there is only 1 idle variable, the equation is solved.
         // We need to find the pivot - the variable_id of the only
         // remaining idle variable in the equation.
-        auto [equation, constnat] = dense_system->getEquation(equation_id);
+        auto [equation, constant] = dense_system->getEquation(equation_id);
         uint32_t variable_id = *(*equation & *idle_variable_indicator)
                                     .find(); // TODO handle optional case?
 
