@@ -34,13 +34,6 @@ public:
     }
     std::cout << CLOSE_CHAR << " " << _prev_percent << "%";
 
-    /**
-     * The description for train is 'train epoch N' whereas the description for
-     * evaluate is 'evaluate'. This means that if the train progress bar is
-     * interrupted by the evaluation progress bar during validation, it won't
-     * completely overwrite the previous training progress bar. This ensures
-     * that it will clear the training progress bar if N < 1,000,000.
-     */
     for (uint32_t i = 0; i < 10; i++) {
       std::cout << ' ';
     }
