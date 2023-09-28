@@ -5,15 +5,28 @@
 #include "SpookyHash.h"
 #include <cmath>
 #include <src/solve/Solve.h>
+#include <src/utils/ProgressBar.h>
+#include <src/utils/Timer.h>
 
 namespace caramel {
 
 CsfPtr constructCsf(const std::vector<std::string> &keys,
-                    const std::vector<uint32_t> &values) {
+                    const std::vector<uint32_t> &values, bool verbose) {
+  if (verbose) {
+    std::cout << "Creating codebook...";
+  }
+
+  Timer timer;
+
   auto huffman_output = cannonicalHuffman(values);
   auto &codedict = std::get<0>(huffman_output);
   auto &code_length_counts = std::get<1>(huffman_output);
   auto &ordered_symbols = std::get<2>(huffman_output);
+
+  if (verbose) {
+    std::cout << " finished in " << timer.seconds() << " seconds." << std::endl;
+    std::cout << "Partitioning to buckets...";
+  }
 
   auto buckets = partitionToBuckets(keys, values);
   auto &bucketed_key_signatures = std::get<0>(buckets);
@@ -26,9 +39,16 @@ CsfPtr constructCsf(const std::vector<std::string> &keys,
 
   std::exception_ptr exception = nullptr;
 
+  if (verbose) {
+    std::cout << " finished in " << timer.seconds() << " seconds." << std::endl;
+  }
+
+  auto bar = ProgressBar::makeOptional(verbose, "Solving systems...",
+                                       /* max_steps=*/num_buckets);
+
 #pragma omp parallel for default(none)                                         \
     shared(bucketed_key_signatures, bucketed_values, codedict,                 \
-           solutions_and_seeds, num_buckets, exception)
+           solutions_and_seeds, num_buckets, exception, bar)
   for (uint32_t i = 0; i < num_buckets; i++) {
     if (exception) {
       continue;
@@ -36,14 +56,23 @@ CsfPtr constructCsf(const std::vector<std::string> &keys,
     try {
       solutions_and_seeds[i] = constructAndSolveSubsystem(
           bucketed_key_signatures[i], bucketed_values[i], codedict);
-    } catch (std::exception& e) {
+    } catch (std::exception &e) {
 #pragma omp critical
       { exception = std::current_exception(); }
+    }
+    if (bar) {
+#pragma omp critical
+      bar->increment();
     }
   }
 
   if (exception) {
     std::rethrow_exception(exception);
+  }
+
+  if (bar) {
+    std::string str = "Solving systems...  finished in " + std::to_string(timer.seconds()) + " seconds.\n";
+    bar->close(str);
   }
 
   return Csf::make(solutions_and_seeds, code_length_counts, ordered_symbols,
