@@ -6,15 +6,27 @@
 #include <cmath>
 #include <src/solve/Solve.h>
 #include <src/utils/ProgressBar.h>
+#include <src/utils/Timer.h>
 
 namespace caramel {
 
 CsfPtr constructCsf(const std::vector<std::string> &keys,
                     const std::vector<uint32_t> &values, bool verbose) {
+  if (verbose) {
+    std::cout << "Creating codebook...";
+  }
+
+  Timer timer;
+
   auto huffman_output = cannonicalHuffman(values);
   auto &codedict = std::get<0>(huffman_output);
   auto &code_length_counts = std::get<1>(huffman_output);
   auto &ordered_symbols = std::get<2>(huffman_output);
+
+  if (verbose) {
+    std::cout << " finished in " << timer.seconds() << " seconds." << std::endl;
+    std::cout << "Partitioning to buckets...";
+  }
 
   auto buckets = partitionToBuckets(keys, values);
   auto &bucketed_key_signatures = std::get<0>(buckets);
@@ -27,7 +39,11 @@ CsfPtr constructCsf(const std::vector<std::string> &keys,
 
   std::exception_ptr exception = nullptr;
 
-  auto bar = ProgressBar::makeOptional(verbose, "solve",
+  if (verbose) {
+    std::cout << " finished in " << timer.seconds() << " seconds." << std::endl;
+  }
+
+  auto bar = ProgressBar::makeOptional(verbose, "Solving system...",
                                        /* max_steps=*/num_buckets);
 
 #pragma omp parallel for default(none)                                         \
@@ -55,7 +71,8 @@ CsfPtr constructCsf(const std::vector<std::string> &keys,
   }
 
   if (bar) {
-    bar->close("");
+    std::string str = "Solving system...  finished in " + std::to_string(timer.seconds()) + " seconds.\n";
+    bar->close(str);
   }
 
   return Csf::make(solutions_and_seeds, code_length_counts, ordered_symbols,

@@ -1,8 +1,8 @@
 #pragma once
 
 #include <iostream>
-#include <optional>
 #include <memory>
+#include <optional>
 
 constexpr char OPEN_CHAR = '[';
 constexpr char CLOSE_CHAR = ']';
@@ -10,27 +10,24 @@ constexpr char DONE_CHAR = '=';
 constexpr char TODO_CHAR = ' ';
 
 class ProgressBar {
- private:
+private:
   static constexpr uint32_t BAR_SIZE = 50;
   uint32_t _prev_ticks, _prev_steps, _prev_percent;
   const uint32_t _max_steps;
   std::string _description;
 
- public:
-  ProgressBar(const ProgressBar&) = delete;
-  ProgressBar(ProgressBar&&) = delete;
+public:
+  ProgressBar(const ProgressBar &) = delete;
+  ProgressBar(ProgressBar &&) = delete;
   ProgressBar() = delete;
 
-  ProgressBar& operator=(const ProgressBar&) = delete;
-  ProgressBar& operator=(ProgressBar&&) = delete;
+  ProgressBar &operator=(const ProgressBar &) = delete;
+  ProgressBar &operator=(ProgressBar &&) = delete;
 
   explicit ProgressBar(std::string description, uint32_t max_steps)
-      : _prev_ticks(0),
-        _prev_steps(0),
-        _prev_percent(0),
-        _max_steps(max_steps),
+      : _prev_ticks(0), _prev_steps(0), _prev_percent(0), _max_steps(max_steps),
         _description(std::move(description)) {
-    std::cout << '\r' << _description << ": " << std::flush;
+    std::cout << '\r' << _description << std::flush;
     std::cout << OPEN_CHAR;
     for (uint32_t i = 0; i < BAR_SIZE; i++) {
       std::cout << TODO_CHAR;
@@ -51,7 +48,7 @@ class ProgressBar {
   }
 
   static std::optional<ProgressBar> makeOptional(bool verbose,
-                                                 const std::string& description,
+                                                 const std::string &description,
                                                  uint32_t max_steps) {
     if (!verbose) {
       return std::nullopt;
@@ -68,7 +65,7 @@ class ProgressBar {
     // Go back to start of line
     std::cout << '\r';
 
-    std::cout << _description << ": " << OPEN_CHAR;
+    std::cout << _description << " " << OPEN_CHAR;
 
     // Fill ticks
     uint32_t new_ticks = (new_percent + 1) / 2;
@@ -87,29 +84,14 @@ class ProgressBar {
     _prev_percent = new_percent;
   }
 
-  void close(const std::string& comment) {
-    // This overwrites the progress bar with its closing comment so that the bar
-    // is not displayed after it completes.
-    std::cout << "\r" << comment;
+  void close(const std::string &comment) {
+    std::cout << "\r";
+    uint32_t current_line_len = _description.size() + BAR_SIZE + 8;
 
-    /**
-     * Clear out any additional information that's longer than the comment.
-     * The +9 comes from:
-     *    +2 => ': ' after the description (2)
-     *    +2 => OPEN_CHAR + CLOSE_CHAR
-     *    +5 => ' 100%' at the end of the bar when its complete.
-     *
-     * Adding the 9 gives us the length of everything already printed as part of
-     * the bar, so we know if there is additional information that needs to be
-     * overwritten.
-     */
-    uint32_t current_line_len = _description.size() + BAR_SIZE + 9;
-    if (current_line_len > comment.size()) {
-      for (uint32_t i = 0; i < current_line_len - comment.size(); i++) {
-        std::cout << ' ';
-      }
+    for (uint32_t i = 0; i < current_line_len; i++) {
+      std::cout << ' ';
     }
-    std::cout << '\n' << std::endl;
+    std::cout << "\r" << comment << std::endl;
   }
 };
 
