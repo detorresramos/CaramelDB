@@ -43,7 +43,7 @@ CsfPtr constructCsf(const std::vector<std::string> &keys,
     std::cout << " finished in " << timer.seconds() << " seconds." << std::endl;
   }
 
-  auto bar = ProgressBar::makeOptional(verbose, "Solving system...",
+  auto bar = ProgressBar::makeOptional(verbose, "Solving systems...",
                                        /* max_steps=*/num_buckets);
 
 #pragma omp parallel for default(none)                                         \
@@ -71,7 +71,7 @@ CsfPtr constructCsf(const std::vector<std::string> &keys,
   }
 
   if (bar) {
-    std::string str = "Solving system...  finished in " + std::to_string(timer.seconds()) + " seconds.\n";
+    std::string str = "Solving systems...  finished in " + std::to_string(timer.seconds()) + " seconds.\n";
     bar->close(str);
   }
 
