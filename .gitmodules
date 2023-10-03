@@ -10,3 +10,6 @@
 [submodule "deps/flamegraph"]
 	path = deps/flamegraph
 	url = https://github.com/brendangregg/FlameGraph
+[submodule "deps/sse2neon"]
+	path = deps/sse2neon
+	url = https://github.com/DLTcollab/sse2neon
