@@ -28,7 +28,7 @@ def test_csf():
 
 
 @pytest.mark.unit
-def test_csf():
+def test_csf_byte_strings():
     keys = [f"key{i}".encode("utf-8") for i in range(1000)]
     values = [i for i in range(1000)]
     run_csf_test(keys, values)
