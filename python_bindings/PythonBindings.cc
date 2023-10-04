@@ -19,6 +19,17 @@ void defineCaramelModule(py::module_ &module) {
              return constructCsf(keys, values, verbose);
            }),
            py::arg("keys"), py::arg("values"), py::arg("verbose") = true)
+      .def(py::init([](const std::vector<py::bytes> &byte_keys,
+                       const std::vector<uint32_t> &values, bool verbose) {
+             std::vector<std::string> string_keys;
+             string_keys.reserve(byte_keys.size());
+
+             for (const auto &byte_key : byte_keys) {
+               string_keys.push_back(std::string(byte_key));
+             }
+             return constructCsf(string_keys, values, verbose);
+           }),
+           py::arg("keys"), py::arg("values"), py::arg("verbose") = true)
       .def("query", &Csf::query, py::arg("key"))
       .def("save", &Csf::save, py::arg("filename"))
       .def_static("load", &Csf::load, py::arg("filename"));

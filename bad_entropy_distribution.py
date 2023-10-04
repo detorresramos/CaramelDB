@@ -1,5 +1,6 @@
-import caramel
 import time
+
+import caramel
 
 num = 10_000_000
 
