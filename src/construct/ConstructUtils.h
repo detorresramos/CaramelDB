@@ -30,8 +30,8 @@ getStartVarLocations(const Uint128Signature &key_signature, uint32_t seed,
 } // namespace caramel
 
 namespace std {
-template <> struct hash<std::array<char, 10>> {
-  size_t operator()(const std::array<char, 10> &arr) const {
+template <std::size_t N> struct hash<std::array<char, N>> {
+  size_t operator()(const std::array<char, N> &arr) const {
     size_t hash = 0;
     for (const char &c : arr) {
       hash = hash * 31 + c;

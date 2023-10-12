@@ -27,6 +27,8 @@ template <typename T> void bindCsf(py::module &module, const char *name) {
 PYBIND11_MODULE(caramel, module) { // NOLINT
   bindCsf<uint32_t>(module, "CSF");
   bindCsf<std::array<char, 10>>(module, "CSFChar10");
+  bindCsf<std::array<char, 12>>(module, "CSFChar12");
+  bindCsf<std::string>(module, "CSFString");
 }
 
 } // namespace caramel::python
