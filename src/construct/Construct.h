@@ -3,6 +3,8 @@
 #include "BucketedHashStore.h"
 #include "Codec.h"
 #include "Csf.h"
+#include <array>
+#include <functional>
 #include <src/Modulo2System.h>
 
 namespace caramel {
@@ -10,8 +12,9 @@ namespace caramel {
 /**
  * Constructs a Csf from the given keys and values.
  */
-CsfPtr constructCsf(const std::vector<std::string> &keys,
-                    const std::vector<uint32_t> &values, bool verbose = true);
+template <typename T>
+CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
+                       const std::vector<T> &values, bool verbose = true);
 
 /*
 Constructs a binary system of linear equations to solve for each bit of the
@@ -27,14 +30,16 @@ Arguments:
     Returns:
             SparseSystemPtr to solve for each key's encoded bits.
 */
+template <typename T>
 SparseSystemPtr
 constructModulo2System(const std::vector<Uint128Signature> &key_signatures,
-                       const std::vector<uint32_t> &values,
-                       const CodeDict &codedict, uint32_t seed);
+                       const std::vector<T> &values,
+                       const CodeDict<T> &codedict, uint32_t seed);
 
+template <typename T>
 SubsystemSolutionSeedPair
 constructAndSolveSubsystem(const std::vector<Uint128Signature> &key_signatures,
-                           const std::vector<uint32_t> &values,
-                           const CodeDict &codedict);
+                           const std::vector<T> &values,
+                           const CodeDict<T> &codedict);
 
 } // namespace caramel

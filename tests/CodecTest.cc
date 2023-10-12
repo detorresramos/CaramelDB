@@ -8,11 +8,11 @@ namespace caramel::tests {
 TEST(CodecTest, TestSingleCannonicalHuffman) {
   std::vector<uint32_t> symbols = {2, 3, 4, 5, 6, 7, 3, 4, 5, 6};
   auto [codedict, code_length_counts, sorted_symbols] =
-      cannonicalHuffman(symbols);
+      cannonicalHuffman<uint32_t>(symbols);
 
   for (auto [expected_key, code] : codedict) {
     uint32_t actual_key =
-        cannonicalDecode(code, code_length_counts, sorted_symbols);
+        cannonicalDecode<uint32_t>(code, code_length_counts, sorted_symbols);
     ASSERT_EQ(actual_key, expected_key);
   }
 }
@@ -23,11 +23,11 @@ TEST(CodecTest, TestRandomCannonicalHuffman) {
     std::vector<uint32_t> symbols = genRandomVector(/* size = */ 30);
 
     auto [codedict, code_length_counts, sorted_symbols] =
-        cannonicalHuffman(symbols);
+        cannonicalHuffman<uint32_t>(symbols);
 
     for (auto [expected_key, code] : codedict) {
       uint32_t actual_key =
-          cannonicalDecode(code, code_length_counts, sorted_symbols);
+          cannonicalDecode<uint32_t>(code, code_length_counts, sorted_symbols);
       ASSERT_EQ(actual_key, expected_key);
     }
   }

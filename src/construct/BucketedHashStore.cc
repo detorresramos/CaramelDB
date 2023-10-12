@@ -1,6 +1,7 @@
 #include "BucketedHashStore.h"
 #include "SpookyHash.h"
 #include <algorithm>
+#include <array>
 #include <stdexcept>
 
 namespace caramel {
@@ -25,17 +26,17 @@ uint32_t getBucketID(Uint128Signature signature, uint32_t num_buckets) {
   return bucket_id;
 }
 
+template <typename T>
 std::tuple<std::vector<std::vector<Uint128Signature>>,
-           std::vector<std::vector<uint32_t>>, uint64_t>
-construct(const std::vector<std::string> &keys,
-          const std::vector<uint32_t> &values, uint32_t num_buckets,
-          uint64_t seed) {
+           std::vector<std::vector<T>>, uint64_t>
+construct(const std::vector<std::string> &keys, const std::vector<T> &values,
+          uint32_t num_buckets, uint64_t seed) {
   if (keys.size() != values.size()) {
     throw std::invalid_argument("Keys and values must match sizes.");
   }
 
   std::vector<std::vector<Uint128Signature>> key_buckets(num_buckets);
-  std::vector<std::vector<uint32_t>> value_buckets(num_buckets);
+  std::vector<std::vector<T>> value_buckets(num_buckets);
 
   for (uint32_t i = 0; i < keys.size(); i++) {
     Uint128Signature signature = hashKey(keys[i], seed);
@@ -52,10 +53,11 @@ construct(const std::vector<std::string> &keys,
   return {key_buckets, value_buckets, seed};
 }
 
+template <typename T>
 std::tuple<std::vector<std::vector<Uint128Signature>>,
-           std::vector<std::vector<uint32_t>>, uint64_t>
+           std::vector<std::vector<T>>, uint64_t>
 partitionToBuckets(const std::vector<std::string> &keys,
-                   const std::vector<uint32_t> &values, uint32_t bucket_size,
+                   const std::vector<T> &values, uint32_t bucket_size,
                    uint32_t num_attempts) {
   if (keys.size() != values.size()) {
     throw std::invalid_argument("Keys and values must match sizes.");
@@ -65,7 +67,7 @@ partitionToBuckets(const std::vector<std::string> &keys,
 
   for (uint64_t seed = 0; seed < num_attempts; seed++) {
     try {
-      return construct(keys, values, num_buckets, seed);
+      return construct<T>(keys, values, num_buckets, seed);
     } catch (const std::exception &e) {
       if (seed == num_attempts - 1) {
         throw;
@@ -76,5 +78,26 @@ partitionToBuckets(const std::vector<std::string> &keys,
 
   throw std::invalid_argument("Fatal error: should never reach here.");
 }
+
+template std::tuple<std::vector<std::vector<Uint128Signature>>,
+                    std::vector<std::vector<uint32_t>>, uint64_t>
+partitionToBuckets(const std::vector<std::string> &,
+                   const std::vector<uint32_t> &, uint32_t, uint32_t);
+
+template std::tuple<std::vector<std::vector<Uint128Signature>>,
+                    std::vector<std::vector<uint32_t>>, uint64_t>
+construct(const std::vector<std::string> &, const std::vector<uint32_t> &,
+          uint32_t, uint64_t);
+
+template std::tuple<std::vector<std::vector<Uint128Signature>>,
+                    std::vector<std::vector<std::array<char, 10>>>, uint64_t>
+partitionToBuckets(const std::vector<std::string> &keys,
+                   const std::vector<std::array<char, 10>> &values,
+                   uint32_t bucket_size, uint32_t num_attempts);
+
+template std::tuple<std::vector<std::vector<Uint128Signature>>,
+                    std::vector<std::vector<std::array<char, 10>>>, uint64_t>
+construct(const std::vector<std::string> &,
+          const std::vector<std::array<char, 10>> &, uint32_t, uint64_t);
 
 } // namespace caramel

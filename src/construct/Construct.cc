@@ -3,6 +3,7 @@
 #include "Codec.h"
 #include "ConstructUtils.h"
 #include "SpookyHash.h"
+#include <array>
 #include <cmath>
 #include <src/solve/Solve.h>
 #include <src/utils/ProgressBar.h>
@@ -10,15 +11,16 @@
 
 namespace caramel {
 
-CsfPtr constructCsf(const std::vector<std::string> &keys,
-                    const std::vector<uint32_t> &values, bool verbose) {
+template <typename T>
+CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
+                       const std::vector<T> &values, bool verbose) {
   if (verbose) {
     std::cout << "Creating codebook...";
   }
 
   Timer timer;
 
-  auto huffman_output = cannonicalHuffman(values);
+  auto huffman_output = cannonicalHuffman<T>(values);
   auto &codedict = std::get<0>(huffman_output);
   auto &code_length_counts = std::get<1>(huffman_output);
   auto &ordered_symbols = std::get<2>(huffman_output);
@@ -28,7 +30,7 @@ CsfPtr constructCsf(const std::vector<std::string> &keys,
     std::cout << "Partitioning to buckets...";
   }
 
-  auto buckets = partitionToBuckets(keys, values);
+  auto buckets = partitionToBuckets<T>(keys, values);
   auto &bucketed_key_signatures = std::get<0>(buckets);
   auto &bucketed_values = std::get<1>(buckets);
   uint32_t hash_store_seed = std::get<2>(buckets);
@@ -54,7 +56,7 @@ CsfPtr constructCsf(const std::vector<std::string> &keys,
       continue;
     }
     try {
-      solutions_and_seeds[i] = constructAndSolveSubsystem(
+      solutions_and_seeds[i] = constructAndSolveSubsystem<T>(
           bucketed_key_signatures[i], bucketed_values[i], codedict);
     } catch (std::exception &e) {
 #pragma omp critical
@@ -71,25 +73,27 @@ CsfPtr constructCsf(const std::vector<std::string> &keys,
   }
 
   if (bar) {
-    std::string str = "Solving systems...  finished in " + std::to_string(timer.seconds()) + " seconds.\n";
+    std::string str = "Solving systems...  finished in " +
+                      std::to_string(timer.seconds()) + " seconds.\n";
     bar->close(str);
   }
 
-  return Csf::make(solutions_and_seeds, code_length_counts, ordered_symbols,
-                   hash_store_seed);
+  return Csf<T>::make(solutions_and_seeds, code_length_counts, ordered_symbols,
+                      hash_store_seed);
 }
 
+template <typename T>
 SubsystemSolutionSeedPair
 constructAndSolveSubsystem(const std::vector<Uint128Signature> &key_signatures,
-                           const std::vector<uint32_t> &values,
-                           const CodeDict &codedict) {
+                           const std::vector<T> &values,
+                           const CodeDict<T> &codedict) {
   uint32_t seed = 0;
   uint32_t num_tries = 0;
   uint32_t max_num_attempts = 128;
   while (true) {
     try {
       SparseSystemPtr sparse_system =
-          constructModulo2System(key_signatures, values, codedict, seed);
+          constructModulo2System<T>(key_signatures, values, codedict, seed);
 
       BitArrayPtr solution = solveModulo2System(sparse_system);
 
@@ -107,10 +111,11 @@ constructAndSolveSubsystem(const std::vector<Uint128Signature> &key_signatures,
   }
 }
 
+template <typename T>
 SparseSystemPtr
 constructModulo2System(const std::vector<Uint128Signature> &key_signatures,
-                       const std::vector<uint32_t> &values,
-                       const CodeDict &codedict, uint32_t seed) {
+                       const std::vector<T> &values,
+                       const CodeDict<T> &codedict, uint32_t seed) {
   // This is a constant multiplier on the number of variables based on the
   // number of equations expected. This constant makes the system solvable
   // with very high probability. If we want faster construction at the cost of
@@ -159,5 +164,34 @@ constructModulo2System(const std::vector<Uint128Signature> &key_signatures,
 
   return sparse_system;
 }
+
+template CsfPtr<uint32_t> constructCsf(const std::vector<std::string> &keys,
+                                       const std::vector<uint32_t> &values,
+                                       bool verbose);
+
+template SubsystemSolutionSeedPair
+constructAndSolveSubsystem(const std::vector<Uint128Signature> &key_signatures,
+                           const std::vector<uint32_t> &values,
+                           const CodeDict<uint32_t> &codedict);
+
+template SparseSystemPtr
+constructModulo2System(const std::vector<Uint128Signature> &key_signatures,
+                       const std::vector<uint32_t> &values,
+                       const CodeDict<uint32_t> &codedict, uint32_t seed);
+
+template CsfPtr<std::array<char, 10>>
+constructCsf(const std::vector<std::string> &keys,
+             const std::vector<std::array<char, 10>> &values, bool verbose);
+
+template SubsystemSolutionSeedPair
+constructAndSolveSubsystem(const std::vector<Uint128Signature> &key_signatures,
+                           const std::vector<std::array<char, 10>> &values,
+                           const CodeDict<std::array<char, 10>> &codedict);
+
+template SparseSystemPtr
+constructModulo2System(const std::vector<Uint128Signature> &key_signatures,
+                       const std::vector<std::array<char, 10>> &values,
+                       const CodeDict<std::array<char, 10>> &codedict,
+                       uint32_t seed);
 
 } // namespace caramel

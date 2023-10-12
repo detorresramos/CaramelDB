@@ -1,7 +1,16 @@
 #include "Codec.h"
+#include "ConstructUtils.h"
+#include <algorithm>
+#include <array>
 #include <stdexcept>
 
 namespace caramel {
+
+bool operator>(const std::array<char, 10> &lhs,
+               const std::array<char, 10> &rhs) {
+  return std::lexicographical_compare(rhs.begin(), rhs.end(), lhs.begin(),
+                                      lhs.end());
+}
 
 /*
   A: List of symbol frequencies in non-decreasing order.
@@ -76,15 +85,16 @@ void minRedundancyCodewordLengths(std::vector<uint32_t> &A) {
   }
 }
 
-std::tuple<CodeDict, std::vector<uint32_t>, std::vector<uint32_t>>
-cannonicalHuffman(const std::vector<uint32_t> &symbols) {
-  std::unordered_map<uint32_t, uint32_t> frequencies;
-  for (uint32_t symbol : symbols) {
+template <typename T>
+std::tuple<CodeDict<T>, std::vector<uint32_t>, std::vector<T>>
+cannonicalHuffman(const std::vector<T> &symbols) {
+  std::unordered_map<T, uint32_t> frequencies;
+  for (const auto &symbol : symbols) {
     ++frequencies[symbol];
   }
 
   // TODO(david) unwrap this into a two separate vectors since we end up copying
-  std::vector<std::pair<uint32_t, uint32_t>> symbol_frequency_pairs(
+  std::vector<std::pair<T, uint32_t>> symbol_frequency_pairs(
       frequencies.begin(), frequencies.end());
   // Sort the pairs by frequency first, then by symbol.
   // This is required for the decoder to reconstruct the codes
@@ -95,7 +105,7 @@ cannonicalHuffman(const std::vector<uint32_t> &symbols) {
             });
 
   std::vector<uint32_t> codeword_lengths;
-  for (auto [symbol, freq] : symbol_frequency_pairs) {
+  for (auto [_, freq] : symbol_frequency_pairs) {
     codeword_lengths.push_back(freq);
   }
   minRedundancyCodewordLengths(codeword_lengths);
@@ -109,7 +119,7 @@ cannonicalHuffman(const std::vector<uint32_t> &symbols) {
 
   uint32_t code = 0;
   // maps the symbol to a bitarray representing its code
-  CodeDict codedict;
+  CodeDict<T> codedict;
   // Initialize code_length_counts with size = max code length + 1
   // accessing element i gives the number of codes of length i in the codedict
   std::vector<uint32_t> code_length_counts(codeword_lengths.back() + 1, 0);
@@ -124,13 +134,21 @@ cannonicalHuffman(const std::vector<uint32_t> &symbols) {
     }
   }
 
-  std::vector<uint32_t> ordered_symbols;
+  std::vector<T> ordered_symbols;
   for (auto [symbol, freq] : symbol_frequency_pairs) {
     ordered_symbols.push_back(symbol);
   }
 
   return {codedict, code_length_counts, ordered_symbols};
 }
+
+template std::tuple<CodeDict<uint32_t>, std::vector<uint32_t>,
+                    std::vector<uint32_t>>
+cannonicalHuffman(const std::vector<uint32_t> &);
+
+template std::tuple<CodeDict<std::array<char, 10>>, std::vector<uint32_t>,
+                    std::vector<std::array<char, 10>>>
+cannonicalHuffman(const std::vector<std::array<char, 10>> &);
 
 /*
   Find the first decodable segment in a given bitarray and return the
@@ -146,9 +164,10 @@ cannonicalHuffman(const std::vector<uint32_t> &symbols) {
 
   Source: https://github.com/madler/zlib/blob/master/contrib/puff/puff.c#L235
 */
-uint32_t cannonicalDecode(const BitArrayPtr &bitarray,
-                          const std::vector<uint32_t> &code_length_counts,
-                          const std::vector<uint32_t> &symbols) {
+template <typename T>
+T cannonicalDecode(const BitArrayPtr &bitarray,
+                   const std::vector<uint32_t> &code_length_counts,
+                   const std::vector<T> &symbols) {
   // instead of storing the symbols, if we have variable length stuff, store a
   // vector of pointers
   int code = 0;
@@ -168,5 +187,13 @@ uint32_t cannonicalDecode(const BitArrayPtr &bitarray,
   }
   throw std::invalid_argument("Invalid Code Passed");
 }
+
+template uint32_t cannonicalDecode<uint32_t>(const BitArrayPtr &,
+                                             const std::vector<uint32_t> &,
+                                             const std::vector<uint32_t> &);
+
+template std::array<char, 10> cannonicalDecode<std::array<char, 10>>(
+    const BitArrayPtr &, const std::vector<uint32_t> &,
+    const std::vector<std::array<char, 10>> &);
 
 } // namespace caramel

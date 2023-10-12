@@ -55,7 +55,7 @@ TEST(BucketedHashStoreTest, TestPartitioning) {
   auto values = genRandomVector(size);
 
   auto [key_buckets, value_buckets, seed] =
-      partitionToBuckets(keys, values, 20);
+      partitionToBuckets<uint32_t>(keys, values, 20);
 
   for (auto key : keys) {
     Uint128Signature signature = hashKey(key, 0);
@@ -71,7 +71,8 @@ TEST(BucketedHashStoreTest, TestDuplicateKey) {
   std::vector<std::string> keys = {"HAHA", "HAHA"};
   auto values = genRandomVector(2);
 
-  ASSERT_THROW(partitionToBuckets(keys, values, 1), std::runtime_error);
+  ASSERT_THROW(partitionToBuckets<uint32_t>(keys, values, 1),
+               std::runtime_error);
 }
 
 } // namespace caramel::tests

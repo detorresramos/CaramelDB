@@ -6,13 +6,15 @@
 
 namespace caramel {
 
-using CodeDict = std::unordered_map<uint32_t, BitArrayPtr>;
+template <typename T> using CodeDict = std::unordered_map<T, BitArrayPtr>;
 
-std::tuple<CodeDict, std::vector<uint32_t>, std::vector<uint32_t>>
-cannonicalHuffman(const std::vector<uint32_t> &values);
+template <typename T>
+std::tuple<CodeDict<T>, std::vector<uint32_t>, std::vector<T>>
+cannonicalHuffman(const std::vector<T> &values);
 
-uint32_t cannonicalDecode(const BitArrayPtr &bitarray,
-                          const std::vector<uint32_t> &code_length_counts,
-                          const std::vector<uint32_t> &symbols);
+template <typename T>
+T cannonicalDecode(const BitArrayPtr &bitarray,
+                   const std::vector<uint32_t> &code_length_counts,
+                   const std::vector<T> &symbols);
 
 } // namespace caramel
