@@ -54,12 +54,11 @@ def test_csf_char_10():
     os.remove(filename)
 
 
-
 @pytest.mark.unit
 def test_csf_string():
     keys = [f"key{i}".encode("utf-8") for i in range(1000)]
     values = [f"value{i}" for i in range(1000)]
-    
+
     csf = caramel.CSFString(keys, values)
 
     for key, value in zip(keys, values):
