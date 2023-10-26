@@ -1,6 +1,8 @@
 #pragma once
 #include "SpookyHash.h"
 #include <algorithm>
+#include <array>
+#include <functional>
 #include <vector>
 
 namespace caramel {
@@ -26,3 +28,16 @@ getStartVarLocations(const Uint128Signature &key_signature, uint32_t seed,
 }
 
 } // namespace caramel
+
+namespace std {
+template <std::size_t N> struct hash<std::array<char, N>> {
+  size_t operator()(const std::array<char, N> &arr) const {
+    size_t hash = 0;
+    for (const char &c : arr) {
+      hash = hash * 31 + c;
+    }
+    return hash;
+  }
+};
+
+} // namespace std
