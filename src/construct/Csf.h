@@ -23,6 +23,12 @@ template <typename T> using CsfPtr = std::shared_ptr<Csf<T>>;
 
 using SubsystemSolutionSeedPair = std::pair<BitArrayPtr, uint32_t>;
 
+class CsfDeserializationException : public std::runtime_error {
+public:
+  explicit CsfDeserializationException(const std::string &message)
+      : std::runtime_error("Cannot deserialize CSF: " + message){};
+};
+
 template <typename T> class Csf {
 public:
   Csf(const std::vector<SubsystemSolutionSeedPair> &solutions_and_seeds,
@@ -75,14 +81,24 @@ public:
                             _ordered_symbols);
   }
 
-  void save(const std::string &filename) const {
+  void save(const std::string &filename, const uint32_t type_id = 0) const {
     auto output_stream = SafeFileIO::ofstream(filename, std::ios::binary);
+    output_stream.write(reinterpret_cast<const char*>(&type_id), sizeof(uint32_t));
     cereal::BinaryOutputArchive oarchive(output_stream);
     oarchive(*this);
   }
 
-  static CsfPtr<T> load(const std::string &filename) {
+  static CsfPtr<T> load(const std::string &filename, const uint32_t type_id = 0) {
     auto input_stream = SafeFileIO::ifstream(filename, std::ios::binary);
+    // Check the type_id before deserializing a (potentially large) CSF.
+    uint32_t type_id_found = 0;
+    input_stream.read(reinterpret_cast<char*>(&type_id_found), sizeof(uint32_t));
+    if (type_id != type_id_found){
+      throw CsfDeserializationException(
+        "Expected type_id to be " + std::to_string(type_id) + 
+        " but found type_id = " + std::to_string(type_id_found) + 
+        " when deserializing " + filename);
+    }
     cereal::BinaryInputArchive iarchive(input_stream);
     CsfPtr<T> deserialize_into(new Csf<T>());
     iarchive(*deserialize_into);
