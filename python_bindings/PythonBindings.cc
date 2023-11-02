@@ -24,7 +24,7 @@ template <typename T> void bindCsf(py::module &module, const char *name, const u
       .def_static("load", &Csf<T>::load, py::arg("filename"), py::arg("type_id") = type_id);
 }
 
-PYBIND11_MODULE(caramel, module) { // NOLINT
+PYBIND11_MODULE(_caramel, module) { // NOLINT
   bindCsf<uint32_t>(module, "CSFUint32", 1);
   bindCsf<std::array<char, 10>>(module, "CSFChar10", 2);
   bindCsf<std::array<char, 12>>(module, "CSFChar12", 3);
