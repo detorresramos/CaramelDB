@@ -1,15 +1,15 @@
 from ._caramel import *
 
 
-def CSF(keys, values, max_to_validate=None):
+def CSF(keys, values, max_to_infer=None):
     """
     Constructs a CSF, automatically inferring the correct CSF backend.
 
     Arguments:
         keys: List of hashable keys.
         values: List of values to use in the CSF.
-        max_to_validate: If provided, only the first "max_to_validate" values
-            will be checked when inferring the correct CSF backend.
+        max_to_infer: If provided, only the first "max_to_infer" values
+            will be examinied when inferring the correct CSF backend.
     
     Returns:
         A CSF containing the desired key-value mapping.
@@ -31,13 +31,14 @@ def CSF(keys, values, max_to_validate=None):
 
     if isinstance(values[0], (str, bytes)):
         # call out to one of the dedicated-length strings
-        max_idx = max_to_validate
-        validate_values = values[:max_idx] if max_idx else values
+        validate_values = values[:max_to_infer] if max_to_infer else values
         value_length = _infer_length(values)
         if value_length == 10:
-            return CSFChar10(keys, values)
+            csf = CSFChar10(keys, values)
+            return CSFQueryWrapper(csf, lambda x: ''.join(x))
         elif value_length == 12:
-            return CSFChar12(keys, values)
+            csf = CSFChar12(keys, values)
+            return CSFQueryWrapper(csf, lambda x: ''.join(x))
         else:
             return CSFString(keys, values)
     raise ValueError(f"Unsupported value type: {type(values[0])}")
@@ -69,7 +70,23 @@ def load(filename):
     for csf_class in csf_classes:
         try:
             csf = csf_class.load(filename)
+            if isinstance(csf, (CSFChar10, CSFChar12)):
+                csf = CSFQueryWrapper(csf, lambda x: ''.join(x))
             return csf
         except CsfDeserializationException as e:
             continue
     raise ValueError(f"File {filename} does not contain a deserializable CSF.")
+
+
+class CSFQueryWrapper(object):
+    """Wraps a CSF, applying a postprocessing function to the query results."""
+    def __init__(self, csf, postprocess_fn):
+        self._csf = csf
+        self._postprocess_fn = postprocess_fn
+
+    def query(self, q):
+        return self._postprocess_fn(self._csf.query(q))
+    
+    def __getattr__(self, name):
+        return getattr(self.__dict__['_csf'], name)
+    

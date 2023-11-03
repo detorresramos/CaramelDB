@@ -39,16 +39,19 @@ def test_csf_char_10():
     keys = [f"key{i}".encode("utf-8") for i in range(1000)]
     values = [str(f"value{i}".ljust(10)[:10]) for i in range(1000)]
 
-    csf = caramel.CSFChar10(keys, values)
+    list_to_str = lambda x: ''.join(x)
+    csf = caramel.CSFQueryWrapper(caramel.CSFChar10(keys, values), list_to_str)
 
     for key, value in zip(keys, values):
+        print(csf.query, csf.query(key))
         assert csf.query(key) == value
 
     filename = "temp.csf"
     csf.save(filename)
-    csf = caramel.CSFChar10.load(filename)
+    csf = caramel.CSFQueryWrapper(caramel.CSFChar10.load(filename), list_to_str)
 
     for key, value in zip(keys, values):
+        print(csf.query, csf.query(key))
         assert csf.query(key) == value
 
     os.remove(filename)
@@ -91,23 +94,23 @@ def test_auto_infer_char10():
     keys = [f"key{i}".encode("utf-8") for i in range(1000)]
     values = [str(f"value{i}".ljust(10)[:10]) for i in range(1000)]
     csf = caramel.CSF(keys, values)
-    assert isinstance(csf, caramel.CSFChar10)
+    assert isinstance(csf, caramel.CSFQueryWrapper)
     filename = "temp.csf"
     csf.save(filename)
     csf = caramel.load(filename)
-    assert isinstance(csf, caramel.CSFChar10)
+    assert isinstance(csf, caramel.CSFQueryWrapper)
     os.remove(filename)
-    
+
 
 def test_auto_infer_char12():
     keys = [f"key{i}".encode("utf-8") for i in range(1000)]
     values = [str(f"value{i}".ljust(12)[:12]) for i in range(1000)]
     csf = caramel.CSF(keys, values)
-    assert isinstance(csf, caramel.CSFChar12)
+    assert isinstance(csf, caramel.CSFQueryWrapper)
     filename = "temp.csf"
     csf.save(filename)
     csf = caramel.load(filename)
-    assert isinstance(csf, caramel.CSFChar12)
+    assert isinstance(csf, caramel.CSFQueryWrapper)
     os.remove(filename)
 
 
