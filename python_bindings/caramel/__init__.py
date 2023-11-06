@@ -26,31 +26,10 @@ def CSF(keys, values, max_to_infer=None):
     if not isinstance(keys[0], (str, bytes)):
         raise ValueError(f"Keys must be str or bytes, found {type(keys[0])}")
 
-    if isinstance(values[0], int):
-        return CSFUint32(keys, values)
-
-    if isinstance(values[0], (str, bytes)):
-        # call out to one of the dedicated-length strings
-        validate_values = values[:max_to_infer] if max_to_infer else values
-        value_length = _infer_length(values)
-        if value_length == 10:
-            csf = CSFChar10(keys, values)
-            return CSFQueryWrapper(csf, lambda x: ''.join(x))
-        elif value_length == 12:
-            csf = CSFChar12(keys, values)
-            return CSFQueryWrapper(csf, lambda x: ''.join(x))
-        else:
-            return CSFString(keys, values)
-    raise ValueError(f"Unsupported value type: {type(values[0])}")
-
-
-
-def _infer_length(values):
-    target_length = len(values[0])
-    for v in values:
-        if len(v) != target_length:
-            return None
-    return target_length
+    CSFClass = _infer_backend(keys, values, max_to_infer=max_to_infer)
+    csf = CSFClass(keys, values)
+    csf = _wrap_backend(csf)
+    return csf
 
 
 def load(filename):
@@ -66,13 +45,11 @@ def load(filename):
     Raises:
         ValueError if the filename does not contain a valid CSF.
     """
-    csf_classes = [CSFUint32, CSFChar10, CSFChar12, CSFString]
+    csf_classes = (CSFUint32, CSFChar10, CSFChar12, CSFString)
     for csf_class in csf_classes:
         try:
             csf = csf_class.load(filename)
-            if isinstance(csf, (CSFChar10, CSFChar12)):
-                csf = CSFQueryWrapper(csf, lambda x: ''.join(x))
-            return csf
+            return _wrap_backend(csf)
         except CsfDeserializationException as e:
             continue
     raise ValueError(f"File {filename} does not contain a deserializable CSF.")
@@ -88,5 +65,43 @@ class CSFQueryWrapper(object):
         return self._postprocess_fn(self._csf.query(q))
     
     def __getattr__(self, name):
-        return getattr(self.__dict__['_csf'], name)
-    
+        return getattr(self._csf, name)
+
+
+def _infer_backend(keys, values, max_to_infer=None):
+    """Returns a CSF class, selected based on the key / value types."""
+
+    if isinstance(values[0], int):
+        return CSFUint32
+
+    if isinstance(values[0], (str, bytes)):
+        # call out to one of the dedicated-length strings
+        validate_values = values[:max_to_infer] if max_to_infer else values
+        value_length = _infer_length(values)
+        if value_length == 10:
+            return CSFChar10
+        elif value_length == 12:
+            return CSFChar12
+        else:
+            return CSFString
+
+    raise ValueError(f"Unsupported value type: {type(values[0])}")
+
+
+def _infer_length(values):
+    """Returns the length of each value, if all values have the same length."""
+    target_length = len(values[0])
+    for v in values:
+        if len(v) != target_length:
+            return None
+    return target_length
+
+
+def _wrap_backend(csf):
+    """Wraps the backend CSF (e.g., to apply post-query processing)."""
+    list_to_str_classes = (CSFChar10, CSFChar12)
+
+    if isinstance(csf, list_to_str_classes):
+        csf = CSFQueryWrapper(csf, lambda x: ''.join(x))
+
+    return csf

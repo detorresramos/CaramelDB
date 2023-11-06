@@ -20,8 +20,13 @@ template <typename T> void bindCsf(py::module &module, const char *name, const u
            }),
            py::arg("keys"), py::arg("values"), py::arg("verbose") = true)
       .def("query", &Csf<T>::query, py::arg("key"))
-      .def("save", &Csf<T>::save, py::arg("filename"), py::arg("type_id") = type_id)
-      .def_static("load", &Csf<T>::load, py::arg("filename"), py::arg("type_id") = type_id);
+      // Call save / load through a lambda to avoid user visibility of type_id.
+      .def("save", [type_id](Csf<T> &self, const std::string &filename) {
+          return self.save(filename, type_id);
+       }, py::arg("filename"))
+      .def_static("load", [type_id](const std::string &filename) {
+          return Csf<T>::load(filename, type_id);
+        }, py::arg("filename"));
 }
 
 PYBIND11_MODULE(_caramel, module) { // NOLINT
