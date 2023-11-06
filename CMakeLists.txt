@@ -120,11 +120,11 @@ set(CARAMEL_SOURCES
 add_library(caramel_lib STATIC ${CARAMEL_SOURCES})
 target_link_libraries(caramel_lib PUBLIC OpenMP::OpenMP_CXX cereal::cereal)
 
-pybind11_add_module(caramel ${PROJECT_SOURCE_DIR}/python_bindings/PythonBindings.cc)
-target_link_libraries(caramel PUBLIC caramel_lib)
+pybind11_add_module(_caramel ${PROJECT_SOURCE_DIR}/python_bindings/PythonBindings.cc)
+target_link_libraries(_caramel PUBLIC caramel_lib)
 
 target_compile_options(caramel_lib PRIVATE ${CARAMEL_COMPILE_OPTIONS})
-target_compile_options(caramel PRIVATE ${CARAMEL_COMPILE_OPTIONS})
+target_compile_options(_caramel PRIVATE ${CARAMEL_COMPILE_OPTIONS})
 
 message("===================================================")
 message("\tProject Directory = ${PROJECT_SOURCE_DIR}")
