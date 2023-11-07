@@ -29,11 +29,46 @@ template <typename T> void bindCsf(py::module &module, const char *name, const u
         }, py::arg("filename"));
 }
 
+// We have to wrap a Csf<std::string> because Pybind11 requires one holder type
+// per class (so we cannot bind it directly to a shared_ptr<Csf<std::string>>).
+class CsfBytes: public Csf<std::string>{ public:
+  CsfBytes(Csf<std::string> && obj) : Csf<std::string>(std::move(obj)) {}
+  CsfBytes(Csf<std::string> const & obj) : Csf<std::string>(obj) {}
+};
+
+void bindBytesCsf(py::module &module, const char *name, const uint32_t type_id) {
+  // Byte keys are fine, since Pybind11 casts from Python bytes to C++ strings.
+  // Byte values are not fine, because C++ strings auto-cast to uint-8 Python
+  // strings, meaning we must bind the byte values carefully to return bytes.
+  py::class_<CsfBytes, std::shared_ptr<CsfBytes>>(module, name)
+      .def(py::init([](const std::vector<std::string> &keys,
+                       const std::vector<std::string> &values, bool verbose) {
+             // This is tricky. If constructCsf can return a unique_ptr, we can
+             // probably get this to use an efficient move constructor into the
+             // CsfBytes. But as-is, with a shared_ptr, I'm not sure how to
+             // cannibalize the Csf<std::string> and avoid a deep mem copy.
+             return CsfBytes(*constructCsf<std::string>(keys, values, verbose));
+           }),
+           py::arg("keys"), py::arg("values"), py::arg("verbose") = true)
+      // Query returns std::string, which we must explicitly convert to py::bytes.
+      .def("query", [](CsfBytes &self, const std::string& key) {
+          std::string s = self.query(key);
+          return py::bytes(s);
+        }, py::arg("key"))
+      .def("save", [type_id](CsfBytes &self, const std::string &filename) {
+          return self.save(filename, type_id);
+        }, py::arg("filename"))
+      .def_static("load", [type_id](const std::string &filename) {
+          return CsfBytes::load(filename, type_id);
+        }, py::arg("filename"));
+}
+
 PYBIND11_MODULE(_caramel, module) { // NOLINT
   bindCsf<uint32_t>(module, "CSFUint32", 1);
   bindCsf<std::array<char, 10>>(module, "CSFChar10", 2);
   bindCsf<std::array<char, 12>>(module, "CSFChar12", 3);
   bindCsf<std::string>(module, "CSFString", 4);
+  bindBytesCsf(module, "CSFBytes", 5);
   py::register_exception<CsfDeserializationException>(module, "CsfDeserializationException");
 }
 
