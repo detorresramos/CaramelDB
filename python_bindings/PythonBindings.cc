@@ -32,7 +32,6 @@ template <typename T> void bindCsf(py::module &module, const char *name, const u
 // We have to wrap a Csf<std::string> because Pybind11 requires one holder type
 // per class (so we cannot bind it directly to a shared_ptr<Csf<std::string>>).
 class CsfBytes: public Csf<std::string>{ public:
-  CsfBytes(Csf<std::string> && obj) : Csf<std::string>(std::move(obj)) {}
   CsfBytes(Csf<std::string> const & obj) : Csf<std::string>(obj) {}
 };
 
@@ -59,7 +58,7 @@ void bindBytesCsf(py::module &module, const char *name, const uint32_t type_id) 
           return self.save(filename, type_id);
         }, py::arg("filename"))
       .def_static("load", [type_id](const std::string &filename) {
-          return CsfBytes::load(filename, type_id);
+          return CsfBytes(*CsfBytes::load(filename, type_id));
         }, py::arg("filename"));
 }
 

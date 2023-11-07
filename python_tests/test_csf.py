@@ -1,5 +1,5 @@
 import os
-
+import pickle
 import caramel
 import pytest
 
@@ -73,6 +73,15 @@ def test_csf_string():
     keys = gen_byte_keys(1000)
     values = gen_str_values(1000)
     assert_build_save_load_correct(keys, values, caramel.CSFString)
+
+
+@pytest.mark.unit
+def test_csf_bytes():
+    keys = ["a", None, (1, 2), 42]
+    values = [float('inf'), None, [], {"a":10,"b":20}]
+    keys = [pickle.dumps(k) for k in keys]
+    values = [pickle.dumps(v) for v in values]
+    assert_build_save_load_correct(keys, values, caramel.CSFBytes)
 
 
 @pytest.mark.unit
