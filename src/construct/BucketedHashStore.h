@@ -1,6 +1,8 @@
 #pragma once
 
 #include "SpookyHash.h"
+#include <algorithm>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
