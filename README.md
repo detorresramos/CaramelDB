@@ -37,6 +37,10 @@ git clone --recurse-submodules git@github.com:detorresramos/caramel.cpp.git
 cd caramel.cpp
 ```
 
+Then, install the required packages using our install scripts: `sh bin/install-linux.sh` or `sh bin/install-mac.sh`.
+**Note** The linux install script assumes apt as the package manager. You may need to modify the script if using a different package manager.
+Generally, we require g++, cmake, and OpenMP, in addition to pytest for the test suite. 
+
 Next, run our build script:
 ```bash
 python3 bin/build.py
@@ -68,7 +72,7 @@ Successfully installed caramel-0.0.1
 ### Testing your installation
 To run the Python tests, you can run
 ```bash
-bin/python-tests.sh
+bin/python-test.sh
 ```
 However, you can also play around with CSFs directly, using the simple API examples from earlier.
 
