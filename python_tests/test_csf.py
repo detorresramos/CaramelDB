@@ -3,7 +3,6 @@ import os
 import caramel
 import pytest
 
-
 gen_str_keys = lambda n: [f"key{i}" for i in range(n)]
 gen_byte_keys = lambda n: [f"key{i}".encode("utf-8") for i in range(n)]
 gen_int_values = lambda n: [i for i in range(n)]
@@ -14,6 +13,7 @@ gen_str_values = lambda n: [f"value{i}" for i in range(n)]
 def assert_all_correct(keys, values, csf):
     for key, value in zip(keys, values):
         assert csf.query(key) == value
+
 
 def assert_build_save_load_correct(keys, values, CSFClass, wrap_fn=None):
     csf = CSFClass(keys, values)
@@ -27,6 +27,7 @@ def assert_build_save_load_correct(keys, values, CSFClass, wrap_fn=None):
         csf = wrap_fn(csf)
     assert_all_correct(keys, values, csf)
     os.remove(filename)
+
 
 def assert_simple_api_correct(keys, values):
     csf = caramel.CSF(keys, values)
@@ -56,7 +57,7 @@ def test_byte_keys():
 def test_csf_char_10():
     keys = gen_byte_keys(1000)
     values = gen_charX_values(1000, 10)
-    wrap_fn = lambda csf: caramel.CSFQueryWrapper(csf, lambda x: ''.join(x))
+    wrap_fn = lambda csf: caramel.CSFQueryWrapper(csf, lambda x: "".join(x))
     assert_build_save_load_correct(keys, values, caramel.CSFChar10, wrap_fn)
 
 
@@ -64,7 +65,7 @@ def test_csf_char_10():
 def test_csf_char_12():
     keys = gen_byte_keys(1000)
     values = gen_charX_values(1000, 12)
-    wrap_fn = lambda csf: caramel.CSFQueryWrapper(csf, lambda x: ''.join(x))
+    wrap_fn = lambda csf: caramel.CSFQueryWrapper(csf, lambda x: "".join(x))
     assert_build_save_load_correct(keys, values, caramel.CSFChar12, wrap_fn)
 
 

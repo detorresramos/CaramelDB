@@ -106,11 +106,12 @@ class CMakeBuild(build_ext):
         subprocess.check_call(["cmake", ext.sourcedir] + cmake_args, cwd=build_dir)
         subprocess.check_call(["cmake", "--build", "."] + build_args, cwd=build_dir)
 
+
 setup(
     name="caramel",
     version="0.0.1",
     packages=find_packages(where="./python_bindings/"),
-    package_dir={"":"python_bindings"},
+    package_dir={"": "python_bindings"},
     author="Ben Coleman, Vihan Lakshman, David Torres, Chen Luo",
     author_email="detorresramos1@gmail.com",
     description="A Succinct Read-Only Lookup Table via Compressed Static Functions",
@@ -119,6 +120,7 @@ setup(
     ext_modules=[CMakeExtension("caramel._caramel")],
     cmdclass={"build_ext": CMakeBuild},
     zip_safe=False,
+    install_requires=["numpy"],
     extras_require={"test": ["pytest>=6.0"]},
     python_requires=">=3.7",
 )
