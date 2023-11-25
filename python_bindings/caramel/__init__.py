@@ -1,3 +1,5 @@
+import numpy as np
+
 from ._caramel import *
 
 
@@ -10,7 +12,7 @@ def CSF(keys, values, max_to_infer=None):
         values: List of values to use in the CSF.
         max_to_infer: If provided, only the first "max_to_infer" values
             will be examinied when inferring the correct CSF backend.
-    
+
     Returns:
         A CSF containing the desired key-value mapping.
 
@@ -38,7 +40,7 @@ def load(filename):
 
     Arguments:
         filename: File containing a serialized CSF.
-    
+
     Returns:
         A CSF of the correct sub-type.
 
@@ -57,13 +59,14 @@ def load(filename):
 
 class CSFQueryWrapper(object):
     """Wraps a CSF, applying a postprocessing function to the query results."""
+
     def __init__(self, csf, postprocess_fn):
         self._csf = csf
         self._postprocess_fn = postprocess_fn
 
     def query(self, q):
         return self._postprocess_fn(self._csf.query(q))
-    
+
     def __getattr__(self, name):
         return getattr(self._csf, name)
 
@@ -71,7 +74,7 @@ class CSFQueryWrapper(object):
 def _infer_backend(keys, values, max_to_infer=None):
     """Returns a CSF class, selected based on the key / value types."""
 
-    if isinstance(values[0], int):
+    if np.issubdtype(type(values[0]), np.integer):
         return CSFUint32
 
     if isinstance(values[0], (str, bytes)):
@@ -102,6 +105,6 @@ def _wrap_backend(csf):
     list_to_str_classes = (CSFChar10, CSFChar12)
 
     if isinstance(csf, list_to_str_classes):
-        csf = CSFQueryWrapper(csf, lambda x: ''.join(x))
+        csf = CSFQueryWrapper(csf, lambda x: "".join(x))
 
     return csf
