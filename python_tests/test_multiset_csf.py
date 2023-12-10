@@ -12,7 +12,7 @@ def test_multiset_csf():
     keys = [f"key_{i}" for i in range(num_rows)]
     values = [[j + i for j in range(num_columns)] for i in range(num_rows)]
 
-    csf = caramel.MultisetCSF(keys, values)
+    csf = caramel.CSF(keys, values)
 
     for key, value in zip(keys, values):
         assert csf.query(key) == value

@@ -81,6 +81,9 @@ def _infer_backend(keys, values, max_to_infer=None):
     if np.issubdtype(type(values[0]), np.integer):
         return CSFUint32
 
+    if isinstance(values[0], (list, type(np.array))):
+        return MultisetCSF
+
     if isinstance(values[0], (str, bytes)):
         # call out to one of the dedicated-length strings
         validate_values = values[:max_to_infer] if max_to_infer else values
