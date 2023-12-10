@@ -1,3 +1,7 @@
+import glob
+import os
+from pathlib import Path
+
 import numpy as np
 
 from ._caramel import *
@@ -47,7 +51,7 @@ def load(filename):
     Raises:
         ValueError if the filename does not contain a valid CSF.
     """
-    csf_classes = (CSFUint32, CSFChar10, CSFChar12, CSFString)
+    csf_classes = (CSFUint32, CSFChar10, CSFChar12, CSFString, MultisetCSF)
     for csf_class in csf_classes:
         try:
             csf = csf_class.load(filename)
@@ -76,6 +80,9 @@ def _infer_backend(keys, values, max_to_infer=None):
 
     if np.issubdtype(type(values[0]), np.integer):
         return CSFUint32
+
+    if isinstance(values[0], (list, type(np.array))):
+        return MultisetCSF
 
     if isinstance(values[0], (str, bytes)):
         # call out to one of the dedicated-length strings
@@ -108,3 +115,46 @@ def _wrap_backend(csf):
         csf = CSFQueryWrapper(csf, lambda x: "".join(x))
 
     return csf
+
+
+class MultisetCSF:
+    def __init__(
+        self, keys, values, allow_permute_optimization=False, max_to_infer=None
+    ):
+        if allow_permute_optimization:
+            values = permute_values(values)
+
+        try:
+            values = np.array(values).T
+        except Exception:
+            raise ValueError(
+                "Error transforming values to column-wise. Make sure all values are the same length."
+            )
+
+        self._csfs = []
+        for i in range(len(values)):
+            self._csfs.append(CSF(keys, values[i], max_to_infer))
+
+    def query(self, key):
+        return [csf.query(key) for csf in self._csfs]
+
+    def save(self, filename):
+        directory = Path(filename)
+        os.mkdir(directory)
+
+        for i, csf in enumerate(self._csfs):
+            csf.save(str(directory / f"column_{i}.csf"))
+
+    @classmethod
+    def load(cls, filename):
+        instance = cls.__new__(cls)
+        directory = Path(filename)
+
+        csf_files = sorted(glob.glob(str(directory / "*.csf")))
+
+        instance._csfs = []
+        for i, column_csf_file in enumerate(csf_files):
+            assert column_csf_file.split("/")[-1] == f"column_{i}.csf"
+            instance._csfs.append(load(column_csf_file))
+
+        return instance

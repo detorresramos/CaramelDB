@@ -3,6 +3,8 @@ import os
 import caramel
 import pytest
 
+pytestmark = [pytest.mark.unit]
+
 gen_str_keys = lambda n: [f"key{i}" for i in range(n)]
 gen_byte_keys = lambda n: [f"key{i}".encode("utf-8") for i in range(n)]
 gen_int_values = lambda n: [i for i in range(n)]
@@ -39,14 +41,12 @@ def assert_simple_api_correct(keys, values):
     os.remove(filename)
 
 
-@pytest.mark.unit
 def test_csf_int():
     keys = gen_str_keys(1000)
     values = gen_int_values(1000)
     assert_build_save_load_correct(keys, values, caramel.CSFUint32)
 
 
-@pytest.mark.unit
 def test_byte_keys():
     keys = gen_byte_keys(1000)
     values = gen_int_values(1000)
@@ -61,7 +61,6 @@ def test_csf_char_10():
     assert_build_save_load_correct(keys, values, caramel.CSFChar10, wrap_fn)
 
 
-@pytest.mark.unit
 def test_csf_char_12():
     keys = gen_byte_keys(1000)
     values = gen_charX_values(1000, 12)
@@ -69,14 +68,12 @@ def test_csf_char_12():
     assert_build_save_load_correct(keys, values, caramel.CSFChar12, wrap_fn)
 
 
-@pytest.mark.unit
 def test_csf_string():
     keys = gen_byte_keys(1000)
     values = gen_str_values(1000)
     assert_build_save_load_correct(keys, values, caramel.CSFString)
 
 
-@pytest.mark.unit
 def test_csf_load_incorrect_type_fails():
     filename = "temp.csf"
     with pytest.raises(caramel.CsfDeserializationException) as e:
@@ -88,7 +85,6 @@ def test_csf_load_incorrect_type_fails():
     os.remove(filename)
 
 
-@pytest.mark.unit
 def test_auto_infer_char10():
     keys = gen_byte_keys(1000)
     values = gen_charX_values(1000, 10)
