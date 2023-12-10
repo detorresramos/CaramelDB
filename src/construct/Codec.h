@@ -12,13 +12,82 @@ namespace caramel {
 //                                       lhs.end());
 // }
 
-void minRedundancyCodewordLengths(std::vector<uint32_t> &A);
+template <typename T>
+double
+minRedundancyCodewordLengths(std::vector<uint32_t> &A,
+                             const std::unordered_map<T, uint32_t> &frequencies,
+                             const std::vector<T> &symbols) {
+  int n = A.size();
+  int root;      /* next root node to be used */
+  int leaf;      /* next leaf to be used */
+  int next;      /* next value to be assigned */
+  int avbl;      /* number of available nodes */
+  int used;      /* number of internal nodes */
+  uint32_t dpth; /* current depth of leaves */
+
+  if (n <= 1) {
+    A[0] = 1;
+    return 1;
+  }
+
+  double overall_length = 0;
+
+  /* first pass, left to right, setting parent pointers */
+  A[0] += A[1];
+  root = 0;
+  leaf = 2;
+  for (next = 1; next < n - 1; next++) {
+    /* select first item for a pairing */
+    if (leaf >= n || A[root] < A[leaf]) {
+      A[next] = A[root];
+      A[root++] = next;
+    } else
+      A[next] = A[leaf++];
+
+    /* add on the second item */
+    if (leaf >= n || (root < next && A[root] < A[leaf])) {
+      A[next] += A[root];
+      A[root++] = next;
+    } else
+      A[next] += A[leaf++];
+  }
+
+  /* second pass, right to left, setting internal depths */
+  A[n - 2] = 0;
+  for (next = n - 3; next >= 0; next--) {
+    A[next] = A[A[next]] + 1;
+  }
+  /* third pass, right to left, setting leaf depths */
+  avbl = 1;
+  used = 0;
+  dpth = 0;
+  root = n - 2;
+  next = n - 1;
+  while (avbl > 0) {
+    while (root >= 0 && A[root] == dpth) {
+      used++;
+      root--;
+    }
+    while (avbl > used) {
+      overall_length += dpth * frequencies.at(symbols[n - next - 1]);
+      A[next--] = dpth;
+      avbl--;
+    }
+    avbl = 2 * used;
+    dpth++;
+    used = 0;
+  }
+
+  return overall_length;
+}
 
 template <typename T> using CodeDict = std::unordered_map<T, BitArrayPtr>;
 
 template <typename T>
 std::tuple<CodeDict<T>, std::vector<uint32_t>, std::vector<T>>
-cannonicalHuffman(const std::vector<T> &symbols) {
+cannonicalHuffman(const std::vector<T> &symbols,
+                  uint32_t length_limit = std::numeric_limits<uint32_t>::max(),
+                  double entropy_threshold = 1) {
   std::unordered_map<T, uint32_t> frequencies;
   for (const auto &symbol : symbols) {
     ++frequencies[symbol];
@@ -39,14 +108,34 @@ cannonicalHuffman(const std::vector<T> &symbols) {
   for (auto [_, freq] : symbol_frequency_pairs) {
     codeword_lengths.push_back(freq);
   }
-  minRedundancyCodewordLengths(codeword_lengths);
+
+  double overall_length =
+      minRedundancyCodewordLengths(codeword_lengths, frequencies, symbols);
 
   // We reverse because code assignment is done in non-decreasing order of bit
   // length instead of frequency
   std::reverse(symbol_frequency_pairs.begin(), symbol_frequency_pairs.end());
   std::reverse(codeword_lengths.begin(), codeword_lengths.end());
 
-  // TODO(any) add length limiting
+  /* We now progress through the symbols, from more frequent
+   * to less frequent, computing for each prefix of symbols
+   * the length of the decoding table and the cumulative
+   * length of such symbols. If we pass the table length limit
+   * or the empirical entropy threshold be break the loop. */
+  long accumulatedOverallLength = 0;
+  uint32_t currentLength = codeword_lengths[0];
+  uint32_t d = 1;
+  for (uint32_t cutpoint = 0; cutpoint < frequencies.size(); cutpoint++) {
+    if (currentLength != codeword_lengths[cutpoint]) {
+      if (++d >= length_limit)
+        break;
+      if (accumulatedOverallLength / overall_length > entropy_threshold)
+        break;
+      currentLength = codeword_lengths[cutpoint];
+    }
+    accumulatedOverallLength +=
+        codeword_lengths[cutpoint] * frequencies.at(symbols[cutpoint]);
+  }
 
   uint32_t code = 0;
   // maps the symbol to a bitarray representing its code

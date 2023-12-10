@@ -15,7 +15,7 @@ namespace caramel {
     - https://github.com/madler/brotli/blob/master/huff.c
     - https://people.eng.unimelb.edu.au/ammoffat/inplace.c
 */
-void minRedundancyCodewordLengths(std::vector<uint32_t> &A) {
+double minRedundancyCodewordLengths(std::vector<uint32_t> &A) {
   int n = A.size();
   int root;      /* next root node to be used */
   int leaf;      /* next leaf to be used */
@@ -32,6 +32,8 @@ void minRedundancyCodewordLengths(std::vector<uint32_t> &A) {
     A[0] = 0;
     return;
   }
+
+  double overall_length = 0;
 
   /* first pass, left to right, setting parent pointers */
   A[0] += A[1];
@@ -70,6 +72,7 @@ void minRedundancyCodewordLengths(std::vector<uint32_t> &A) {
       root--;
     }
     while (avbl > used) {
+      overall_length += dpth * frequencies.at(symbol[n - next - 1]);
       A[next--] = dpth;
       avbl--;
     }
@@ -77,6 +80,8 @@ void minRedundancyCodewordLengths(std::vector<uint32_t> &A) {
     dpth++;
     used = 0;
   }
+
+  return overall_length;
 }
 
 } // namespace caramel
