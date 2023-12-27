@@ -7,9 +7,9 @@ import numpy as np
 from ._caramel import *
 
 
-def CSF(keys, values, max_to_infer=None):
+def Caramel(keys, values, max_to_infer=None, multiset_permute_optimization=False):
     """
-    Constructs a CSF, automatically inferring the correct CSF backend.
+    Constructs a Caramel object, automatically inferring the correct CSF backend.
 
     Arguments:
         keys: List of hashable keys.
@@ -33,7 +33,15 @@ def CSF(keys, values, max_to_infer=None):
         raise ValueError(f"Keys must be str or bytes, found {type(keys[0])}")
 
     CSFClass = _infer_backend(keys, values, max_to_infer=max_to_infer)
-    csf = CSFClass(keys, values)
+    if isinstance(CSFClass, MultisetCSF):
+        csf = MultisetCSF(
+            keys,
+            values,
+            multiset_permute_optimization=multiset_permute_optimization,
+            max_to_infer=max_to_infer,
+        )
+    else:
+        csf = CSFClass(keys, values)
     csf = _wrap_backend(csf)
     return csf
 
@@ -119,13 +127,15 @@ def _wrap_backend(csf):
 
 class MultisetCSF:
     def __init__(
-        self, keys, values, allow_permute_optimization=False, max_to_infer=None
+        self, keys, values, multiset_permute_optimization=False, max_to_infer=None
     ):
-        if allow_permute_optimization:
+        values = np.array(values)
+
+        if multiset_permute_optimization:
             values = permute_values(values)
 
         try:
-            values = np.array(values).T
+            values = values.T
         except Exception:
             raise ValueError(
                 "Error transforming values to column-wise. Make sure all values are the same length."
@@ -133,7 +143,7 @@ class MultisetCSF:
 
         self._csfs = []
         for i in range(len(values)):
-            self._csfs.append(CSF(keys, values[i], max_to_infer))
+            self._csfs.append(Caramel(keys, values[i], max_to_infer))
 
     def query(self, key):
         return [csf.query(key) for csf in self._csfs]
