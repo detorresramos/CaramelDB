@@ -6,11 +6,11 @@ CaramelDB is a performant C++/Python library of succinct retrieval data structur
 
 As defined in [Dillinger, et al. (2022)](https://drops.dagstuhl.de/storage/00lipics/lipics-vol233-sea2022/LIPIcs.SEA.2022.4/LIPIcs.SEA.2022.4.pdf), a *retrieval data structure* $D$ for a static function $f \colon S \to \{0, 1\}^r$ is an index that returns $f(x)$ for any $x \in S$ and any value for $x \notin S$. A highly desirable goal in both theory and practice is to represent $D$ with as little space as possible. To that end, a *succinct retrieval data structure* is an index that uses only $(1 + o(1))r|S|$ bits of space, just slightly more than the information-theoretic lower bound of $r|S|$ bits.
 
-In the age of massive datasets and machine learning, we observe that numerous applications may benefit from succinct retrieval structures. For example, many industrial search and recommendation systems services reply on computationally expensive machine learning models to compute results. Since executing these queries in real-time is prohibitively expensive, these services often cache the most frequently issues queries along with their corresponding results for faster and more cost-effective serving. As search traffic volume increases over time, it becomes increasingly desirable to store this cache in as few bits as possible via succinct retrieval methods.
+In the modern age of massive datasets, numerous applications can benefit from succinct retrieval structures. For example, many industrial search and recommendation systems services rely on computationally intensive machine learning models to compute results. Since executing these queries in real-time is prohibitively expensive, these services often cache the most frequently issued queries along with their corresponding results for faster and more cost-effective serving. As search traffic volume increases over time, it becomes increasingly desirable to store this cache in as few bits as possible via succinct retrieval methods.
 
 ## A Simple Example
 
-For a concrete illustration of succinct retrieval in practice, let's take the example of an e-commerce product search engine that wishes to cache pairs of frequently issues search queries and their corresponding results. For instance, a query such as "red shoes" might map to a list of relevant product ids ["A1", "A2", "A3", ...]. We then wish to construct a static look-up table to serve these frequent queries and avoid having to execute the more expensive search engine pipeline each time. 
+For a concrete illustration of succinct retrieval in practice, let's take the example of an e-commerce product search engine that caches pairs of frequently issues search queries and their corresponding results. For instance, a query such as "red shoes" might map to a list of relevant product ids ["A1", "A2", "A3", ...]. We then wish to construct a static look-up table to serve these frequent queries and avoid having to execute the more expensive search engine pipeline each time. 
 
 Below, we illustrate how a developer might construct such a minimal product search example using our Python API. 
 
@@ -40,7 +40,7 @@ CARAMEL (Compressed Array Representation And More Efficient Lookups) is the cent
 
 ### Algorithmic and Engineering Improvements
 
-To our knowledge, we are the first open-source succinct retrieval library to support arbitrary data types for keys and values, enabling more flexibility for applications. For example, the Sux4J CSF implementation only supports strings and integer types. Compared to Sux4J, we also offer about 25% faster construction, for CSFs. On the algorithmic front, we have optimal-size Bloom prefilters for situations when one value is very common. We also have value-permutation methods to preprocess 2D arrays into a more compressible format, as well as tricks to implement ragged arrays and other lookup primitives using CSFs. Our paper describes these tricks and applications.
+To our knowledge, we are the first open-source succinct retrieval library to support arbitrary data types for keys and values, enabling more flexibility for applications. For example, the Sux4J CSF implementation only supports strings and integer types. Compared to Sux4J, we also offer about 25% faster construction for CSFs. On the algorithmic front, we have optimal-size Bloom prefilters for situations when one value is very common. We also have value-permutation methods to preprocess 2D arrays into a more compressible format, as well as tricks to implement ragged arrays and other lookup primitives using CSFs. Our paper describes these tricks and applications.
 
 ### A Simple, Maintainable Codebase
 
@@ -54,8 +54,8 @@ The recommended way to interact with our library is through the Python bindings,
 To install the Python bindings, first clone the repository and all of our dependencies.
 
 ```bash
-git clone --recurse-submodules git@github.com:detorresramos/caramel.cpp.git
-cd caramel.cpp
+git clone --recurse-submodules git@github.com:detorresramos/CaramelDB.git
+cd CaramelDB
 ```
 
 Then, install the required packages using our install scripts: `sh bin/install-linux.sh` or `sh bin/install-mac.sh`.
@@ -99,14 +99,14 @@ However, you can also play around with CSFs directly, using the simple API examp
 
 ### Using CARAMEL in Python
 
-Our Python interface is intentionally minimal. We only expose two public methods: `caramel.CSF(keys, values)` to construct a CSF and `caramel.load(filename)` to load a CSF from a file. These methods work with a variety of supported key and value types.
+Our Python interface is intentionally minimal. We only expose two public methods: `carameldb.Caramel(keys, values)` to construct a CSF and `carameldb.Caramel.load(filename)` to load from a file. These methods work with a variety of supported key and value types.
 
 For example, we can pass keys as strings:
 ```python
 from carameldb import Caramel
 keys = ["cats", "dogs", "fish"]
 values = [2, 1, 0]
-csf = Caramel(keys, values)
+caramel = Caramel(keys, values)
 ```
 
 We can also pass keys as byte strings:
