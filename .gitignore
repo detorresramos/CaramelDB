@@ -15,7 +15,7 @@ compile_commands.json
 # CMake Build and Testing output
 __pycache__
 build
-caramel.egg-info
+*.egg-info
 
 # Standard CMake gitignores
 CMakeLists.txt.user

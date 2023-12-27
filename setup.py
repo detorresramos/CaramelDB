@@ -108,7 +108,7 @@ class CMakeBuild(build_ext):
 
 
 setup(
-    name="caramel",
+    name="carameldb",
     version="0.0.1",
     packages=find_packages(where="./python_bindings/"),
     package_dir={"": "python_bindings"},
@@ -117,7 +117,7 @@ setup(
     description="A Succinct Read-Only Lookup Table via Compressed Static Functions",
     long_description="",
     license_files=("LICENSE",),
-    ext_modules=[CMakeExtension("caramel._caramel")],
+    ext_modules=[CMakeExtension("carameldb._caramel")],
     cmdclass={"build_ext": CMakeBuild},
     zip_safe=False,
     install_requires=["numpy"],
