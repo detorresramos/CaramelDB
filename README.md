@@ -1,29 +1,41 @@
-# Caramel: A fast read-only key-value store
+# CaramelDB: A High-Performance Succinct Retrieval Library
 
-This repository provides a C++ implementation of the [CARAMEL data structure](https://arxiv.org/pdf/2305.16545.pdf), a space-efficient read-only retrieval table with applications to data management problems in recommender systems, computational biology, and more.
+CaramelDB is a performant C++/Python library of succinct retrieval data structures with applications in data management, machine learning systems, computational biology, and more! The centerpiece of CaramelDB is an implementation of the [CARAMEL data structure](https://arxiv.org/pdf/2305.16545.pdf), a space-efficient table with state-of-the-art performance on practical succinct retrieval workloads. 
+
+## What is Succinct Retrieval?
+
+As defined in [Dillinger, et al. (2022)](https://drops.dagstuhl.de/storage/00lipics/lipics-vol233-sea2022/LIPIcs.SEA.2022.4/LIPIcs.SEA.2022.4.pdf), a *retrieval data structure* $D$ for a static function $f \colon S \to \{0, 1\}^r$ is an index that returns $f(x)$ for any $x \in S$ and any value for $x \notin S$. A highly desirable goal in both theory and practice is to represent $D$ with as little space as possible. To that end, a *succinct retrieval data structure* is an index that uses only $(1 + o(1))r|S|$ bits of space, just slightly more than the information-theoretic lower bound of $r|S|$ bits.
+
+In the age of massive datasets and machine learning, we observe that numerous applications may benefit from succinct retrieval structures. For example, many industrial search and recommendation systems services reply on computationally expensive machine learning models to compute results. Since executing these queries in real-time is prohibitively expensive, these services often cache the most frequently issues queries along with their corresponding results for faster and more cost-effective serving. As search traffic volume increases over time, it becomes increasingly desirable to store this cache in as few bits as possible via succinct retrieval methods.
+
+## Succinct Retrieval Methods
+
+Succinct retrieval is a beautiful research area because it lies at the nexus of theory and practice. The computer science community has proposed several solutions to this problem in recent years through a combination of clever algorithmic insights and innovative performance engineering efforts. These developments included Minimal Perfect Hash Tables, Compressed Static Functions, and Bumped Ribbon Retrieval (BuRR). In the near future, we envision including all of these implementations, in addition to our own CARAMEL data structure, within the CaramelDB project as a one-stop shop for succinct retrieval in the Python ecosystem. 
 
 ## What is CARAMEL?
 
-CARAMEL (Compressed Array Representation And More Efficient Lookups) is a data structure built around compressed static functions (CSFs). For a solid introduction to CSFs, see the excellent series of papers by Sebastiano Vigna's group. We draw heavy inspiration from their [Java implementation in Sux4J](https://sux4j.di.unimi.it).
+CARAMEL (Compressed Array Representation And More Efficient Lookups) is a the centerpiece data structure in CaramelDB, achieving state-of-the-art performance in many practical settings, especially when the values to retrieve are multi-sets and not individual objects. The core algorithmic primitive behind CARAMEL is the compressed static function (CSF). For a solid introduction to CSFs, see the excellent series of papers by Sebastiano Vigna's group. We draw heavy inspiration from their [Java implementation in Sux4J](https://sux4j.di.unimi.it).
 
-**Why caramel?** Compared to Sux4J, we offer about 25% faster construction, a much smaller and simpler codebase (> 10k vs 2k LoC for the core implementation), and easy Python bindings. We support arbitrary data types for keys and values, enabling more flexibility for applications (the original implementation supports only string keys and integer values). We also have some algorithmic improvements to make CSF-backed tables practical for real applications. For example, we have optimal-size Bloom prefilters for situations when one value is very common. We also have value-permutation methods to preprocess 2D arrays into a more compressible format, as well as tricks to implement ragged arrays and other lookup primitives using CSFs. Our paper describes these tricks and applications.
+## Why CaramelDB?
+
+Compared to Sux4J, we offer about 25% faster construction, a much smaller and simpler codebase (> 10k vs 2k LoC for the core implementation), and easy Python bindings. We support arbitrary data types for keys and values, enabling more flexibility for applications (the original Sux4J implementation supports only string keys and integer values). We also have some algorithmic improvements to make CSF-backed tables practical for real applications. For example, we have optimal-size Bloom prefilters for situations when one value is very common. We also have value-permutation methods to preprocess 2D arrays into a more compressible format, as well as tricks to implement ragged arrays and other lookup primitives using CSFs. Our paper describes these tricks and applications.
 
 ### Minimal API Example
 
 You can use our Python API like this.
 
 ```python
-import caramel
+from carameldb import Caramel
 keys = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]
 values = [0, 0, 0, 1, 2, 0, 1, 4, 0, 1]
 # Constructing
-csf = caramel.CSF(keys, values)
+caramel = Caramel(keys, values)
 # Querying
-csf.query("D")  # Returns 1
+caramel.query("D")  # Returns 1
 # Saving
-csf.save("map.csf")
+caramel.save("map.caramel")
 # Loading
-csf = caramel.load("map.csf")
+caramel = Caramel.load("map.caramel")
 ```
 
 ## Getting Started
@@ -76,22 +88,23 @@ bin/python-test.sh
 ```
 However, you can also play around with CSFs directly, using the simple API examples from earlier.
 
-### Using CSFs in Python
+### Using CARAMEL in Python
 
 Our Python interface is intentionally minimal. We only expose two public methods: `caramel.CSF(keys, values)` to construct a CSF and `caramel.load(filename)` to load a CSF from a file. These methods work with a variety of supported key and value types.
 
 For example, we can pass keys as strings:
 ```python
+from carameldb import Caramel
 keys = ["cats", "dogs", "fish"]
 values = [2, 1, 0]
-csf = caramel.CSF(keys, values)
+csf = Caramel(keys, values)
 ```
 
 We can also pass keys as byte strings:
 ```python
 keys = [s.encode("utf-8") for s in ("cats", "dogs", "fish")]
 values = [2, 1, 0]
-csf = caramel.CSF(keys, values)
+caramel = Caramel(keys, values)
 ```
 
 Note that this permits the use of arbitrary objects as keys.
@@ -101,7 +114,7 @@ keys = [(1, 2), "abc", 12345, float('inf')]
 values = [1, 2, 3, 4]
 
 keys = [pickle.dumps(k) for k in keys]
-csf = caramel.CSF(keys, values)
+caramel = Caramel(keys, values)
 ```
 
 We can also call out to special, more efficient / optimized routines if the value strings are all of the same (known) length. Length-10 and length-12 are explicitly supported, but this is very easy to extend.
@@ -116,7 +129,7 @@ values = ["ATCGAATACC", "TAGCCTAGCA", "CAATGAGTAA"]
 csf = caramel.CSF(keys, values)
 ```
 
-### Using CSFs in C++
+### Using CARAMEL in C++
 Our C++ API is present in `src/construct/Csf.h`. We do not currently have usage examples - but we do have a large library of tests that show the intended use of the API.
 
 At a high level, the C++ API contains several templated backends for different data types for the keys and values. Our Python module automatically infers which backend to use and wraps the full process of choosing a backend. The C++ header exposes a much greater level of detail, allowing you to define new backends using our `Csf<T>` template class.
@@ -143,7 +156,7 @@ if your intellisense is acting strangely).
 If you use our library, please cite our preprint:
 ```
 @article{ramos2023caramel,
-  title={CARAMEL: A Succinct Read-Only Lookup Table via Compressed Static Functions},
+  title={CARAMEL: A Scalable Index for Succinct Multi-Set Retrieval},
   author={Ramos, David Torres and Coleman, Benjamin and Lakshman, Vihan and Luo, Chen and Shrivastava, Anshumali},
   journal={arXiv preprint arXiv:2305.16545},
   year={2023}
