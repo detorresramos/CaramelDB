@@ -8,35 +8,44 @@ As defined in [Dillinger, et al. (2022)](https://drops.dagstuhl.de/storage/00lip
 
 In the age of massive datasets and machine learning, we observe that numerous applications may benefit from succinct retrieval structures. For example, many industrial search and recommendation systems services reply on computationally expensive machine learning models to compute results. Since executing these queries in real-time is prohibitively expensive, these services often cache the most frequently issues queries along with their corresponding results for faster and more cost-effective serving. As search traffic volume increases over time, it becomes increasingly desirable to store this cache in as few bits as possible via succinct retrieval methods.
 
-## Succinct Retrieval Methods
+## A Simple Example
 
-Succinct retrieval is a beautiful research area because it lies at the nexus of theory and practice. The computer science community has proposed several solutions to this problem in recent years through a combination of clever algorithmic insights and innovative performance engineering efforts. These developments included Minimal Perfect Hash Tables, Compressed Static Functions, and Bumped Ribbon Retrieval (BuRR). In the near future, we envision including all of these implementations, in addition to our own CARAMEL data structure, within the CaramelDB project as a one-stop shop for succinct retrieval in the Python ecosystem. 
+For a concrete illustration of succinct retrieval in practice, let's take the example of an e-commerce product search engine that wishes to cache pairs of frequently issues search queries and their corresponding results. For instance, a query such as "red shoes" might map to a list of relevant product ids ["A1", "A2", "A3", ...]. We then wish to construct a static look-up table to serve these frequent queries and avoid having to execute the more expensive search engine pipeline each time. 
 
-## What is CARAMEL?
-
-CARAMEL (Compressed Array Representation And More Efficient Lookups) is a the centerpiece data structure in CaramelDB, achieving state-of-the-art performance in many practical settings, especially when the values to retrieve are multi-sets and not individual objects. The core algorithmic primitive behind CARAMEL is the compressed static function (CSF). For a solid introduction to CSFs, see the excellent series of papers by Sebastiano Vigna's group. We draw heavy inspiration from their [Java implementation in Sux4J](https://sux4j.di.unimi.it).
-
-## Why CaramelDB?
-
-Compared to Sux4J, we offer about 25% faster construction, a much smaller and simpler codebase (> 10k vs 2k LoC for the core implementation), and easy Python bindings. We support arbitrary data types for keys and values, enabling more flexibility for applications (the original Sux4J implementation supports only string keys and integer values). We also have some algorithmic improvements to make CSF-backed tables practical for real applications. For example, we have optimal-size Bloom prefilters for situations when one value is very common. We also have value-permutation methods to preprocess 2D arrays into a more compressible format, as well as tricks to implement ragged arrays and other lookup primitives using CSFs. Our paper describes these tricks and applications.
-
-### Minimal API Example
-
-You can use our Python API like this.
+Below, we illustrate how a developer might construct such a minimal product search example using our Python API. 
 
 ```python
 from carameldb import Caramel
-keys = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]
-values = [0, 0, 0, 1, 2, 0, 1, 4, 0, 1]
+keys = ["red shoes", "red puma shoes", "black bags", "phone case", "shoes red"]
+values = [["A1", "A2", "A3"], ["A3", "A4", "A1"], ["A6", "A7", "A8"], ["A11", "A17", "A40"], ["A2", "A3", "A1"]]
 # Constructing
 caramel = Caramel(keys, values)
 # Querying
-caramel.query("D")  # Returns 1
+caramel.query("red shoes")  # Returns ["A1", "A2", "A3"]
 # Saving
 caramel.save("map.caramel")
 # Loading
 caramel = Caramel.load("map.caramel")
 ```
+
+## Succinct Retrieval Methods
+
+Succinct retrieval is a beautiful research area because it lies at the nexus of theory and practice. The computer science community has proposed several solutions to this problem in recent years through a combination of clever algorithmic insights and innovative performance engineering efforts. These developments included Minimal Perfect Hash Tables (MPH), Compressed Static Functions (CSFs), and Bumped Ribbon Retrieval (BuRR). In the near future, we envision including all of these implementations, in addition to our own CARAMEL data structure, within the CaramelDB project as a one-stop shop for succinct retrieval in the Python ecosystem. 
+
+## What is CARAMEL?
+
+CARAMEL (Compressed Array Representation And More Efficient Lookups) is the centerpiece data structure in CaramelDB, achieving state-of-the-art performance in many practical settings, especially when the values to retrieve are multi-sets and not individual objects. The core algorithmic primitive behind CARAMEL is the compressed static function (CSF). For a solid introduction to CSFs, see the excellent series of papers by Sebastiano Vigna's group. We draw heavy inspiration from their [Java implementation in Sux4J](https://sux4j.di.unimi.it).
+
+## Why CaramelDB?
+
+### Algorithmic and Engineering Improvements
+
+To our knowledge, we are the first open-source succinct retrieval library to support arbitrary data types for keys and values, enabling more flexibility for applications. For example, the Sux4J CSF implementation only supports strings and integer types. Compared to Sux4J, we also offer about 25% faster construction, for CSFs. On the algorithmic front, we have optimal-size Bloom prefilters for situations when one value is very common. We also have value-permutation methods to preprocess 2D arrays into a more compressible format, as well as tricks to implement ragged arrays and other lookup primitives using CSFs. Our paper describes these tricks and applications.
+
+### A Simple, Maintainable Codebase
+
+We provide seamless Python bindings in CaramelDB to allow users to integrate with their favorite machine
+learning and data science tools. We also developed CaramelDB with maintainability and flexibility as top priorities. Our current core implementation consists of only 2k lines of code and was designed to support additional succinct retrieval data structures over the time through the same, simple interface. 
 
 ## Getting Started
 The recommended way to interact with our library is through the Python bindings, though we also offer a C++ API. 
@@ -156,7 +165,8 @@ if your intellisense is acting strangely).
 If you use our library, please cite our preprint:
 ```
 @article{ramos2023caramel,
-  title={CARAMEL: A Scalable Index for Succinct Multi-Set Retrieval},
+  title={CARAMEL: A Succinct Read-Only Lookup Table via Compressed
+Static Functions},
   author={Ramos, David Torres and Coleman, Benjamin and Lakshman, Vihan and Luo, Chen and Shrivastava, Anshumali},
   journal={arXiv preprint arXiv:2305.16545},
   year={2023}
