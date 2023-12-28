@@ -10,7 +10,7 @@ In the modern age of massive datasets, numerous applications can benefit from su
 
 ## A Simple Example
 
-For a concrete illustration of succinct retrieval in practice, let's take the example of an e-commerce product search engine that caches pairs of frequently issues search queries and their corresponding results. For instance, a query such as "red shoes" might map to a list of relevant product ids ["A1", "A2", "A3", ...]. We then wish to construct a static look-up table to serve these frequent queries and avoid having to execute the more expensive search engine pipeline each time. 
+For a concrete illustration of succinct retrieval in practice, let's take the example of an e-commerce product search engine that caches pairs of frequently issued search queries and their corresponding results. For instance, a query such as "red shoes" might map to a list of relevant product ids ["A1", "A2", "A3", ...]. We then wish to construct a static look-up table to serve these frequent queries and avoid having to execute the more expensive search engine pipeline each time. 
 
 Below, we illustrate how a developer might construct such a minimal product search example using our Python API. 
 
