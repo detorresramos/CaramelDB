@@ -12,25 +12,13 @@ namespace caramel {
 class BloomFilter {
 public:
   BloomFilter(size_t num_elements, float error_rate) {
-    // TODO(david) validate formula and check rounding stuff
-    std::cout << "num_elements " << num_elements << std::endl;
-    std::cout << "error_rate " << error_rate << std::endl;
-
     size_t size = std::ceil((1 / log(2)) * log2(1.0 / error_rate) *
                             static_cast<float>(num_elements));
 
-    std::cout << "size " << size << std::endl;
-
     _bitarray = BitArray::make(size);
 
-    std::cout << (static_cast<float>(size) * log(2)) /
-                     (static_cast<float>(num_elements))
-              << std::endl;
-
     _num_hashes = std::floor((static_cast<float>(size) * log(2)) /
-                            (static_cast<float>(num_elements)));
-
-    std::cout << "_num_hashes " << _num_hashes << std::endl;
+                             (static_cast<float>(num_elements)));
   }
 
   static std::shared_ptr<BloomFilter> make(size_t num_elements,
