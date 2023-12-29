@@ -129,4 +129,6 @@ def test_end_to_end():
 
 
 def test_bloom_filter():
-    pass
+    keys = gen_str_keys(1000)
+    values = gen_int_values(300) + [300 for _ in range(700)]
+    assert_simple_api_correct(keys, values)

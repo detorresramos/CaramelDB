@@ -27,11 +27,6 @@ TEST(BloomFilterTest, TestErrorRate) {
       }
     }
 
-    std::cout << "ACTUAL NUM ERRORS " << num_errors << std::endl;
-
-    std::cout << "EXPECTED NUM ERRORS " << trial_number * error_rate
-              << std::endl;
-
     // TODO(david) can we figure out how to fix the error rate?
     ASSERT_LE(num_errors, trial_number * error_rate * 1.1);
   }
