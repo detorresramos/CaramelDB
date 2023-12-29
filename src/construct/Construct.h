@@ -112,7 +112,7 @@ constructAndSolveSubsystem(const std::vector<Uint128Signature> &key_signatures,
  */
 template <typename T>
 CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
-                       const std::vector<T> &values, bool use_bloom_filter,
+                       const std::vector<T> &values, bool use_bloom_filter = true,
                        bool verbose = true) {
   if (values.empty()) {
     throw std::invalid_argument("Values must be non-empty but found length 0.");
