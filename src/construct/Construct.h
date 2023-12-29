@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BloomPrefiltering.h"
 #include "BucketedHashStore.h"
 #include "Codec.h"
 #include "ConstructUtils.h"
@@ -33,14 +34,8 @@ template <typename T>
 SparseSystemPtr
 constructModulo2System(const std::vector<Uint128Signature> &key_signatures,
                        const std::vector<T> &values,
-                       const CodeDict<T> &codedict, uint32_t seed) {
-  // This is a constant multiplier on the number of variables based on the
-  // number of equations expected. This constant makes the system solvable
-  // with very high probability. If we want faster construction at the cost of
-  // 12% more memory, we can omit lazy gaussian elimination and set delta
-  // to 1.23
-  double DELTA = 1.10;
-
+                       const CodeDict<T> &codedict, uint32_t seed,
+                       float DELTA) {
   uint32_t num_equations = 0;
   for (const auto &v : values) {
     num_equations += codedict.find(v)->second->numBits();
@@ -87,14 +82,14 @@ template <typename T>
 SubsystemSolutionSeedPair
 constructAndSolveSubsystem(const std::vector<Uint128Signature> &key_signatures,
                            const std::vector<T> &values,
-                           const CodeDict<T> &codedict) {
+                           const CodeDict<T> &codedict, float DELTA) {
   uint32_t seed = 0;
   uint32_t num_tries = 0;
   uint32_t max_num_attempts = 128;
   while (true) {
     try {
-      SparseSystemPtr sparse_system =
-          constructModulo2System<T>(key_signatures, values, codedict, seed);
+      SparseSystemPtr sparse_system = constructModulo2System<T>(
+          key_signatures, values, codedict, seed, DELTA);
 
       BitArrayPtr solution = solveModulo2System(sparse_system);
 
@@ -117,14 +112,49 @@ constructAndSolveSubsystem(const std::vector<Uint128Signature> &key_signatures,
  */
 template <typename T>
 CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
-                       const std::vector<T> &values, bool verbose = true) {
-  if (verbose) {
-    std::cout << "Creating codebook...";
+                       const std::vector<T> &values, bool use_bloom_filter,
+                       bool verbose = true) {
+  if (values.empty()) {
+    throw std::invalid_argument("Values must be non-empty but found length 0.");
   }
+
+  if (keys.size() != values.size()) {
+    throw std::invalid_argument("Keys and values must have the same length.");
+  }
+
+  // This is a constant multiplier on the number of variables based on the
+  // number of equations expected. This constant makes the system solvable
+  // with very high probability. If we want faster construction at the cost of
+  // 12% more memory, we can omit lazy gaussian elimination and set delta
+  // to 1.23. This delta also depends on the number of hashes we use per
+  // equation. This delta is for 3 hashes but for 4 it would be different.
+  double DELTA = 1.10;
 
   Timer timer;
 
-  auto huffman_output = cannonicalHuffman<T>(values);
+  if (verbose) {
+    std::cout << "Applying bloom pre-filtering...";
+  }
+
+  std::vector<std::string> filtered_keys = keys;
+  std::vector<T> filtered_values = values;
+  BloomFilterPtr bloom_filter = nullptr;
+  std::optional<T> most_common_value = std::nullopt;
+
+  if (use_bloom_filter) {
+    auto bloom_prefiltering_output = bloomPrefiltering(keys, values, DELTA);
+    filtered_keys = std::move(std::get<0>(bloom_prefiltering_output));
+    filtered_values = std::move(std::get<1>(bloom_prefiltering_output));
+    bloom_filter = std::get<2>(bloom_prefiltering_output);
+    most_common_value = std::get<3>(bloom_prefiltering_output);
+  }
+
+  if (verbose) {
+    std::cout << " finished in " << timer.seconds() << " seconds." << std::endl;
+    std::cout << "Creating codebook...";
+  }
+
+  auto huffman_output = cannonicalHuffman<T>(filtered_values);
   auto &codedict = std::get<0>(huffman_output);
   auto &code_length_counts = std::get<1>(huffman_output);
   auto &ordered_symbols = std::get<2>(huffman_output);
@@ -134,7 +164,7 @@ CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
     std::cout << "Partitioning to buckets...";
   }
 
-  auto buckets = partitionToBuckets<T>(keys, values);
+  auto buckets = partitionToBuckets<T>(filtered_keys, filtered_values);
   auto &bucketed_key_signatures = std::get<0>(buckets);
   auto &bucketed_values = std::get<1>(buckets);
   uint32_t hash_store_seed = std::get<2>(buckets);
@@ -154,14 +184,14 @@ CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
 
 #pragma omp parallel for default(none)                                         \
     shared(bucketed_key_signatures, bucketed_values, codedict,                 \
-           solutions_and_seeds, num_buckets, exception, bar)
+           solutions_and_seeds, num_buckets, exception, bar, DELTA)
   for (uint32_t i = 0; i < num_buckets; i++) {
     if (exception) {
       continue;
     }
     try {
       solutions_and_seeds[i] = constructAndSolveSubsystem<T>(
-          bucketed_key_signatures[i], bucketed_values[i], codedict);
+          bucketed_key_signatures[i], bucketed_values[i], codedict, DELTA);
     } catch (std::exception &e) {
 #pragma omp critical
       { exception = std::current_exception(); }
@@ -183,7 +213,7 @@ CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
   }
 
   return Csf<T>::make(solutions_and_seeds, code_length_counts, ordered_symbols,
-                      hash_store_seed);
+                      hash_store_seed, bloom_filter, most_common_value);
 }
 
 } // namespace caramel

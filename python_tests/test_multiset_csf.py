@@ -32,6 +32,6 @@ def test_multiset_csf_different_number_of_values():
 
     with pytest.raises(
         ValueError,
-        match="Error transforming values to column-wise. Make sure all values are the same length.",
+        match="Error transforming values to numpy array. Make sure all rows are the same length.",
     ):
         carameldb.MultisetCSF(keys, values)

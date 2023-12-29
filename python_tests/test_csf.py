@@ -53,7 +53,6 @@ def test_byte_keys():
     assert_build_save_load_correct(keys, values, carameldb.CSFUint32)
 
 
-@pytest.mark.unit
 def test_csf_char_10():
     keys = gen_byte_keys(1000)
     values = gen_charX_values(1000, 10)
@@ -127,3 +126,7 @@ def test_end_to_end():
     ]
     for values in value_sets:
         assert_simple_api_correct(keys, values)
+
+
+def test_bloom_filter():
+    pass
