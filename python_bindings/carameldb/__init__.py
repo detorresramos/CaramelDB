@@ -7,7 +7,14 @@ import numpy as np
 from ._caramel import *
 
 
-def Caramel(keys, values, max_to_infer=None, multiset_permute_optimization=False):
+def Caramel(
+    keys,
+    values,
+    max_to_infer=None,
+    multiset_permute_optimization=False,
+    use_bloom_filter=True,
+    verbose=True,
+):
     """
     Constructs a Caramel object, automatically inferring the correct CSF backend.
 
@@ -37,11 +44,13 @@ def Caramel(keys, values, max_to_infer=None, multiset_permute_optimization=False
         csf = MultisetCSF(
             keys,
             values,
-            multiset_permute_optimization=multiset_permute_optimization,
             max_to_infer=max_to_infer,
+            multiset_permute_optimization=multiset_permute_optimization,
+            use_bloom_filter=use_bloom_filter,
+            verbose=verbose,
         )
     else:
-        csf = CSFClass(keys, values)
+        csf = CSFClass(keys, values, use_bloom_filter=use_bloom_filter, verbose=verbose)
     csf = _wrap_backend(csf)
     return csf
 
@@ -127,23 +136,37 @@ def _wrap_backend(csf):
 
 class MultisetCSF:
     def __init__(
-        self, keys, values, multiset_permute_optimization=False, max_to_infer=None
+        self,
+        keys,
+        values,
+        max_to_infer=None,
+        multiset_permute_optimization=False,
+        use_bloom_filter=True,
+        verbose=True,
     ):
-        values = np.array(values)
+        try:
+            values = np.array(values)
+        except Exception:
+            raise ValueError(
+                "Error transforming values to numpy array. Make sure all rows are the same length."
+            )
 
         if multiset_permute_optimization:
             values = permute_values(values)
 
-        try:
-            values = values.T
-        except Exception:
-            raise ValueError(
-                "Error transforming values to column-wise. Make sure all values are the same length."
-            )
+        values = values.T
 
         self._csfs = []
         for i in range(len(values)):
-            self._csfs.append(Caramel(keys, values[i], max_to_infer))
+            self._csfs.append(
+                Caramel(
+                    keys,
+                    values[i],
+                    max_to_infer,
+                    use_bloom_filter=use_bloom_filter,
+                    verbose=verbose,
+                )
+            )
 
     def query(self, key):
         return [csf.query(key) for csf in self._csfs]

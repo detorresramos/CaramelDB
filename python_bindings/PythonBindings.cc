@@ -12,21 +12,30 @@ namespace py = pybind11;
 
 namespace caramel::python {
 
-template <typename T> void bindCsf(py::module &module, const char *name, const uint32_t type_id) {
+template <typename T>
+void bindCsf(py::module &module, const char *name, const uint32_t type_id) {
   py::class_<Csf<T>, std::shared_ptr<Csf<T>>>(module, name)
       .def(py::init([](const std::vector<std::string> &keys,
-                       const std::vector<T> &values, bool verbose) {
-             return constructCsf<T>(keys, values, verbose);
+                       const std::vector<T> &values, bool use_bloom_filter,
+                       bool verbose) {
+             return constructCsf<T>(keys, values, use_bloom_filter, verbose);
            }),
-           py::arg("keys"), py::arg("values"), py::arg("verbose") = true)
+           py::arg("keys"), py::arg("values"),
+           py::arg("use_bloom_filter") = true, py::arg("verbose") = true)
       .def("query", &Csf<T>::query, py::arg("key"))
       // Call save / load through a lambda to avoid user visibility of type_id.
-      .def("save", [type_id](Csf<T> &self, const std::string &filename) {
-          return self.save(filename, type_id);
-       }, py::arg("filename"))
-      .def_static("load", [type_id](const std::string &filename) {
-          return Csf<T>::load(filename, type_id);
-        }, py::arg("filename"));
+      .def(
+          "save",
+          [type_id](Csf<T> &self, const std::string &filename) {
+            return self.save(filename, type_id);
+          },
+          py::arg("filename"))
+      .def_static(
+          "load",
+          [type_id](const std::string &filename) {
+            return Csf<T>::load(filename, type_id);
+          },
+          py::arg("filename"));
 }
 
 PYBIND11_MODULE(_caramel, module) { // NOLINT
@@ -34,7 +43,8 @@ PYBIND11_MODULE(_caramel, module) { // NOLINT
   bindCsf<std::array<char, 10>>(module, "CSFChar10", 2);
   bindCsf<std::array<char, 12>>(module, "CSFChar12", 3);
   bindCsf<std::string>(module, "CSFString", 4);
-  py::register_exception<CsfDeserializationException>(module, "CsfDeserializationException");
+  py::register_exception<CsfDeserializationException>(
+      module, "CsfDeserializationException");
 }
 
 } // namespace caramel::python
