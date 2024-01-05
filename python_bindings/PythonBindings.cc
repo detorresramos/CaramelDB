@@ -50,6 +50,9 @@ PYBIND11_MODULE(_caramel, module) { // NOLINT
   bindCsf<std::array<char, 12>>(module, "CSFChar12", 3);
   bindCsf<std::string>(module, "CSFString", 4);
   bindPermutation<int32_t>(module, "permute_int32");
+  bindPermutation<uint32_t>(module, "permute_uint32");
+  bindPermutation<int64_t>(module, "permute_int64");
+  bindPermutation<uint64_t>(module, "permute_uint64");
   py::register_exception<CsfDeserializationException>(module, "CsfDeserializationException");
 }
 

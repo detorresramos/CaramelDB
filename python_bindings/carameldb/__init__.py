@@ -7,7 +7,7 @@ import numpy as np
 from ._caramel import *
 
 
-def Caramel(keys, values, max_to_infer=None, multiset_permute_optimization=False):
+def Caramel(keys, values, max_to_infer=None, permute=False):
     """
     Constructs a Caramel object, automatically inferring the correct CSF backend.
 
@@ -16,6 +16,7 @@ def Caramel(keys, values, max_to_infer=None, multiset_permute_optimization=False
         values: List of values to use in the CSF.
         max_to_infer: If provided, only the first "max_to_infer" values
             will be examinied when inferring the correct CSF backend.
+        permute: If true, permutes rows of matrix inputs to minimize entropy.
 
     Returns:
         A CSF containing the desired key-value mapping.
@@ -37,7 +38,7 @@ def Caramel(keys, values, max_to_infer=None, multiset_permute_optimization=False
         csf = MultisetCSF(
             keys,
             values,
-            multiset_permute_optimization=multiset_permute_optimization,
+            permute=permute,
             max_to_infer=max_to_infer,
         )
     else:
@@ -127,19 +128,22 @@ def _wrap_backend(csf):
 
 class MultisetCSF:
     def __init__(
-        self, keys, values, multiset_permute_optimization=False, max_to_infer=None
+        self, keys, values, permute=False, max_to_infer=None
     ):
         values = np.array(values)
 
-        if multiset_permute_optimization:
-            values = permute_values(values)
+        if permute:
+            # Check if the values need to be de-duplicated. TODO: Make optional.
+
+
+            permute_values = _infer_permutation(values.dtype)
+            permute_values(values)  # Done in-place to save memory.
 
         try:
             values = values.T
         except Exception:
-            raise ValueError(
-                "Error transforming values to column-wise. Make sure all values are the same length."
-            )
+            raise ValueError("Error transforming values to column-wise. "
+                             "Make sure all values are the same length.")
 
         self._csfs = []
         for i in range(len(values)):
