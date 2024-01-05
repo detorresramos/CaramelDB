@@ -1,7 +1,7 @@
 #include <memory.h>
 #include <src/construct/Construct.h>
 #include <src/construct/Csf.h>
-#include <src/construct/entropyPermutation.h>
+#include <src/construct/EntropyPermutation.h>
 
 // Pybind11 library
 #include <pybind11/cast.h>
