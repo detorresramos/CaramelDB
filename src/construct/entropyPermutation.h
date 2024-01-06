@@ -14,16 +14,6 @@ namespace caramel {
 // See SO post: https://stackoverflow.com/q/54793539
 
 template <typename T>
-void print_matrix(T* M, int num_rows, int num_cols) {
-  for (int row = 0; row < num_rows; row++) {
-    for (int col = 0; col < num_cols; col++) {
-      std::cout<< M[row * num_cols + col]<<" ";
-    }
-    std::cout<<std::endl;
-  }
-}
-
-template <typename T>
 void entropyPermutation(T* M, int num_rows, int num_cols) {
   using RowList = std::vector<int>;
   // 1. Build a map from column number to all eligible rows in that column.
