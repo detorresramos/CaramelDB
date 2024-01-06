@@ -14,6 +14,16 @@ namespace caramel {
 // See SO post: https://stackoverflow.com/q/54793539
 
 template <typename T>
+void print_matrix(T* M, int num_rows, int num_cols) {
+  for (int row = 0; row < num_rows; row++) {
+    for (int col = 0; col < num_cols; col++) {
+      std::cout<< M[row * num_cols + col]<<" ";
+    }
+    std::cout<<std::endl;
+  }
+}
+
+template <typename T>
 void entropyPermutation(T* M, int num_rows, int num_cols) {
   using RowList = std::vector<int>;
   // 1. Build a map from column number to all eligible rows in that column.
@@ -26,16 +36,16 @@ void entropyPermutation(T* M, int num_rows, int num_cols) {
 
   // 2. Build a map from vocabulary value to rows containing that value.
   // Invariant: val_to_row[v] contains all rows where v can be relocated.
+  // Note that rows are sorted (required for fast set intersections).
   std::unordered_map<T, RowList> val_to_row;  // value -> (rows).
   for (int row = 0; row < num_rows; row++) {
     for (int col = 0; col < num_cols; col++) {
       T value = M[row*num_cols + col];
+      if (val_to_row[value].size() && (val_to_row[value].back() == row)) {
+        continue;  // We got a duplicate, no need to enter it twice.
+      }
       val_to_row[value].push_back(row);
     }
-  }
-  // Keep the rows sorted (required for fast set intersections).
-  for (auto & [value, rows]: val_to_row) {
-    std::sort(rows.begin(), rows.end());
   }
 
   // 4. Build a map from frequency of occurrence to list of values.
@@ -94,29 +104,73 @@ void entropyPermutation(T* M, int num_rows, int num_cols) {
     }
 
     // 5c. Perform the swap for all of the items.
-    if (best_rows.size() == 0) { continue; }  // Shouldn't occur.
+    RowList all_assigned;  // Rows for which all best_value tokens are assigned.
+    if (best_rows.size() == 0) {
+      break; // We're out of greedy options - break.
+    }
+    // The following code is tricky due to optimizations to handle duplicates.
+    // Note that best_rows is sorted, so we can check whether M[row,col] is
+    // assigned via a linear sweep over eligible_rows.
+    std::vector<size_t> running_locations(num_cols);
+    // std::cout<<"Swap loop start"<<std::endl;
     for (const int & row: best_rows) {
-      // Swap so that M[row, best_column] = best_value. Assumes no duplicates.
-      T* row_location = M + (row*num_cols);
-      T* p_value = std::find(row_location, row_location + num_cols, best_value);
-      *p_value = row_location[best_col];
-      row_location[best_col] = best_value;
-      num_to_assign--;
+      // std::cout<<"processing row"<<row<<std::endl;
+      for (int col = 0; col < num_cols; col++) {
+        // Find the index in eligible_rows[col] containing row (if it exists).
+        while (running_locations[col] < (eligible_rows[col].size() - 1)){
+          // Found the index in eligible_rows containing row (if it exists).
+          if (eligible_rows[col][running_locations[col]] >= row) { break; }
+          running_locations[col]++;
+        }
+        running_locations[col] = std::min(running_locations[col],
+                                          eligible_rows[col].size());
+      }
+      // Swap so that M[row, best_column] = best_value.
+      auto is_eligible = [&eligible_rows, &running_locations, row] (int col) {
+        return (eligible_rows[col].size() && 
+               (eligible_rows[col][running_locations[col]] == row));
+      };  // True if M[row,col] is eligible for relocation.
+      T* row_start = M + (row*num_cols);
+      // Find the first eligible location with best_value (guaranteed to exist).
+      int col = 0;
+      while (col < num_cols) {
+        if ((row_start[col] == best_value) && is_eligible(col)) {
+          row_start[col] = row_start[best_col];
+          row_start[best_col] = best_value;
+          num_to_assign--;
+          break;
+        }
+        col++;
+      }
+      // Find the second eligible location with best_value (not guaranteed).
+      while (col < num_cols) {
+        if ((row_start[col] == best_value)  // Skip incorrect value.
+            && is_eligible(col)  // Skip values we've already relocated.
+            && (col != best_col)) {  // Skip destination column.
+          break;
+        }
+        col++;
+      }
+      if (col == num_cols) {  // Did not find any eligible duplicates.
+        all_assigned.push_back(row);  // All best_value in row are assigned.
+      }
     }
     // 5d. Maintain the loop invariants.
-    RowList difference;
-    std::set_difference(
-        val_to_row[best_value].begin(), val_to_row[best_value].end(),
-        best_rows.begin(), best_rows.end(),
-        std::back_inserter(difference));
-    RowList remaining_rows;
+    RowList free_rows_in_best_col;
     std::set_difference(
       eligible_rows[best_col].begin(), eligible_rows[best_col].end(),
       best_rows.begin(), best_rows.end(),
-      std::back_inserter(remaining_rows));
+      std::back_inserter(free_rows_in_best_col));
+    // Invariant: eligible_rows[c] contains all unassigned rows in column c.
+    eligible_rows[best_col] = free_rows_in_best_col;
+    RowList rows_with_unassigned_best_value;
+    std::set_difference(
+        val_to_row[best_value].begin(), val_to_row[best_value].end(),
+        all_assigned.begin(), all_assigned.end(),
+        std::back_inserter(rows_with_unassigned_best_value));
     // Invariant: frequency_map[k] contains all values with "k" relocatable rows
     int prev_freq = val_to_row[best_value].size();
-    int curr_freq = difference.size();
+    int curr_freq = rows_with_unassigned_best_value.size();
     auto values_start = frequency_map[prev_freq].begin();
     auto values_end = frequency_map[prev_freq].end();
     auto value_it = std::find(values_start, values_end, best_value);
@@ -130,9 +184,7 @@ void entropyPermutation(T* M, int num_rows, int num_cols) {
     }
     // Invariant: val_to_row[v] contains all rows where v can be relocated.
     // If we were unable to assign all of the rows, there may be some left over.
-    val_to_row[best_value] = difference;  // TODO: Try to std::move.
-    // Invariant: eligible_rows[c] contains all unassigned rows in column c.
-    eligible_rows[best_col] = remaining_rows;
+    val_to_row[best_value] = rows_with_unassigned_best_value;  // TODO: std::move.
   }
 }
 
