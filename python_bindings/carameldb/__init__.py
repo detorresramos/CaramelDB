@@ -98,7 +98,7 @@ def _infer_backend(keys, values, max_to_infer=None):
     if np.issubdtype(type(values[0]), np.integer):
         return CSFUint32
 
-    if isinstance(values[0], (list, type(np.array))):
+    if isinstance(values[0], (list, np.ndarray)):
         return MultisetCSF
 
     if isinstance(values[0], (str, bytes)):

@@ -2,6 +2,7 @@
 
 #include "BloomFilter.h"
 #include <algorithm>
+#include <cmath>
 #include <optional>
 #include <string>
 #include <unordered_map>

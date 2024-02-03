@@ -3,6 +3,7 @@
 #include "SpookyHash.h"
 #include <cereal/access.hpp>
 #include <cereal/archives/binary.hpp>
+#include <cmath>
 #include <memory>
 #include <src/BitArray.h>
 #include <vector>
