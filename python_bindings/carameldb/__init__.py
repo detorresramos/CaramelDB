@@ -68,7 +68,7 @@ def load(filename):
     Raises:
         ValueError if the filename does not contain a valid CSF.
     """
-    csf_classes = (CSFUint32, CSFChar10, CSFChar12, CSFString, MultisetCSF)
+    csf_classes = (CSFUint32, CSFUint64, CSFChar10, CSFChar12, CSFString, MultisetCSF)
     for csf_class in csf_classes:
         try:
             csf = csf_class.load(filename)
@@ -96,6 +96,8 @@ def _infer_backend(keys, values, max_to_infer=None):
     """Returns a CSF class, selected based on the key / value types."""
 
     if np.issubdtype(type(values[0]), np.integer):
+        if np.issubdtype(type(values[0]), np.uint64):
+            return CSFUint64
         return CSFUint32
 
     if isinstance(values[0], (list, np.ndarray)):

@@ -40,9 +40,10 @@ void bindCsf(py::module &module, const char *name, const uint32_t type_id) {
 
 PYBIND11_MODULE(_caramel, module) { // NOLINT
   bindCsf<uint32_t>(module, "CSFUint32", 1);
-  bindCsf<std::array<char, 10>>(module, "CSFChar10", 2);
-  bindCsf<std::array<char, 12>>(module, "CSFChar12", 3);
-  bindCsf<std::string>(module, "CSFString", 4);
+  bindCsf<uint64_t>(module, "CSFUint64", 2);
+  bindCsf<std::array<char, 10>>(module, "CSFChar10", 3);
+  bindCsf<std::array<char, 12>>(module, "CSFChar12", 4);
+  bindCsf<std::string>(module, "CSFString", 5);
   py::register_exception<CsfDeserializationException>(
       module, "CsfDeserializationException");
 }
