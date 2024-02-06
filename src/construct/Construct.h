@@ -53,7 +53,7 @@ constructModulo2System(const std::vector<Uint128Signature> &key_signatures,
     Uint128Signature key_signature = key_signatures[i];
 
     std::vector<uint32_t> start_var_locations =
-        getStartVarLocations(key_signature, seed, num_variables);
+        signatureToEquation(key_signature, seed, num_variables);
 
     BitArrayPtr coded_value = codedict.find(values[i])->second;
     uint32_t n_bits = coded_value->numBits();

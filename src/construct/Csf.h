@@ -12,6 +12,7 @@
 #include <cereal/types/optional.hpp>
 #include <cereal/types/utility.hpp>
 #include <cereal/types/vector.hpp>
+#include <chrono>
 #include <memory>
 #include <src/BitArray.h>
 #include <src/construct/BloomFilter.h>
@@ -59,6 +60,7 @@ public:
   }
 
   T query(const std::string &key) const {
+    auto start = std::chrono::high_resolution_clock::now();
     if (_bloom_filter && !_bloom_filter->contains(key)) {
       return *_most_common_value;
     }
@@ -68,14 +70,20 @@ public:
     uint32_t bucket_id =
         getBucketID(signature, /* num_buckets= */ _solutions_and_seeds.size());
 
-    auto [solution, construction_seed] = _solutions_and_seeds.at(bucket_id);
+    auto &[solution, construction_seed] = _solutions_and_seeds.at(bucket_id);
 
     uint32_t solution_size = solution->numBits();
 
     uint32_t max_codelength = _code_length_counts.size() - 1;
 
     std::vector<uint32_t> start_var_locations =
-        getStartVarLocations(signature, construction_seed, solution_size);
+        signatureToEquation(signature, construction_seed, solution_size);
+
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+    std::cout << "Time taken by function: " << duration.count()
+              << " nanoseconds" << std::endl;
 
     BitArrayPtr encoded_value = BitArray::make(max_codelength);
     for (auto location : start_var_locations) {
@@ -93,8 +101,14 @@ public:
       *encoded_value ^= *temp;
     }
 
-    return cannonicalDecode(encoded_value, _code_length_counts,
-                            _ordered_symbols);
+    auto x =
+        cannonicalDecode(encoded_value, _code_length_counts, _ordered_symbols);
+    end = std::chrono::high_resolution_clock::now();
+    duration =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+    std::cout << "Time taken by function: " << duration.count()
+              << " nanoseconds" << std::endl;
+    return x;
   }
 
   void save(const std::string &filename, const uint32_t type_id = 0) const {

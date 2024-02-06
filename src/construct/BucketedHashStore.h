@@ -8,7 +8,7 @@
 
 namespace caramel {
 
-uint32_t getBucketID(Uint128Signature signature, uint32_t num_buckets);
+uint32_t getBucketID(const Uint128Signature &signature, uint32_t num_buckets);
 
 Uint128Signature hashKey(const std::string &key, uint64_t seed);
 

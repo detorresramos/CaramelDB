@@ -15,7 +15,7 @@ Uint128Signature hashKey(const std::string &key, uint64_t seed) {
   return {hash1, hash2};
 }
 
-uint32_t getBucketID(Uint128Signature signature, uint32_t num_buckets) {
+uint32_t getBucketID(const Uint128Signature &signature, uint32_t num_buckets) {
   // Use first 64 bits of the signature to identify the segment
   uint64_t bucket_hash = signature.first;
   // This outputs a uniform integer from [0, self._num_buckets]
