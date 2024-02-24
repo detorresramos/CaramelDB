@@ -13,6 +13,7 @@ def test_multiset_csf():
     values = [[j + i for j in range(num_columns)] for i in range(num_rows)]
 
     csf = carameldb.Caramel(keys, values)
+    assert isinstance(csf, carameldb.MultisetCSF)
 
     for key, value in zip(keys, values):
         assert csf.query(key) == value

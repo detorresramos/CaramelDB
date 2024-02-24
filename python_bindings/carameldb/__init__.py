@@ -1,10 +1,18 @@
 import glob
 import os
+import warnings
 from pathlib import Path
 
 import numpy as np
 
-from ._caramel import *
+from ._caramel import (
+    CSFChar10,
+    CSFChar12,
+    CsfDeserializationException,
+    CSFString,
+    CSFUint32,
+    CSFUint64,
+)
 
 
 def Caramel(
@@ -106,7 +114,7 @@ def _infer_backend(keys, values, max_to_infer=None):
     if isinstance(values[0], (str, bytes)):
         # call out to one of the dedicated-length strings
         validate_values = values[:max_to_infer] if max_to_infer else values
-        value_length = _infer_length(values)
+        value_length = _infer_length(validate_values)
         if value_length == 10:
             return CSFChar10
         elif value_length == 12:
@@ -147,6 +155,7 @@ class MultisetCSF:
         verbose=True,
     ):
         try:
+            warnings.filterwarnings("error", category=np.VisibleDeprecationWarning)
             values = np.array(values)
         except Exception:
             raise ValueError(

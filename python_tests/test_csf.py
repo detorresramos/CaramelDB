@@ -1,6 +1,7 @@
 import os
 
 import carameldb
+import numpy as np
 import pytest
 
 pytestmark = [pytest.mark.unit]
@@ -132,3 +133,11 @@ def test_bloom_filter():
     keys = gen_str_keys(1000)
     values = gen_int_values(300) + [300 for _ in range(700)]
     assert_simple_api_correct(keys, values)
+
+
+def test_uint32_vs_64_values():
+    keys = gen_str_keys(1000)
+    uint32_t_values = np.array([1, 2, 3], dtype=np.uint32)
+    assert carameldb._infer_backend(keys, uint32_t_values) == carameldb.CSFUint32
+    uint64_t_values = np.array([1, 2, 3], dtype=np.uint64)
+    assert carameldb._infer_backend(keys, uint64_t_values) == carameldb.CSFUint64
