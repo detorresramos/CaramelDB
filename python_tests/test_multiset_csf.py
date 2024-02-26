@@ -6,9 +6,9 @@ import pytest
 pytestmark = [pytest.mark.unit]
 
 
-def test_multiset_csf():
+def test_multiset_csf_save_load():
     num_rows = 1000
-    num_columns = 10
+    num_columns = 100
     keys = [f"key_{i}" for i in range(num_rows)]
     values = [[j + i for j in range(num_columns)] for i in range(num_rows)]
 

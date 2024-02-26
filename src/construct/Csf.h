@@ -12,6 +12,7 @@
 #include <cereal/types/optional.hpp>
 #include <cereal/types/utility.hpp>
 #include <cereal/types/vector.hpp>
+#include <chrono>
 #include <memory>
 #include <src/BitArray.h>
 #include <src/construct/BloomFilter.h>
@@ -95,6 +96,18 @@ public:
 
     return cannonicalDecode(encoded_value, _code_length_counts,
                             _ordered_symbols);
+  }
+
+  static std::vector<T> parallelInference(const std::string &key,
+                                          const std::vector<CsfPtr<T>> &csfs) {
+    std::vector<T> outputs(csfs.size());
+
+#pragma omp parallel for default(none) shared(key, csfs, outputs)
+    for (size_t i = 0; i < csfs.size(); i++) {
+      outputs[i] = csfs[i]->query(key);
+    }
+
+    return outputs;
   }
 
   void save(const std::string &filename, const uint32_t type_id = 0) const {

@@ -1,5 +1,6 @@
 import glob
 import os
+import re
 import warnings
 from pathlib import Path
 
@@ -12,6 +13,11 @@ from ._caramel import (
     CSFString,
     CSFUint32,
     CSFUint64,
+    parallel_inference_char10,
+    parallel_inference_char12,
+    parallel_inference_string,
+    parallel_inference_uint32,
+    parallel_inference_uint64,
 )
 
 
@@ -179,8 +185,10 @@ class MultisetCSF:
                 )
             )
 
+        self.parallel_inference = _infer_parallel_inference(backing_csf=self._csfs[0])
+
     def query(self, key):
-        return [csf.query(key) for csf in self._csfs]
+        return self.parallel_inference(key, self._csfs)
 
     def save(self, filename):
         directory = Path(filename)
@@ -194,11 +202,36 @@ class MultisetCSF:
         instance = cls.__new__(cls)
         directory = Path(filename)
 
-        csf_files = sorted(glob.glob(str(directory / "*.csf")))
+        csf_files = glob.glob(str(directory / "*.csf"))
+        csf_files = sorted(
+            csf_files,
+            key=lambda filename: int(
+                re.search(r"column_(\d+)\.csf", filename).group(1)
+            ),
+        )
 
         instance._csfs = []
         for i, column_csf_file in enumerate(csf_files):
             assert column_csf_file.split("/")[-1] == f"column_{i}.csf"
             instance._csfs.append(load(column_csf_file))
 
+        instance.parallel_inference = _infer_parallel_inference(
+            backing_csf=instance._csfs[0]
+        )
+
         return instance
+
+
+def _infer_parallel_inference(backing_csf):
+    if isinstance(backing_csf, CSFUint32):
+        return parallel_inference_uint32
+    elif isinstance(backing_csf, CSFUint64):
+        return parallel_inference_uint64
+    elif isinstance(backing_csf, CSFChar10):
+        return parallel_inference_char10
+    elif isinstance(backing_csf, CSFChar12):
+        return parallel_inference_char12
+    elif isinstance(backing_csf, CSFString):
+        return parallel_inference_string
+    else:
+        raise ValueError("Wrong CSF Backing type for multiset")

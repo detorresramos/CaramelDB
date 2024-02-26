@@ -38,12 +38,26 @@ void bindCsf(py::module &module, const char *name, const uint32_t type_id) {
           py::arg("filename"));
 }
 
+template <typename T>
+void bindParallelInference(py::module &module, const char *name) {
+  module.def(name, &Csf<T>::parallelInference, py::arg("key"), py::arg("csfs"));
+}
+
 PYBIND11_MODULE(_caramel, module) { // NOLINT
   bindCsf<uint32_t>(module, "CSFUint32", 1);
   bindCsf<uint64_t>(module, "CSFUint64", 2);
   bindCsf<std::array<char, 10>>(module, "CSFChar10", 3);
   bindCsf<std::array<char, 12>>(module, "CSFChar12", 4);
   bindCsf<std::string>(module, "CSFString", 5);
+
+  bindParallelInference<uint32_t>(module, "parallel_inference_uint32");
+  bindParallelInference<uint64_t>(module, "parallel_inference_uint64");
+  bindParallelInference<std::array<char, 10>>(module,
+                                              "parallel_inference_char10");
+  bindParallelInference<std::array<char, 12>>(module,
+                                              "parallel_inference_char12");
+  bindParallelInference<std::string>(module, "parallel_inference_string");
+
   py::register_exception<CsfDeserializationException>(
       module, "CsfDeserializationException");
 }
