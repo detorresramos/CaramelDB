@@ -32,7 +32,8 @@ void DenseSystem::addEquation(
 }
 
 void DenseSystem::addEquation(
-    uint32_t equation_id, const std::unordered_set<uint32_t> &participating_variables,
+    uint32_t equation_id,
+    const std::unordered_set<uint32_t> &participating_variables,
     uint32_t constant) {
 #ifdef DEBUG
   for (auto var : participating_variables) {

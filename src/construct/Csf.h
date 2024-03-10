@@ -22,7 +22,6 @@
 namespace caramel {
 
 template <typename T> class Csf;
-
 template <typename T> using CsfPtr = std::shared_ptr<Csf<T>>;
 
 using SubsystemSolutionSeedPair = std::pair<BitArrayPtr, uint32_t>;
@@ -138,17 +137,15 @@ public:
     return deserialize_into;
   }
 
-  uint32_t size() const { return 0; }
-
-private:
-  // Private constructor for cereal
-  Csf() {}
-
   friend class cereal::access;
   template <class Archive> void serialize(Archive &archive) {
     archive(_solutions_and_seeds, _code_length_counts, _ordered_symbols,
             _hash_store_seed, _bloom_filter, _most_common_value);
   }
+
+private:
+  // Private constructor for cereal
+  Csf() {}
 
   std::vector<SubsystemSolutionSeedPair> _solutions_and_seeds;
   std::vector<uint32_t> _code_length_counts;

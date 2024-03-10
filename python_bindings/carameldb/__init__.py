@@ -13,19 +13,35 @@ from ._caramel import (
     CSFString,
     CSFUint32,
     CSFUint64,
-    parallel_inference_char10,
-    parallel_inference_char12,
-    parallel_inference_string,
-    parallel_inference_uint32,
-    parallel_inference_uint64,
+    MultisetCSFChar10,
+    MultisetCSFChar12,
+    MultisetCSFString,
+    MultisetCSFUint32,
+    MultisetCSFUint64,
 )
+
+multiset_csf_classes = (
+    MultisetCSFChar10,
+    MultisetCSFChar12,
+    MultisetCSFString,
+    MultisetCSFUint32,
+    MultisetCSFUint64,
+)
+
+csf_classes = (
+    CSFUint32,
+    CSFUint64,
+    CSFChar10,
+    CSFChar12,
+    CSFString,
+) + multiset_csf_classes
 
 
 def Caramel(
     keys,
     values,
     max_to_infer=None,
-    multiset_permute_optimization=False,
+    permute=False,
     use_bloom_filter=True,
     verbose=True,
 ):
@@ -49,17 +65,27 @@ def Caramel(
     if not len(values):
         raise ValueError("Values must be non-empty but found length 0.")
     if len(keys) != len(values):
+        print("LMFAO", len(keys), len(values))
         raise ValueError("Keys and values must have the same length.")
     if not isinstance(keys[0], (str, bytes)):
         raise ValueError(f"Keys must be str or bytes, found {type(keys[0])}")
 
+    try:
+        warnings.filterwarnings("error", category=np.VisibleDeprecationWarning)
+        values = np.array(values)
+    except Exception:
+        raise ValueError(
+            "Error transforming values to numpy array. Make sure all rows are the same length."
+        )
+
     CSFClass = _infer_backend(keys, values, max_to_infer=max_to_infer)
-    if isinstance(CSFClass, MultisetCSF):
-        csf = MultisetCSF(
+    if CSFClass in multiset_csf_classes:
+        values = values.T
+        print(values)
+        csf = CSFClass(
             keys,
             values,
-            max_to_infer=max_to_infer,
-            multiset_permute_optimization=multiset_permute_optimization,
+            permute=permute,
             use_bloom_filter=use_bloom_filter,
             verbose=verbose,
         )
@@ -82,7 +108,6 @@ def load(filename):
     Raises:
         ValueError if the filename does not contain a valid CSF.
     """
-    csf_classes = (CSFUint32, CSFUint64, CSFChar10, CSFChar12, CSFString, MultisetCSF)
     for csf_class in csf_classes:
         try:
             csf = csf_class.load(filename)
@@ -109,13 +134,13 @@ class CSFQueryWrapper(object):
 def _infer_backend(keys, values, max_to_infer=None):
     """Returns a CSF class, selected based on the key / value types."""
 
+    if isinstance(values[0], (list, np.ndarray)):
+        return _infer_multiset(values, max_to_infer)
+
     if np.issubdtype(type(values[0]), np.integer):
         if np.issubdtype(type(values[0]), np.uint64):
             return CSFUint64
         return CSFUint32
-
-    if isinstance(values[0], (list, np.ndarray)):
-        return MultisetCSF
 
     if isinstance(values[0], (str, bytes)):
         # call out to one of the dedicated-length strings
@@ -127,6 +152,36 @@ def _infer_backend(keys, values, max_to_infer=None):
             return CSFChar12
         else:
             return CSFString
+
+    raise ValueError(f"Unsupported value type: {type(values[0])}")
+
+
+def _infer_multiset(values, max_to_infer):
+    if len(values[0]) == 0:
+        raise ValueError("Cannot have empty list as value.")
+
+    if np.issubdtype(type(values[0][0]), np.integer):
+        if np.issubdtype(type(values[0][0]), np.uint64):
+            return MultisetCSFUint64
+        return MultisetCSFUint32
+
+    print("GOT PAST MULTISET INT CHECK")
+
+    if isinstance(values[0][0], (str, bytes)):
+        # call out to one of the dedicated-length strings
+        validate_rows = values[:max_to_infer] if max_to_infer else values
+        validate_values = []
+        for row in validate_rows:
+            if len(row) == 0:
+                raise ValueError("Cannot have empty list as value.")
+            validate_values.append(row[0])
+        value_length = _infer_length(validate_values)
+        if value_length == 10:
+            return MultisetCSFChar10
+        elif value_length == 12:
+            return MultisetCSFChar12
+        else:
+            return MultisetCSFString
 
     raise ValueError(f"Unsupported value type: {type(values[0])}")
 
@@ -148,90 +203,3 @@ def _wrap_backend(csf):
         csf = CSFQueryWrapper(csf, lambda x: "".join(x))
 
     return csf
-
-
-class MultisetCSF:
-    def __init__(
-        self,
-        keys,
-        values,
-        max_to_infer=None,
-        multiset_permute_optimization=False,
-        use_bloom_filter=True,
-        verbose=True,
-    ):
-        try:
-            warnings.filterwarnings("error", category=np.VisibleDeprecationWarning)
-            values = np.array(values)
-        except Exception:
-            raise ValueError(
-                "Error transforming values to numpy array. Make sure all rows are the same length."
-            )
-
-        if multiset_permute_optimization:
-            values = permute_values(values)
-
-        values = values.T
-
-        self._csfs = []
-        for i in range(len(values)):
-            self._csfs.append(
-                Caramel(
-                    keys,
-                    values[i],
-                    max_to_infer,
-                    use_bloom_filter=use_bloom_filter,
-                    verbose=verbose,
-                )
-            )
-
-        self.parallel_inference = _infer_parallel_inference(backing_csf=self._csfs[0])
-
-    def query(self, key):
-        return self.parallel_inference(key, self._csfs)
-
-    def save(self, filename):
-        directory = Path(filename)
-        os.mkdir(directory)
-
-        for i, csf in enumerate(self._csfs):
-            csf.save(str(directory / f"column_{i}.csf"))
-
-    @classmethod
-    def load(cls, filename):
-        instance = cls.__new__(cls)
-        directory = Path(filename)
-
-        csf_files = glob.glob(str(directory / "*.csf"))
-        csf_files = sorted(
-            csf_files,
-            key=lambda filename: int(
-                re.search(r"column_(\d+)\.csf", filename).group(1)
-            ),
-        )
-
-        instance._csfs = []
-        for i, column_csf_file in enumerate(csf_files):
-            assert column_csf_file.split("/")[-1] == f"column_{i}.csf"
-            instance._csfs.append(load(column_csf_file))
-
-        instance.parallel_inference = _infer_parallel_inference(
-            backing_csf=instance._csfs[0]
-        )
-
-        return instance
-
-
-def _infer_parallel_inference(backing_csf):
-    if isinstance(backing_csf, CSFUint32):
-        return parallel_inference_uint32
-    elif isinstance(backing_csf, CSFUint64):
-        return parallel_inference_uint64
-    elif isinstance(backing_csf, CSFChar10):
-        return parallel_inference_char10
-    elif isinstance(backing_csf, CSFChar12):
-        return parallel_inference_char12
-    elif isinstance(backing_csf, CSFString):
-        return parallel_inference_string
-    else:
-        raise ValueError("Wrong CSF Backing type for multiset")

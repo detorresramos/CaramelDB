@@ -182,9 +182,9 @@ CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
   auto bar = ProgressBar::makeOptional(verbose, "Solving systems...",
                                        /* max_steps=*/num_buckets);
 
-#pragma omp parallel for default(none)                                         \
-    shared(bucketed_key_signatures, bucketed_values, codedict,                 \
-           solutions_and_seeds, num_buckets, exception, bar, DELTA)
+// #pragma omp parallel for default(none)                                         
+//     shared(bucketed_key_signatures, bucketed_values, codedict,                 
+//            solutions_and_seeds, num_buckets, exception, bar, DELTA)
   for (uint32_t i = 0; i < num_buckets; i++) {
     if (exception) {
       continue;

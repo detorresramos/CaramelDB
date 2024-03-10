@@ -13,10 +13,20 @@ namespace caramel {
 class BloomFilter {
 public:
   BloomFilter(size_t num_elements, float error_rate) {
+    std::cout << "num_elements " << num_elements << std::endl;
+    std::cout << "error_rate " << error_rate << std::endl;
+    std::cout << " (1 / log(2)" << 1 / log(2) << std::endl;
+    std::cout << " log2(1.0 / error_rate)" << log2(1.0 / error_rate) << std::endl;
     size_t size = std::ceil((1 / log(2)) * log2(1.0 / error_rate) *
                             static_cast<float>(num_elements));
 
+    std::cout << size << std::endl;
+    size = std::max<size_t>(size, 10);
+    std::cout << size << std::endl;
+
+    std::cout << __FILE__ << " " << __LINE__ << std::endl;
     _bitarray = BitArray::make(size);
+    std::cout << __FILE__ << " " << __LINE__ << std::endl;
 
     _num_hashes = std::floor((static_cast<float>(size) * log(2)) /
                              (static_cast<float>(num_elements)));

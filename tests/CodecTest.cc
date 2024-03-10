@@ -15,6 +15,7 @@ TEST(CodecTest, TestSingleCannonicalHuffman) {
         cannonicalDecode<uint32_t>(code, code_length_counts, sorted_symbols);
     ASSERT_EQ(actual_key, expected_key);
   }
+  ASSERT_EQ(true, false);
 }
 
 TEST(CodecTest, TestRandomCannonicalHuffman) {
@@ -30,6 +31,18 @@ TEST(CodecTest, TestRandomCannonicalHuffman) {
           cannonicalDecode<uint32_t>(code, code_length_counts, sorted_symbols);
       ASSERT_EQ(actual_key, expected_key);
     }
+  }
+}
+
+TEST(CodecTest, TestRepeatItemCannonicalHuffman) {
+  std::vector<uint32_t> symbols = {2, 2, 2, 2};
+  auto [codedict, code_length_counts, sorted_symbols] =
+      cannonicalHuffman<uint32_t>(symbols);
+
+  for (auto [expected_key, code] : codedict) {
+    uint32_t actual_key =
+        cannonicalDecode<uint32_t>(code, code_length_counts, sorted_symbols);
+    ASSERT_EQ(actual_key, expected_key);
   }
 }
 

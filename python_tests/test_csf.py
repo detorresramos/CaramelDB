@@ -4,8 +4,6 @@ import carameldb
 import numpy as np
 import pytest
 
-pytestmark = [pytest.mark.unit]
-
 gen_str_keys = lambda n: [f"key{i}" for i in range(n)]
 gen_byte_keys = lambda n: [f"key{i}".encode("utf-8") for i in range(n)]
 gen_int_values = lambda n: [i for i in range(n)]
