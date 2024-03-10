@@ -159,7 +159,7 @@ cannonicalHuffman(const std::vector<T> &symbols,
     uint32_t current_length = codeword_lengths[i];
     codedict[symbol] = BitArray::fromNumber(code, current_length);
     std::cout << "code is " << code << "of length " << current_length
-              << " with bitarray " << codedict[symbol].str() << std::endl;
+              << " with bitarray " << codedict[symbol]->str() << std::endl;
     code_length_counts[current_length]++;
     if (i + 1 < codeword_lengths.size()) {
       code++;
