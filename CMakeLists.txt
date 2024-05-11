@@ -109,7 +109,7 @@ add_subdirectory(tests)
 set(CARAMEL_SOURCES
     ${PROJECT_SOURCE_DIR}/src/Modulo2System.cc
     ${PROJECT_SOURCE_DIR}/src/BitArray.cc
-    ${PROJECT_SOURCE_DIR}/src/construct/Codec.cc
+    # ${PROJECT_SOURCE_DIR}/src/construct/Codec.cc
     ${PROJECT_SOURCE_DIR}/src/construct/BucketedHashStore.cc
     ${PROJECT_SOURCE_DIR}/src/construct/SpookyHash.cc
     ${PROJECT_SOURCE_DIR}/src/solve/GaussianElimination.cc
