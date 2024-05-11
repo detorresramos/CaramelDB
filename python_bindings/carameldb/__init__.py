@@ -194,7 +194,10 @@ class MultisetCSF:
         instance = cls.__new__(cls)
         directory = Path(filename)
 
-        csf_files = sorted(glob.glob(str(directory / "*.csf")))
+        csf_files = sorted(
+            glob.glob(str(directory / "*.csf")),
+            key=lambda x: int(x.split("/")[-1].split("_")[-1].split(".")[0]),
+        )
 
         instance._csfs = []
         for i, column_csf_file in enumerate(csf_files):
