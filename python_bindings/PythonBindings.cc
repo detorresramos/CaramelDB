@@ -54,7 +54,8 @@ void bindMultisetCsf(py::module &module, const char *name,
            }),
            py::arg("keys"), py::arg("values"),
            py::arg("use_bloom_filter") = true, py::arg("verbose") = true)
-      .def("query", &MultisetCsf<T>::query, py::arg("key"))
+      .def("query", &MultisetCsf<T>::query, py::arg("key"),
+           py::arg("parallel") = true)
       // Call save / load through a lambda to avoid user visibility of
       // type_id.
       .def(

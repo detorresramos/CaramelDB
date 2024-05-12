@@ -29,6 +29,7 @@ def parse_args():
     parser.add_argument("--zipfian_s_val", type=int, default=2)
     parser.add_argument("--uniform_num_unique_values", type=int, default=64)
     parser.add_argument("--geometric_p_val", type=float, default=0.5)
+    parser.add_argument("--parallel_queries", action="store_true")
 
     return dotdict(vars(parser.parse_args()))
 
@@ -74,7 +75,10 @@ def main(args):
     query_time = 0
     for i, key in enumerate(keys):
         start = time.perf_counter_ns()
-        val = csf.query(key)
+        if args.columns:
+            val = csf.query(key, parallel=args.parallel_queries)
+        else:
+            val = csf.query(key)
         query_time += time.perf_counter_ns() - start
         if args.columns == 1:
             assert val == values[i]
