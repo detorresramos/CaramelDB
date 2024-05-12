@@ -66,3 +66,10 @@ def test_multiset_csf_permute():
 
     os.remove(csf_permute_filename)
     os.remove(csf_no_permute_filename)
+
+
+def test_permutation():
+    import numpy as np
+    import carameldb
+    values = np.array([[0, 1, 2, 3, 4, 5, 6, 0], [1, 0, 0, 1, 0, 1, 2, 2]])
+    carameldb.permute_uint32(values)
