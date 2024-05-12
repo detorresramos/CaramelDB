@@ -54,6 +54,8 @@ public:
 
   BitArray &operator&=(const BitArray &other);
 
+  BitArray operator^(const BitArray &other) const;
+
   BitArray operator&(const BitArray &other) const;
 
   BitArray &operator=(const BitArray &other);

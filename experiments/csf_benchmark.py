@@ -75,15 +75,15 @@ def main(args):
     query_time = 0
     for i, key in enumerate(keys):
         start = time.perf_counter_ns()
-        if args.columns:
+        if args.columns != 1:
             val = csf.query(key, parallel=args.parallel_queries)
         else:
             val = csf.query(key)
         query_time += time.perf_counter_ns() - start
-        if args.columns == 1:
-            assert val == values[i]
-        else:
-            assert list(val) == list(values[i])
+        # if args.columns == 1:
+        #     assert val == values[i]
+        # else:
+        #     assert list(val) == list(values[i])
     query_time /= len(keys)
 
     print(

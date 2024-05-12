@@ -129,6 +129,14 @@ BitArray &BitArray::operator&=(const BitArray &other) {
   return *this;
 }
 
+BitArray BitArray::operator^(const BitArray &other) const {
+  BitArray result(this->numBits());
+  result = *this;
+  result ^= other;
+
+  return result;
+}
+
 BitArray BitArray::operator&(const BitArray &other) const {
   BitArray result(this->numBits());
   result = *this;

@@ -32,7 +32,7 @@ def test_multiset_csf():
 def test_multiset_csf_different_number_of_values():
     with pytest.raises(
         ValueError,
-        match="Keys and values must have the same length.",
+        match="Error transforming values to numpy array. Make sure all rows are the same length."
     ):
         carameldb.Caramel(["1", "2", "3"], [[1, 2], [2, 3], [3]])
 

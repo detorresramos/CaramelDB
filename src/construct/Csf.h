@@ -17,6 +17,7 @@
 #include <src/BitArray.h>
 #include <src/construct/BloomFilter.h>
 #include <src/utils/SafeFileIO.h>
+#include <src/utils/Timer.h>
 #include <vector>
 
 namespace caramel {
@@ -60,54 +61,80 @@ public:
   }
 
   T query(const std::string &key) const {
-    auto start = std::chrono::high_resolution_clock::now();
+    Timer timer;
+
+    // 24 ns
     if (_bloom_filter && !_bloom_filter->contains(key)) {
       return *_most_common_value;
     }
 
+    auto time = timer.nanoseconds();
+
+    // 48 ns
     Uint128Signature signature = hashKey(key, _hash_store_seed);
 
+    auto time1 = timer.nanoseconds();
+
+    // 28 ns
     uint32_t bucket_id =
         getBucketID(signature, /* num_buckets= */ _solutions_and_seeds.size());
 
+    auto time2 = timer.nanoseconds();
+
+    // 25 ns
     auto &[solution, construction_seed] = _solutions_and_seeds.at(bucket_id);
 
+    auto time3 = timer.nanoseconds();
+
+    // 63 ns
     uint32_t solution_size = solution->numBits();
 
+    auto time4 = timer.nanoseconds();
+
+    // 25 ns
     uint32_t max_codelength = _code_length_counts.size() - 1;
 
+    auto time5 = timer.nanoseconds();
+
+    // 86 ns
     std::vector<uint32_t> start_var_locations =
         signatureToEquation(signature, construction_seed, solution_size);
 
-    auto end = std::chrono::high_resolution_clock::now();
-    auto duration =
-        std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
-    std::cout << "Time taken by function: " << duration.count()
-              << " nanoseconds" << std::endl;
+    auto time6 = timer.nanoseconds();
 
-    BitArrayPtr encoded_value = BitArray::make(max_codelength);
-    for (auto location : start_var_locations) {
-      BitArrayPtr temp = BitArray::make(max_codelength);
-      for (uint32_t i = 0; i < max_codelength; i++) {
-        if ((*solution)[location]) {
-          temp->setBit(i);
-        }
-        if (location == solution_size - 1) {
-          location = 0;
-        } else {
-          location++;
-        }
+    // 800 ns
+    BitArrayPtr temp1 = BitArray::make(max_codelength);
+    BitArrayPtr temp2 = BitArray::make(max_codelength);
+    BitArrayPtr temp3 = BitArray::make(max_codelength);
+    auto location1 = start_var_locations[0];
+    auto location2 = start_var_locations[1];
+    auto location3 = start_var_locations[2];
+    for (uint32_t i = 0; i < max_codelength; i++) {
+      if ((*solution)[location1]) {
+        temp1->setBit(i);
       }
-      *encoded_value ^= *temp;
+      location1++;
+      if ((*solution)[location2]) {
+        temp2->setBit(i);
+      }
+      location2++;
+      if ((*solution)[location3]) {
+        temp3->setBit(i);
+      }
+      location3++;
     }
+    auto encoded_value = std::make_shared<BitArray>(*temp1 ^ *temp2 ^ *temp3);
 
+    auto time7 = timer.nanoseconds();
+
+    // 30-70 ns
     auto x =
         cannonicalDecode(encoded_value, _code_length_counts, _ordered_symbols);
-    end = std::chrono::high_resolution_clock::now();
-    duration =
-        std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
-    std::cout << "Time taken by function: " << duration.count()
-              << " nanoseconds" << std::endl;
+    auto time8 = timer.nanoseconds();
+
+    std::cout << time << " " << time1 << " " << time2 << " " << time3 << " "
+              << time4 << " " << time5 << " " << time6 << " " << time7 << " "
+              << time8 << std::endl;
     return x;
   }
 
