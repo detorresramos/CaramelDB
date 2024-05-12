@@ -1,4 +1,5 @@
 #pragma once
+
 #include "BucketedHashStore.h"
 #include "Codec.h"
 #include "ConstructUtils.h"
@@ -8,10 +9,12 @@
 #include <cereal/archives/binary.hpp>
 #include <cereal/types/array.hpp>
 #include <cereal/types/memory.hpp>
+#include <cereal/types/optional.hpp>
 #include <cereal/types/utility.hpp>
 #include <cereal/types/vector.hpp>
 #include <memory>
 #include <src/BitArray.h>
+#include <src/construct/BloomFilter.h>
 #include <src/utils/SafeFileIO.h>
 #include <vector>
 
@@ -33,20 +36,33 @@ template <typename T> class Csf {
 public:
   Csf(const std::vector<SubsystemSolutionSeedPair> &solutions_and_seeds,
       const std::vector<uint32_t> &code_length_counts,
-      const std::vector<T> &ordered_symbols, uint32_t hash_store_seed)
+      const std::vector<T> &ordered_symbols, uint32_t hash_store_seed,
+      const BloomFilterPtr &bloom_filter, std::optional<T> most_common_value)
       : _solutions_and_seeds(solutions_and_seeds),
         _code_length_counts(code_length_counts),
-        _ordered_symbols(ordered_symbols), _hash_store_seed(hash_store_seed) {}
+        _ordered_symbols(ordered_symbols), _hash_store_seed(hash_store_seed),
+        _bloom_filter(bloom_filter), _most_common_value(most_common_value) {
+    if ((_bloom_filter != nullptr) != (_most_common_value.has_value())) {
+      throw std::invalid_argument("If using bloom filter must provide both the "
+                                  "bloom filter and the most common value.");
+    }
+  }
 
   static CsfPtr<T>
   make(const std::vector<SubsystemSolutionSeedPair> &solutions_and_seeds,
        const std::vector<uint32_t> &code_length_counts,
-       const std::vector<T> &ordered_symbols, uint32_t hash_store_seed) {
+       const std::vector<T> &ordered_symbols, uint32_t hash_store_seed,
+       const BloomFilterPtr bloom_filter, std::optional<T> most_common_value) {
     return std::make_shared<Csf<T>>(solutions_and_seeds, code_length_counts,
-                                    ordered_symbols, hash_store_seed);
+                                    ordered_symbols, hash_store_seed,
+                                    bloom_filter, most_common_value);
   }
 
   T query(const std::string &key) const {
+    if (_bloom_filter && !_bloom_filter->contains(key)) {
+      return *_most_common_value;
+    }
+
     Uint128Signature signature = hashKey(key, _hash_store_seed);
 
     uint32_t bucket_id =
@@ -83,21 +99,24 @@ public:
 
   void save(const std::string &filename, const uint32_t type_id = 0) const {
     auto output_stream = SafeFileIO::ofstream(filename, std::ios::binary);
-    output_stream.write(reinterpret_cast<const char*>(&type_id), sizeof(uint32_t));
+    output_stream.write(reinterpret_cast<const char *>(&type_id),
+                        sizeof(uint32_t));
     cereal::BinaryOutputArchive oarchive(output_stream);
     oarchive(*this);
   }
 
-  static CsfPtr<T> load(const std::string &filename, const uint32_t type_id = 0) {
+  static CsfPtr<T> load(const std::string &filename,
+                        const uint32_t type_id = 0) {
     auto input_stream = SafeFileIO::ifstream(filename, std::ios::binary);
     // Check the type_id before deserializing a (potentially large) CSF.
     uint32_t type_id_found = 0;
-    input_stream.read(reinterpret_cast<char*>(&type_id_found), sizeof(uint32_t));
-    if (type_id != type_id_found){
+    input_stream.read(reinterpret_cast<char *>(&type_id_found),
+                      sizeof(uint32_t));
+    if (type_id != type_id_found) {
       throw CsfDeserializationException(
-        "Expected type_id to be " + std::to_string(type_id) + 
-        " but found type_id = " + std::to_string(type_id_found) + 
-        " when deserializing " + filename);
+          "Expected type_id to be " + std::to_string(type_id) +
+          " but found type_id = " + std::to_string(type_id_found) +
+          " when deserializing " + filename);
     }
     cereal::BinaryInputArchive iarchive(input_stream);
     CsfPtr<T> deserialize_into(new Csf<T>());
@@ -106,8 +125,6 @@ public:
     return deserialize_into;
   }
 
-  uint32_t size() const { return 0; }
-
 private:
   // Private constructor for cereal
   Csf() {}
@@ -115,13 +132,15 @@ private:
   friend class cereal::access;
   template <class Archive> void serialize(Archive &archive) {
     archive(_solutions_and_seeds, _code_length_counts, _ordered_symbols,
-            _hash_store_seed);
+            _hash_store_seed, _bloom_filter, _most_common_value);
   }
 
   std::vector<SubsystemSolutionSeedPair> _solutions_and_seeds;
   std::vector<uint32_t> _code_length_counts;
   std::vector<T> _ordered_symbols;
   uint32_t _hash_store_seed;
+  BloomFilterPtr _bloom_filter;
+  std::optional<T> _most_common_value;
 };
 
 } // namespace caramel

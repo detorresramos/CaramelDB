@@ -43,7 +43,7 @@ template <typename T>
 std::tuple<std::vector<std::vector<Uint128Signature>>,
            std::vector<std::vector<T>>, uint64_t>
 partitionToBuckets(const std::vector<std::string> &keys,
-                   const std::vector<T> &values, uint32_t bucket_size = 256,
+                   const std::vector<T> &values, uint32_t bucket_size = 1000,
                    uint32_t num_attempts = 3) {
   if (keys.size() != values.size()) {
     throw std::invalid_argument("Keys and values must match sizes.");
