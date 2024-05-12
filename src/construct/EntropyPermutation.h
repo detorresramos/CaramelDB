@@ -14,9 +14,7 @@ namespace caramel {
 // for np.int64, np.uint64, np.int32, np.uint32, etc and call the correct one.
 // See SO post: https://stackoverflow.com/q/54793539
 
-template <typename T,
-          typename std::enable_if<!std::is_same<T, std::string>::value, T>::type
-              * = nullptr>
+template <typename T>
 void entropyPermutation(T *M, int num_rows, int num_cols) {
   using RowList = std::vector<int>;
   // 1. Build a map from column number to all eligible rows in that column.

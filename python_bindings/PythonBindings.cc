@@ -55,18 +55,6 @@ void permuteValues(
   entropyPermutation<T>(M, num_rows, num_cols);
 }
 
-// Since std::string does not have a fixed size, we cannot use it in the context
-// of numpy arrays and we get a compilation error when binding
-// entropyPermutation with std::string type as the template type. Thus we bind a
-// separate function here.
-template <>
-void permuteValues<std::string>(
-    py::array_t<std::string, py::array::c_style | py::array::forcecast>
-        &array) {
-  (void)array;
-  throw std::runtime_error("permute_values is unsupported for string types");
-}
-
 template <typename T>
 void bindMultisetCsf(py::module &module, const char *name,
                      const uint32_t type_id) {
@@ -94,8 +82,22 @@ void bindMultisetCsf(py::module &module, const char *name,
             return MultisetCsf<T>::load(filename, type_id);
           },
           py::arg("filename"))
-      .def_static("is_multiset", []() { return true; })
-      .def_static("permute_values", &permuteValues<T>);
+      .def_static("is_multiset", []() { return true; });
+}
+
+template <typename T> void bindPermutation(py::module &m, const char *name) {
+  m.def(name,
+        [](py::array_t<T, py::array::c_style | py::array::forcecast> &array) {
+          // Check array dimensions and load the buffer into a pointer.
+          if (array.ndim() != 2) {
+            throw std::runtime_error("Input should be a 2D numpy array.");
+          }
+          py::buffer_info info = array.request();
+          int num_rows = info.shape[0];
+          int num_cols = info.shape[1];
+          T *M = static_cast<T *>(info.ptr); // must be row-major format.
+          entropyPermutation<T>(M, num_rows, num_cols);
+        });
 }
 
 PYBIND11_MODULE(_caramel, module) { // NOLINT
@@ -110,6 +112,12 @@ PYBIND11_MODULE(_caramel, module) { // NOLINT
   bindMultisetCsf<std::array<char, 10>>(module, "MultisetCSFChar10", 103);
   bindMultisetCsf<std::array<char, 12>>(module, "MultisetCSFChar12", 104);
   bindMultisetCsf<std::string>(module, "MultisetCSFString", 105);
+
+  bindPermutation<uint32_t>(module, "permute_uint32");
+  bindPermutation<uint64_t>(module, "permute_uint64");
+  bindPermutation<std::array<char, 10>>(module, "permute_char10");
+  bindPermutation<std::array<char, 12>>(module, "permute_char12");
+  // permutation is not supported for std::string types
 
   py::register_exception<CsfDeserializationException>(
       module, "CsfDeserializationException");

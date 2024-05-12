@@ -17,6 +17,10 @@ from ._caramel import (
     MultisetCSFString,
     MultisetCSFUint32,
     MultisetCSFUint64,
+    permute_char10,
+    permute_char12,
+    permute_uint32,
+    permute_uint64,
 )
 
 CLASS_LIST = [
@@ -77,8 +81,7 @@ def Caramel(
     CSFClass = _infer_backend(values, max_to_infer=max_to_infer)
     if CSFClass.is_multiset():
         if permute:
-            # Check if the values need to be de-duplicated. TODO: Make optional.
-            CSFClass.permute_values(values)  # Done in-place to save memory.
+            permute_values(values, csf_class_type=CSFClass)
 
         try:
             values = values.T
@@ -86,7 +89,7 @@ def Caramel(
             raise ValueError(
                 "Error transforming values to column-wise. Make sure all values are the same length."
             )
-            
+
         csf = CSFClass(
             keys,
             values,
@@ -189,3 +192,16 @@ def _wrap_backend(csf):
         csf = CSFQueryWrapper(csf, lambda x: "".join(x))
 
     return csf
+
+
+def permute_values(values, csf_class_type):
+    if csf_class_type == MultisetCSFChar10:
+        permute_char10(values)
+    elif csf_class_type == MultisetCSFChar12:
+        permute_char12(values)
+    elif csf_class_type == MultisetCSFUint32:
+        permute_uint32(values)
+    elif csf_class_type == MultisetCSFUint64:
+        permute_uint64(values)
+    else:
+        raise ValueError("permute flag not supported for type data type.")

@@ -52,13 +52,13 @@ def test_multiset_csf_permute():
     num_rows = 1000
     num_columns = 10
     keys = [f"key_{i}" for i in range(num_rows)]
-    values = [[j + i for j in range(num_columns)] for i in range(num_rows)]
+    values = [[j for j in range(num_columns)] for i in range(num_rows)]
 
-    csf_permute = carameldb.Caramel(keys, values, premute=True)
+    csf_permute = carameldb.Caramel(keys, values, permute=True, use_bloom_filter=False)
     csf_permute_filename = "csf_permute.csf"
     csf_permute.save(csf_permute_filename)
 
-    csf_no_permute = carameldb.Caramel(keys, values, premute=False)
+    csf_no_permute = carameldb.Caramel(keys, values, permute=False, use_bloom_filter=False)
     csf_no_permute_filename = "csf_no_permute.csf"
     csf_no_permute.save(csf_no_permute_filename)
 
