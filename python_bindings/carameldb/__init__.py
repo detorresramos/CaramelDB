@@ -81,7 +81,7 @@ def Caramel(
     CSFClass = _infer_backend(values, max_to_infer=max_to_infer)
     if CSFClass.is_multiset():
         if permute:
-            permute_values(values, csf_class_type=CSFClass)
+            values = permute_values(values, csf_class_type=CSFClass)
 
         try:
             values = values.T
@@ -196,12 +196,20 @@ def _wrap_backend(csf):
 
 def permute_values(values, csf_class_type):
     if csf_class_type == MultisetCSFChar10:
+        values = values.astype("|S10")
         permute_char10(values)
+        return values
     elif csf_class_type == MultisetCSFChar12:
+        values = values.astype("|S12")
         permute_char12(values)
+        return values
     elif csf_class_type == MultisetCSFUint32:
+        values = values.astype(np.uint32)
         permute_uint32(values)
+        return values
     elif csf_class_type == MultisetCSFUint64:
+        values = values.astype(np.uint64)
         permute_uint64(values)
+        return values
     else:
-        raise ValueError("permute flag not supported for type data type.")
+        raise ValueError("'permute' flag not supported for this multiset class type.")

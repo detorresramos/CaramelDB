@@ -43,19 +43,6 @@ void bindCsf(py::module &module, const char *name, const uint32_t type_id) {
 }
 
 template <typename T>
-void permuteValues(
-    py::array_t<T, py::array::c_style | py::array::forcecast> &array) {
-  if (array.ndim() != 2) {
-    throw std::runtime_error("Input should be a 2D numpy array.");
-  }
-  py::buffer_info info = array.request();
-  int num_rows = info.shape[0];
-  int num_cols = info.shape[1];
-  T *M = static_cast<T *>(info.ptr);
-  entropyPermutation<T>(M, num_rows, num_cols);
-}
-
-template <typename T>
 void bindMultisetCsf(py::module &module, const char *name,
                      const uint32_t type_id) {
   py::class_<MultisetCsf<T>, std::shared_ptr<MultisetCsf<T>>>(module, name)

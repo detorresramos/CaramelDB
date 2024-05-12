@@ -48,6 +48,7 @@ TEST(EntropyPermutationTest, PermutationWithDuplicates) {
   float original_entropy = computeColumnEntropy(values, num_rows, num_cols);
   entropyPermutation(values.data(), num_rows, num_cols);
   float final_entropy = computeColumnEntropy(values, num_rows, num_cols);
+  ASSERT_LE(final_entropy, original_entropy);
   ASSERT_NEAR(final_entropy, 6.993493337601384, 0.01);
 }
 
@@ -68,6 +69,7 @@ TEST(EntropyPermutationTest, PermutationTopKEntropy) {
   float original_entropy = computeColumnEntropy(values, num_rows, num_cols);
   entropyPermutation(values.data(), num_rows, num_cols);
   float final_entropy = computeColumnEntropy(values, num_rows, num_cols);
+  ASSERT_LE(final_entropy, original_entropy);
   ASSERT_NEAR(final_entropy, 5.945762006784577, 0.01);
 }
 
