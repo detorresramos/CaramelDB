@@ -1,6 +1,5 @@
 import argparse
 import os
-import shutil
 import time
 
 import carameldb
@@ -70,10 +69,7 @@ def main(args):
     csf_size = os.path.getsize(filename)
     csf = carameldb.load(filename)
 
-    if args.columns == 1:
-        os.remove(filename)
-    else:
-        shutil.rmtree(filename)
+    os.remove(filename)
 
     query_time = 0
     for i, key in enumerate(keys):
