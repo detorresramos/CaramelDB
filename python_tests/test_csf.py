@@ -8,9 +8,9 @@ pytestmark = [pytest.mark.unit]
 
 gen_str_keys = lambda n: [f"key{i}" for i in range(n)]
 gen_byte_keys = lambda n: [f"key{i}".encode("utf-8") for i in range(n)]
-gen_int_values = lambda n: [i for i in range(n)]
-gen_charX_values = lambda n, x: [str(f"v{i}".ljust(x)[:x]) for i in range(n)]
-gen_str_values = lambda n: [f"value{i}" for i in range(n)]
+gen_int_values = lambda n: np.array([i for i in range(n)])
+gen_charX_values = lambda n, x: np.array([str(f"v{i}".ljust(x)[:x]) for i in range(n)])
+gen_str_values = lambda n: np.array([f"value{i}" for i in range(n)])
 
 
 def assert_all_correct(keys, values, csf):
@@ -88,31 +88,31 @@ def test_csf_load_incorrect_type_fails():
 def test_auto_infer_char10():
     keys = gen_byte_keys(1000)
     values = gen_charX_values(1000, 10)
-    assert carameldb._infer_backend(keys, values) == carameldb.CSFChar10
+    assert carameldb._infer_backend(values) == carameldb.CSFChar10
 
 
 def test_auto_infer_char12():
     keys = gen_byte_keys(1000)
     values = gen_charX_values(1000, 12)
-    assert carameldb._infer_backend(keys, values) == carameldb.CSFChar12
+    assert carameldb._infer_backend(values) == carameldb.CSFChar12
 
 
 def test_auto_infer_string():
     keys = gen_str_keys(1000)
     values = gen_str_values(1000)
-    assert carameldb._infer_backend(keys, values) == carameldb.CSFString
+    assert carameldb._infer_backend(values) == carameldb.CSFString
 
 
 def test_auto_infer_bytes():
     keys = gen_str_keys(1000)
-    values = [f"V{i}".encode("utf-8") for i in range(1000)]
-    assert carameldb._infer_backend(keys, values) == carameldb.CSFString
+    values = np.array([f"V{i}".encode("utf-8") for i in range(1000)])
+    assert carameldb._infer_backend(values) == carameldb.CSFString
 
 
 def test_auto_infer_int():
     keys = gen_str_keys(1000)
     values = gen_int_values(1000)
-    assert carameldb._infer_backend(keys, values) == carameldb.CSFUint32
+    assert carameldb._infer_backend(values) == carameldb.CSFUint32
 
 
 def test_end_to_end():
@@ -131,13 +131,15 @@ def test_end_to_end():
 
 def test_bloom_filter():
     keys = gen_str_keys(1000)
-    values = gen_int_values(300) + [300 for _ in range(700)]
+    values = np.concatenate(
+        [gen_int_values(300), np.array([300 for _ in range(700)])], axis=0
+    )
     assert_simple_api_correct(keys, values)
 
 
 def test_uint32_vs_64_values():
     keys = gen_str_keys(1000)
     uint32_t_values = np.array([1, 2, 3], dtype=np.uint32)
-    assert carameldb._infer_backend(keys, uint32_t_values) == carameldb.CSFUint32
+    assert carameldb._infer_backend(uint32_t_values) == carameldb.CSFUint32
     uint64_t_values = np.array([1, 2, 3], dtype=np.uint64)
-    assert carameldb._infer_backend(keys, uint64_t_values) == carameldb.CSFUint64
+    assert carameldb._infer_backend(uint64_t_values) == carameldb.CSFUint64

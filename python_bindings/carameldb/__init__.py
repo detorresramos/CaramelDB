@@ -12,15 +12,33 @@ from ._caramel import (
     CSFString,
     CSFUint32,
     CSFUint64,
+    MultisetCSFChar10,
+    MultisetCSFChar12,
+    MultisetCSFString,
+    MultisetCSFUint32,
+    MultisetCSFUint64,
 )
+
+CLASS_LIST = [
+    CSFChar10,
+    CSFChar12,
+    CSFString,
+    CSFUint32,
+    CSFUint64,
+    MultisetCSFChar10,
+    MultisetCSFChar12,
+    MultisetCSFString,
+    MultisetCSFUint32,
+    MultisetCSFUint64,
+]
 
 
 def Caramel(
     keys,
     values,
-    max_to_infer=None,
-    multiset_permute_optimization=False,
     use_bloom_filter=True,
+    permute=False,
+    max_to_infer=None,
     verbose=True,
 ):
     """
@@ -47,13 +65,21 @@ def Caramel(
     if not isinstance(keys[0], (str, bytes)):
         raise ValueError(f"Keys must be str or bytes, found {type(keys[0])}")
 
-    CSFClass = _infer_backend(keys, values, max_to_infer=max_to_infer)
-    if isinstance(CSFClass, MultisetCSF):
-        csf = MultisetCSF(
+    try:
+        warnings.filterwarnings("error", category=np.VisibleDeprecationWarning)
+        values = np.array(values)
+    except Exception:
+        raise ValueError(
+            "Error transforming values to numpy array. Make sure all rows are the same length."
+        )
+
+    CSFClass = _infer_backend(values, max_to_infer=max_to_infer)
+    if CSFClass.is_multiset():
+        values = values.T
+        csf = CSFClass(
             keys,
             values,
-            max_to_infer=max_to_infer,
-            multiset_permute_optimization=multiset_permute_optimization,
+            permute=permute,
             use_bloom_filter=use_bloom_filter,
             verbose=verbose,
         )
@@ -76,8 +102,7 @@ def load(filename):
     Raises:
         ValueError if the filename does not contain a valid CSF.
     """
-    csf_classes = (CSFUint32, CSFUint64, CSFChar10, CSFChar12, CSFString, MultisetCSF)
-    for csf_class in csf_classes:
+    for csf_class in CLASS_LIST:
         try:
             csf = csf_class.load(filename)
             return _wrap_backend(csf)
@@ -100,38 +125,50 @@ class CSFQueryWrapper(object):
         return getattr(self._csf, name)
 
 
-def _infer_backend(keys, values, max_to_infer=None):
+def _infer_backend(values, max_to_infer=None):
     """Returns a CSF class, selected based on the key / value types."""
 
-    if np.issubdtype(type(values[0]), np.integer):
-        if np.issubdtype(type(values[0]), np.uint64):
-            return CSFUint64
-        return CSFUint32
+    if values.ndim == 1:
+        value_to_test = values[0]
+        multiset = False
+    elif values.ndim == 2:
+        if len(values[0]) == 0:
+            raise ValueError("Subarray must not be empty.")
+        value_to_test = values[0][0]
+        multiset = True
+    else:
+        raise ValueError("Caramel only supports 1D and 2D arrays as values.")
 
-    if isinstance(values[0], (list, np.ndarray)):
-        return MultisetCSF
+    if np.issubdtype(type(value_to_test), np.integer):
+        if np.issubdtype(type(value_to_test), np.uint64):
+            return MultisetCSFUint64 if multiset else CSFUint64
+        return MultisetCSFUint32 if multiset else CSFUint32
 
-    if isinstance(values[0], (str, bytes)):
-        # call out to one of the dedicated-length strings
-        validate_values = values[:max_to_infer] if max_to_infer else values
-        value_length = _infer_length(validate_values)
+    if isinstance(value_to_test, (str, bytes)):
+        value_length = _infer_length(values, max_to_infer)
         if value_length == 10:
-            return CSFChar10
+            return MultisetCSFChar10 if multiset else CSFChar10
         elif value_length == 12:
-            return CSFChar12
-        else:
-            return CSFString
+            return MultisetCSFChar12 if multiset else CSFChar12
+        return MultisetCSFString if multiset else CSFString
 
-    raise ValueError(f"Unsupported value type: {type(values[0])}")
+    raise ValueError(f"Unsupported value type: {type(value_to_test).__name__}")
 
 
-def _infer_length(values):
-    """Returns the length of each value, if all values have the same length."""
-    target_length = len(values[0])
-    for v in values:
-        if len(v) != target_length:
-            return None
-    return target_length
+def _infer_length(values_to_infer, max_to_infer):
+    if values_to_infer.ndim == 1:
+        subset = values_to_infer[:max_to_infer]
+    elif values_to_infer.ndim == 2:
+        subset = values_to_infer[:max_to_infer, 0]
+    else:
+        raise ValueError("Input array must be either 1D or 2D.")
+
+    lengths = np.vectorize(len)(subset)
+
+    if np.all(lengths == lengths[0]):
+        return lengths[0]
+    else:
+        return None
 
 
 def _wrap_backend(csf):

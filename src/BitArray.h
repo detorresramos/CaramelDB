@@ -11,7 +11,7 @@ namespace caramel {
 
 /* make CHAR_BIT 8 if it's not defined in limits.h */
 #ifndef CHAR_BIT
-#warning CHAR_BIT not defined.  Assuming 8 bits.
+// #warning CHAR_BIT not defined.  Assuming 8 bits.
 #define CHAR_BIT 8
 #endif
 
