@@ -169,16 +169,13 @@ CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
   auto &bucketed_values = std::get<1>(buckets);
   uint32_t hash_store_seed = std::get<2>(buckets);
 
-  uint32_t num_buckets = bucketed_key_signatures.size();
-
-  std::vector<SubsystemSolutionSeedPair> solutions_and_seeds(num_buckets);
-
-  std::exception_ptr exception = nullptr;
-
   if (verbose) {
     std::cout << " finished in " << timer.seconds() << " seconds." << std::endl;
   }
 
+  std::exception_ptr exception = nullptr;
+  uint32_t num_buckets = bucketed_key_signatures.size();
+  std::vector<SubsystemSolutionSeedPair> solutions_and_seeds(num_buckets);
   auto bar = ProgressBar::makeOptional(verbose, "Solving systems...",
                                        /* max_steps=*/num_buckets);
 

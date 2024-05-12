@@ -13,6 +13,11 @@ namespace caramel {
 class BloomFilter {
 public:
   BloomFilter(size_t num_elements, float error_rate) {
+    if (error_rate == 0) {
+      _single_element = true;
+      return;
+    }
+
     size_t size = std::ceil((1 / log(2)) * log2(1.0 / error_rate) *
                             static_cast<float>(num_elements));
 
@@ -28,6 +33,13 @@ public:
   }
 
   void add(const std::string &key) {
+    if (_single_element) {
+      if (_single_key.has_value() && _single_key.value() != key) {
+        throw std::invalid_argument(
+            "Too many items added to single element bloom filter.");
+      }
+    }
+
     std::vector<uint64_t> hash_values = getHashValues(key);
     for (uint64_t hash : hash_values) {
       _bitarray->setBit(hash % _bitarray->numBits());
@@ -35,6 +47,10 @@ public:
   }
 
   bool contains(const std::string &key) {
+    if (_single_element) {
+      return true;
+    }
+
     std::vector<uint64_t> hash_values = getHashValues(key);
     for (uint64_t hash : hash_values) {
       if (!(*_bitarray)[hash]) {
@@ -68,11 +84,13 @@ private:
 
   friend class cereal::access;
   template <class Archive> void serialize(Archive &archive) {
-    archive(_bitarray, _num_hashes);
+    archive(_bitarray, _num_hashes, _single_element);
   }
 
   BitArrayPtr _bitarray;
   size_t _num_hashes;
+  bool _single_element = false;
+  std::optional<std::string> _single_key = std::nullopt;
 };
 
 using BloomFilterPtr = std::shared_ptr<BloomFilter>;

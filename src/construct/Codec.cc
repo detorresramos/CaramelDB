@@ -29,7 +29,7 @@ void minRedundancyCodewordLengths(std::vector<uint32_t> &A) {
     return;
   }
   if (n == 1) {
-    A[0] = 0;
+    A[0] = 1;
     return;
   }
 

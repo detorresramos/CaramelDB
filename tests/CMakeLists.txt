@@ -4,9 +4,10 @@ include(GoogleTest)
 
 set(CARAMEL_TESTS
     BitArrayTest
-    CodecTest
     BucketedHashStoreTest
+    CodecTest
     ConstructCsfTest
+    EntropyPermutationTest
     GaussianEliminationTest
     HypergraphPeelerTest
     LazyGaussianEliminationTest

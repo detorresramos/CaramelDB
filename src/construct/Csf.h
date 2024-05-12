@@ -139,8 +139,6 @@ public:
     return deserialize_into;
   }
 
-  uint32_t size() const { return 0; }
-
 private:
   // Private constructor for cereal
   Csf() {}
