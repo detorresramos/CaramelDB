@@ -17,6 +17,10 @@ from ._caramel import (
     MultisetCSFString,
     MultisetCSFUint32,
     MultisetCSFUint64,
+    permute_char10,
+    permute_char12,
+    permute_uint32,
+    permute_uint64,
 )
 
 CLASS_LIST = [
@@ -49,6 +53,7 @@ def Caramel(
         values: List of values to use in the CSF.
         max_to_infer: If provided, only the first "max_to_infer" values
             will be examinied when inferring the correct CSF backend.
+        permute: If true, permutes rows of matrix inputs to minimize entropy.
 
     Returns:
         A CSF containing the desired key-value mapping.
@@ -75,11 +80,19 @@ def Caramel(
 
     CSFClass = _infer_backend(values, max_to_infer=max_to_infer)
     if CSFClass.is_multiset():
-        values = values.T
+        if permute:
+            values = permute_values(values, csf_class_type=CSFClass)
+
+        try:
+            values = values.T
+        except Exception:
+            raise ValueError(
+                "Error transforming values to column-wise. Make sure all values are the same length."
+            )
+
         csf = CSFClass(
             keys,
             values,
-            permute=permute,
             use_bloom_filter=use_bloom_filter,
             verbose=verbose,
         )
@@ -181,64 +194,22 @@ def _wrap_backend(csf):
     return csf
 
 
-class MultisetCSF:
-    def __init__(
-        self,
-        keys,
-        values,
-        max_to_infer=None,
-        multiset_permute_optimization=False,
-        use_bloom_filter=True,
-        verbose=True,
-    ):
-        try:
-            warnings.filterwarnings("error", category=np.VisibleDeprecationWarning)
-            values = np.array(values)
-        except Exception:
-            raise ValueError(
-                "Error transforming values to numpy array. Make sure all rows are the same length."
-            )
-
-        if multiset_permute_optimization:
-            values = permute_values(values)
-
-        values = values.T
-
-        self._csfs = []
-        for i in range(len(values)):
-            self._csfs.append(
-                Caramel(
-                    keys,
-                    values[i],
-                    max_to_infer,
-                    use_bloom_filter=use_bloom_filter,
-                    verbose=verbose,
-                )
-            )
-
-    def query(self, key):
-        return [csf.query(key) for csf in self._csfs]
-
-    def save(self, filename):
-        directory = Path(filename)
-        os.mkdir(directory)
-
-        for i, csf in enumerate(self._csfs):
-            csf.save(str(directory / f"column_{i}.csf"))
-
-    @classmethod
-    def load(cls, filename):
-        instance = cls.__new__(cls)
-        directory = Path(filename)
-
-        csf_files = sorted(
-            glob.glob(str(directory / "*.csf")),
-            key=lambda x: int(x.split("/")[-1].split("_")[-1].split(".")[0]),
-        )
-
-        instance._csfs = []
-        for i, column_csf_file in enumerate(csf_files):
-            assert column_csf_file.split("/")[-1] == f"column_{i}.csf"
-            instance._csfs.append(load(column_csf_file))
-
-        return instance
+def permute_values(values, csf_class_type):
+    if csf_class_type == MultisetCSFChar10:
+        values = values.astype("|S10")
+        permute_char10(values)
+        return values
+    elif csf_class_type == MultisetCSFChar12:
+        values = values.astype("|S12")
+        permute_char12(values)
+        return values
+    elif csf_class_type == MultisetCSFUint32:
+        values = values.astype(np.uint32)
+        permute_uint32(values)
+        return values
+    elif csf_class_type == MultisetCSFUint64:
+        values = values.astype(np.uint64)
+        permute_uint64(values)
+        return values
+    else:
+        raise ValueError("'permute' flag not supported for this multiset class type.")
