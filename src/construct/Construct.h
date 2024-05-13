@@ -34,8 +34,8 @@ template <typename T>
 SparseSystemPtr
 constructModulo2System(const std::vector<Uint128Signature> &key_signatures,
                        const std::vector<T> &values,
-                       const CodeDict<T> &codedict, uint32_t seed,
-                       float DELTA) {
+                       const CodeDict<T> &codedict, uint32_t max_codelength,
+                       uint32_t seed, float DELTA) {
   uint32_t num_equations = 0;
   for (const auto &v : values) {
     num_equations += codedict.find(v)->second->numBits();
@@ -50,10 +50,8 @@ constructModulo2System(const std::vector<Uint128Signature> &key_signatures,
   constants.reserve(num_equations);
 
   for (uint32_t i = 0; i < key_signatures.size(); i++) {
-    Uint128Signature key_signature = key_signatures[i];
-
     std::vector<uint32_t> start_var_locations =
-        getStartVarLocations(key_signature, seed, num_variables);
+        getStartVarLocations(key_signatures[i], seed, num_variables);
 
     BitArrayPtr coded_value = codedict.find(values[i])->second;
     uint32_t n_bits = coded_value->numBits();
@@ -61,19 +59,16 @@ constructModulo2System(const std::vector<Uint128Signature> &key_signatures,
       uint32_t bit = (*coded_value)[offset];
       std::vector<uint32_t> participating_variables;
       for (uint32_t start_var_location : start_var_locations) {
-        uint32_t var_location = start_var_location + offset;
-        if (var_location >= num_variables) {
-          var_location -= num_variables;
-        }
-        participating_variables.push_back(var_location);
+        participating_variables.push_back(start_var_location + offset);
       }
       equations.emplace_back(std::move(participating_variables));
       constants.emplace_back(bit);
     }
   }
 
-  auto sparse_system = SparseSystem::make(std::move(equations),
-                                          std::move(constants), num_variables);
+  auto sparse_system =
+      SparseSystem::make(std::move(equations), std::move(constants),
+                         num_variables + max_codelength);
 
   return sparse_system;
 }
@@ -82,14 +77,15 @@ template <typename T>
 SubsystemSolutionSeedPair
 constructAndSolveSubsystem(const std::vector<Uint128Signature> &key_signatures,
                            const std::vector<T> &values,
-                           const CodeDict<T> &codedict, float DELTA) {
+                           const CodeDict<T> &codedict, uint32_t max_codelength,
+                           float DELTA) {
   uint32_t seed = 0;
   uint32_t num_tries = 0;
   uint32_t max_num_attempts = 128;
   while (true) {
     try {
       SparseSystemPtr sparse_system = constructModulo2System<T>(
-          key_signatures, values, codedict, seed, DELTA);
+          key_signatures, values, codedict, max_codelength, seed, DELTA);
 
       BitArrayPtr solution = solveModulo2System(sparse_system);
 
@@ -112,8 +108,8 @@ constructAndSolveSubsystem(const std::vector<Uint128Signature> &key_signatures,
  */
 template <typename T>
 CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
-                       const std::vector<T> &values, bool use_bloom_filter = true,
-                       bool verbose = true) {
+                       const std::vector<T> &values,
+                       bool use_bloom_filter = true, bool verbose = true) {
   if (values.empty()) {
     throw std::invalid_argument("Values must be non-empty but found length 0.");
   }
@@ -158,6 +154,7 @@ CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
   auto &codedict = std::get<0>(huffman_output);
   auto &code_length_counts = std::get<1>(huffman_output);
   auto &ordered_symbols = std::get<2>(huffman_output);
+  uint32_t max_codelength = code_length_counts.size() - 1;
 
   if (verbose) {
     std::cout << " finished in " << timer.seconds() << " seconds." << std::endl;
@@ -180,7 +177,7 @@ CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
                                        /* max_steps=*/num_buckets);
 
 #pragma omp parallel for default(none)                                         \
-    shared(bucketed_key_signatures, bucketed_values, codedict,                 \
+    shared(bucketed_key_signatures, bucketed_values, codedict, max_codelength, \
            solutions_and_seeds, num_buckets, exception, bar, DELTA)
   for (uint32_t i = 0; i < num_buckets; i++) {
     if (exception) {
@@ -188,7 +185,8 @@ CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
     }
     try {
       solutions_and_seeds[i] = constructAndSolveSubsystem<T>(
-          bucketed_key_signatures[i], bucketed_values[i], codedict, DELTA);
+          bucketed_key_signatures[i], bucketed_values[i], codedict,
+          max_codelength, DELTA);
     } catch (std::exception &e) {
 #pragma omp critical
       { exception = std::current_exception(); }

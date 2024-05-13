@@ -84,11 +84,7 @@ public:
         if ((*solution)[location]) {
           temp->setBit(i);
         }
-        if (location == solution_size - 1) {
-          location = 0;
-        } else {
-          location++;
-        }
+        location++;
       }
       *encoded_value ^= *temp;
     }
