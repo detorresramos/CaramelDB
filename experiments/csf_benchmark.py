@@ -75,7 +75,7 @@ def main(args):
     query_time = 0
     for i, key in enumerate(keys):
         start = time.perf_counter_ns()
-        if args.columns:
+        if args.columns != 1:
             val = csf.query(key, parallel=args.parallel_queries)
         else:
             val = csf.query(key)
