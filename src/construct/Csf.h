@@ -74,8 +74,8 @@ public:
 
     uint32_t max_codelength = _code_length_counts.size() - 1;
 
-    std::vector<uint32_t> start_var_locations =
-        getStartVarLocations(signature, construction_seed, solution_size);
+    std::vector<uint32_t> start_var_locations = getStartVarLocations(
+        signature, construction_seed, solution_size - max_codelength);
 
     BitArrayPtr encoded_value = BitArray::make(max_codelength);
     for (auto location : start_var_locations) {
