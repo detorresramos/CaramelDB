@@ -142,10 +142,9 @@ std::optional<uint32_t> BitArray::find() const {
     if (_backing_array[block] != 0) {
       auto temp = _backing_array[block];
       for (uint32_t bit = 0; bit < BLOCK_SIZE; bit++) {
-        temp <<= 1;
+        temp >>= 1;
         if (temp == 0) {
-          // we invert the position here within the byte because of endianness
-          return location + bit;
+          return location + BLOCK_SIZE - 1 - bit;
         }
       }
     } else {
@@ -201,10 +200,6 @@ uint64_t BitArray::getuint64(uint32_t pos, uint32_t width) const {
   if (start_bit <= l) {
     return _backing_array[start_word] << start_bit >> l;
   }
-  std::cout << (_backing_array[start_word]) << std::endl;
-  std::cout << (_backing_array[start_word] << start_bit) << std::endl;
-  std::cout << (_backing_array[start_word] << start_bit >> l) << std::endl;
-  std::cout << ( _backing_array[start_word + 1] >> (64 - width + l)) << std::endl;
   return _backing_array[start_word] << start_bit >> l |
          _backing_array[start_word + 1] >> (128 - width  - start_bit);
 }

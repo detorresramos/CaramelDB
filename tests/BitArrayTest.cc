@@ -60,6 +60,25 @@ TEST(BitArrayTest, TestFind) {
   }
 }
 
+TEST(BitArrayTest, TestFind2) {
+  uint32_t num_bits = 70;
+  BitArray bitarray = BitArray(num_bits);
+
+  bitarray.setBit(16);
+  bitarray.setBit(17);
+  ASSERT_EQ(bitarray.find(), 16);
+  bitarray.clearAll();
+
+  bitarray.setBit(67);
+  bitarray.setBit(68);
+  ASSERT_EQ(bitarray.find(), 67);
+  bitarray.clearAll();
+
+  bitarray.setBit(63);
+  bitarray.setBit(64);
+  ASSERT_EQ(bitarray.find(), 63);
+}
+
 TEST(BitArrayTest, TestXorEquals) {
   uint32_t num_bits = 18;
   BitArray bitarray1 = BitArray(num_bits);
