@@ -16,7 +16,6 @@
 #include <src/BitArray.h>
 #include <src/construct/BloomFilter.h>
 #include <src/utils/SafeFileIO.h>
-#include <src/utils/Timer.h>
 #include <vector>
 
 namespace caramel {
@@ -66,37 +65,25 @@ public:
       return *_most_common_value;
     }
 
-    auto time = timer.nanoseconds();
-
     Uint128Signature signature = hashKey(key, _hash_store_seed);
-    auto time1 = timer.nanoseconds();
 
     uint32_t bucket_id =
         getBucketID(signature, /* num_buckets= */ _solutions_and_seeds.size());
-    auto time2 = timer.nanoseconds();
 
     auto &[solution, construction_seed] = _solutions_and_seeds.at(bucket_id);
-    auto time3 = timer.nanoseconds();
 
     uint32_t solution_size = solution->numBits();
-    auto time4 = timer.nanoseconds();
 
     int e[3];
     signatureToEquation(signature, construction_seed,
                         solution_size - _max_codelength, e);
-    auto time5 = timer.nanoseconds();
 
     uint64_t encoded_value = solution->getuint64(e[0], _max_codelength) ^
                              solution->getuint64(e[1], _max_codelength) ^
                              solution->getuint64(e[2], _max_codelength);
-    auto time6 = timer.nanoseconds();
 
-    auto val = cannonicalDecodeFromNumber(encoded_value, _code_length_counts,
-                                          _ordered_symbols, _max_codelength);
-    auto time7 = timer.nanoseconds();
-
-    std::cout << time << " " << time1 << " " << time2 << " " << time3 << " " << time4 << " " << time5 << " " << time6 << " " << time7 << " " << std::endl;
-    return val;
+    return cannonicalDecodeFromNumber(encoded_value, _code_length_counts,
+                                      _ordered_symbols, _max_codelength);
   }
 
   void save(const std::string &filename, const uint32_t type_id = 0) const {
