@@ -8,7 +8,17 @@
 
 namespace caramel {
 
-uint32_t getBucketID(const Uint128Signature& signature, uint32_t num_buckets);
+inline uint32_t getBucketID(const Uint128Signature &signature,
+                            uint32_t num_buckets) {
+  // Use first 64 bits of the signature to identify the segment
+  uint64_t bucket_hash = signature.first;
+  // This outputs a uniform integer from [0, self._num_buckets]
+  uint32_t bucket_id =
+      ((__uint128_t)(bucket_hash >> 1) * (__uint128_t)(num_buckets << 1)) >> 64;
+  // TODO(any) should we rewrite this function to not use __uint128_t due to
+  // platform incompatabilities?
+  return bucket_id;
+}
 
 Uint128Signature hashKey(const std::string &key, uint64_t seed);
 

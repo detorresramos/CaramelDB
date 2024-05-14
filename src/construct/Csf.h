@@ -16,7 +16,6 @@
 #include <src/BitArray.h>
 #include <src/construct/BloomFilter.h>
 #include <src/utils/SafeFileIO.h>
-#include <src/utils/Timer.h>
 #include <vector>
 
 namespace caramel {
@@ -61,6 +60,7 @@ public:
   }
 
   T query(const std::string &key) const {
+    Timer timer;
     if (_bloom_filter && !_bloom_filter->contains(key)) {
       return *_most_common_value;
     }

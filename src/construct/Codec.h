@@ -106,7 +106,7 @@ T cannonicalDecode(const BitArrayPtr &bitarray,
 }
 
 template <typename T>
-T cannonicalDecodeFromNumber(uint64_t encoded_value,
+inline T cannonicalDecodeFromNumber(uint64_t encoded_value,
                              const std::vector<uint32_t> &code_length_counts,
                              const std::vector<T> &symbols,
                              uint32_t max_codelength) {

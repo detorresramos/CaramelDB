@@ -186,24 +186,6 @@ bool BitArray::scalarProduct(const BitArrayPtr &bitarray1,
   return temp_result.numSetBits() % 2;
 }
 
-uint64_t BitArray::getuint64(uint32_t pos, uint32_t width) const {
-  if (pos + width > _num_bits) {
-    throw std::invalid_argument("Cannot get slice starting at pos " +
-                                std::to_string(pos) + " of width " +
-                                std::to_string(width) + " in bitarray of " +
-                                std::to_string(_num_bits) + " bits.");
-  }
-
-  const int l = 64 - width;
-  const uint64_t start_word = pos / 64;
-  const int start_bit = pos % 64;
-  if (start_bit <= l) {
-    return _backing_array[start_word] << start_bit >> l;
-  }
-  return _backing_array[start_word] << start_bit >> l |
-         _backing_array[start_word + 1] >> (128 - width  - start_bit);
-}
-
 std::string BitArray::str() const {
   std::string output;
   for (uint32_t bit = 0; bit < _num_bits; bit++) {
