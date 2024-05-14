@@ -6,12 +6,6 @@
 
 namespace caramel {
 
-// bool operator>(const std::array<char, 10> &lhs,
-//                const std::array<char, 10> &rhs) {
-//   return std::lexicographical_compare(rhs.begin(), rhs.end(), lhs.begin(),
-//                                       lhs.end());
-// }
-
 void minRedundancyCodewordLengths(std::vector<uint32_t> &A);
 
 template <typename T> using CodeDict = std::unordered_map<T, BitArrayPtr>;
@@ -98,6 +92,31 @@ T cannonicalDecode(const BitArrayPtr &bitarray,
   int index = 0;
   for (uint32_t i = 1; i < code_length_counts.size(); i++) {
     uint32_t next_bit = (*bitarray)[i - 1];
+    code = code | next_bit;
+    int count = code_length_counts[i];
+    if (code - count < first) {
+      return symbols[index + (code - first)];
+    }
+    index += count;
+    first += count;
+    first <<= 1;
+    code <<= 1;
+  }
+  throw std::invalid_argument("Invalid Code Passed");
+}
+
+template <typename T>
+T cannonicalDecodeFromNumber(uint64_t encoded_value,
+                             const std::vector<uint32_t> &code_length_counts,
+                             const std::vector<T> &symbols,
+                             uint32_t max_codelength) {
+  // instead of storing the symbols, if we have variable length stuff, store a
+  // vector of pointers
+  int code = 0;
+  int first = 0;
+  int index = 0;
+  for (uint32_t i = 1; i < code_length_counts.size(); i++) {
+    uint32_t next_bit = (encoded_value >> (max_codelength - i)) & 1ULL;
     code = code | next_bit;
     int count = code_length_counts[i];
     if (code - count < first) {

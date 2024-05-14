@@ -5,7 +5,6 @@
 #include "Codec.h"
 #include "ConstructUtils.h"
 #include "Csf.h"
-#include "SpookyHash.h"
 #include <array>
 #include <cmath>
 #include <functional>
@@ -50,8 +49,9 @@ constructModulo2System(const std::vector<Uint128Signature> &key_signatures,
   constants.reserve(num_equations);
 
   for (uint32_t i = 0; i < key_signatures.size(); i++) {
-    std::vector<uint32_t> start_var_locations =
-        getStartVarLocations(key_signatures[i], seed, num_variables);
+    int start_var_locations[3];
+    signatureToEquation(key_signatures[i], seed, num_variables,
+                        start_var_locations);
 
     BitArrayPtr coded_value = codedict.find(values[i])->second;
     uint32_t n_bits = coded_value->numBits();

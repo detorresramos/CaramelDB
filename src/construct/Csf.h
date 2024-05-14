@@ -16,6 +16,7 @@
 #include <src/BitArray.h>
 #include <src/construct/BloomFilter.h>
 #include <src/utils/SafeFileIO.h>
+#include <src/utils/Timer.h>
 #include <vector>
 
 namespace caramel {
@@ -41,7 +42,8 @@ public:
       : _solutions_and_seeds(solutions_and_seeds),
         _code_length_counts(code_length_counts),
         _ordered_symbols(ordered_symbols), _hash_store_seed(hash_store_seed),
-        _bloom_filter(bloom_filter), _most_common_value(most_common_value) {
+        _bloom_filter(bloom_filter), _most_common_value(most_common_value),
+        _max_codelength(_code_length_counts.size() - 1) {
     if ((_bloom_filter != nullptr) != (_most_common_value.has_value())) {
       throw std::invalid_argument("If using bloom filter must provide both the "
                                   "bloom filter and the most common value.");
@@ -68,29 +70,20 @@ public:
     uint32_t bucket_id =
         getBucketID(signature, /* num_buckets= */ _solutions_and_seeds.size());
 
-    auto [solution, construction_seed] = _solutions_and_seeds.at(bucket_id);
+    auto &[solution, construction_seed] = _solutions_and_seeds.at(bucket_id);
 
     uint32_t solution_size = solution->numBits();
 
-    uint32_t max_codelength = _code_length_counts.size() - 1;
+    int e[3];
+    signatureToEquation(signature, construction_seed,
+                        solution_size - _max_codelength, e);
 
-    std::vector<uint32_t> start_var_locations = getStartVarLocations(
-        signature, construction_seed, solution_size - max_codelength);
+    uint64_t encoded_value = solution->getuint64(e[0], e[0] + _max_codelength) ^
+                             solution->getuint64(e[1], e[1] + _max_codelength) ^
+                             solution->getuint64(e[2], e[2] + _max_codelength);
 
-    BitArrayPtr encoded_value = BitArray::make(max_codelength);
-    for (auto location : start_var_locations) {
-      BitArrayPtr temp = BitArray::make(max_codelength);
-      for (uint32_t i = 0; i < max_codelength; i++) {
-        if ((*solution)[location]) {
-          temp->setBit(i);
-        }
-        location++;
-      }
-      *encoded_value ^= *temp;
-    }
-
-    return cannonicalDecode(encoded_value, _code_length_counts,
-                            _ordered_symbols);
+    return cannonicalDecodeFromNumber(encoded_value, _code_length_counts,
+                                      _ordered_symbols, _max_codelength);
   }
 
   void save(const std::string &filename, const uint32_t type_id = 0) const {
@@ -128,7 +121,8 @@ private:
   friend class cereal::access;
   template <class Archive> void serialize(Archive &archive) {
     archive(_solutions_and_seeds, _code_length_counts, _ordered_symbols,
-            _hash_store_seed, _bloom_filter, _most_common_value);
+            _hash_store_seed, _bloom_filter, _most_common_value,
+            _max_codelength);
   }
 
   std::vector<SubsystemSolutionSeedPair> _solutions_and_seeds;
@@ -137,6 +131,7 @@ private:
   uint32_t _hash_store_seed;
   BloomFilterPtr _bloom_filter;
   std::optional<T> _most_common_value;
+  uint32_t _max_codelength;
 };
 
 } // namespace caramel
