@@ -60,7 +60,6 @@ public:
   }
 
   T query(const std::string &key) const {
-    Timer timer;
     if (_bloom_filter && !_bloom_filter->contains(key)) {
       return *_most_common_value;
     }
