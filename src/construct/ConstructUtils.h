@@ -1,5 +1,6 @@
 #pragma once
-#include "SpookyHash.h"
+
+#include "SpookyHash2.h"
 #include <algorithm>
 #include <array>
 #include <functional>
@@ -7,24 +8,16 @@
 
 namespace caramel {
 
-inline std::vector<uint32_t>
-getStartVarLocations(const Uint128Signature &key_signature, uint32_t seed,
-                     uint32_t num_variables, uint32_t bits_per_equation = 3) {
-  std::vector<uint32_t> start_var_locations;
-  while (start_var_locations.size() != bits_per_equation) {
-    // TODO lets write a custom hash function that generates three 64 bit
-    // hashes instead of hashing 3 times
-    // TODO lets do sebastiano's trick here instead of modding
-    uint32_t location = SpookyHash::Hash64(&key_signature.first,
-                                           /* length = */ 8, seed++) %
-                        num_variables;
-
-    if (std::find(start_var_locations.begin(), start_var_locations.end(),
-                  location) == start_var_locations.end()) {
-      start_var_locations.push_back(location);
-    }
-  }
-  return start_var_locations;
+void inline signatureToEquation(const Uint128Signature &signature,
+                                const uint64_t seed, int num_variables,
+                                int *e) {
+  uint64_t hash[4];
+  spooky_short_rehash(signature, seed, hash);
+  const int shift = __builtin_clzll(num_variables);
+  const uint64_t mask = (UINT64_C(1) << shift) - 1;
+  e[0] = ((hash[0] & mask) * num_variables) >> shift;
+  e[1] = ((hash[1] & mask) * num_variables) >> shift;
+  e[2] = ((hash[2] & mask) * num_variables) >> shift;
 }
 
 } // namespace caramel

@@ -15,6 +15,10 @@ public:
     return static_cast<double>(elapsed<std::chrono::milliseconds>());
   }
 
+  double nanoseconds() {
+    return static_cast<double>(elapsed<std::chrono::nanoseconds>());
+  }
+
   template <typename Duration> int64_t elapsed() {
     auto end = _end.value_or(Clock::now());
     auto val = std::chrono::duration_cast<Duration>(end - _start).count();

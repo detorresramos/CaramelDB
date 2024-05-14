@@ -218,6 +218,23 @@ bool BitArray::scalarProduct(const BitArrayPtr &bitarray1,
   return temp_result.numSetBits() % 2;
 }
 
+uint64_t BitArray::getuint64(uint32_t from, uint32_t to) const {
+  if (to - from > 64) {
+    throw std::invalid_argument("Range too large for a uint64_t: [" +
+                                std::to_string(from) + ".." +
+                                std::to_string(to) + ")");
+  }
+
+  uint64_t result = 0;
+  uint32_t bit_index = 0;
+  for (uint32_t i = from; i < to; i++, bit_index++) {
+    if ((*this)[i]) {
+      result |= 1ULL << (to - from - 1 - bit_index);
+    }
+  }
+  return result;
+}
+
 std::string BitArray::str() const {
   std::string output;
   for (uint32_t bit = 0; bit < _num_bits; bit++) {

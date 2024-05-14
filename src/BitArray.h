@@ -79,6 +79,8 @@ public:
   static bool scalarProduct(const BitArrayPtr &bitarray1,
                             const BitArrayPtr &bitarray2);
 
+  uint64_t getuint64(uint32_t from, uint32_t to) const;
+
   std::string str() const;
 
 private:
@@ -92,7 +94,7 @@ private:
   uint32_t _num_bytes;
 
   // This is a vector because cereal doesn't allow serialization of pointers
-  // (ex. char*). Not sure if this will inhibit adding SIMD operations
+  // (ex. char*).
   std::vector<unsigned char> _backing_array;
 
   static const std::vector<int> _set_bits_in_char;

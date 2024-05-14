@@ -115,4 +115,18 @@ TEST(BitArrayTest, BitArrayFromNumber) {
                std::invalid_argument);
 }
 
+TEST(BitArrayTest, BitArrayGetUint64) {
+  auto bitarray = BitArray::make(10);
+  bitarray->setBit(0);
+  bitarray->setBit(2);
+  bitarray->setBit(3);
+  bitarray->setBit(6);
+  bitarray->setBit(9);
+
+  ASSERT_EQ(bitarray->getuint64(0, 2), 2);
+  ASSERT_EQ(bitarray->getuint64(0, 3), 5);
+  ASSERT_EQ(bitarray->getuint64(2, 4), 3);
+  ASSERT_EQ(bitarray->getuint64(6, 10), 9);
+}
+
 } // namespace caramel::tests
