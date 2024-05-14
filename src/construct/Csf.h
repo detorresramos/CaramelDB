@@ -82,9 +82,8 @@ public:
                              solution->getuint64(e[1], e[1] + _max_codelength) ^
                              solution->getuint64(e[2], e[2] + _max_codelength);
 
-    return cannonicalDecode(
-        BitArray::fromNumber(encoded_value, _max_codelength),
-        _code_length_counts, _ordered_symbols);
+    return cannonicalDecodeFromNumber(encoded_value, _code_length_counts,
+                                      _ordered_symbols, _max_codelength);
   }
 
   void save(const std::string &filename, const uint32_t type_id = 0) const {
