@@ -78,9 +78,9 @@ public:
     signatureToEquation(signature, construction_seed,
                         solution_size - _max_codelength, e);
 
-    uint64_t encoded_value = solution->getuint64(e[0], e[0] + _max_codelength) ^
-                             solution->getuint64(e[1], e[1] + _max_codelength) ^
-                             solution->getuint64(e[2], e[2] + _max_codelength);
+    uint64_t encoded_value = solution->getuint64(e[0], _max_codelength) ^
+                             solution->getuint64(e[1], _max_codelength) ^
+                             solution->getuint64(e[2], _max_codelength);
 
     return cannonicalDecodeFromNumber(encoded_value, _code_length_counts,
                                       _ordered_symbols, _max_codelength);
