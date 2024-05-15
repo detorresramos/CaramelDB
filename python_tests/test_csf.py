@@ -134,7 +134,7 @@ def test_end_to_end():
     [0.3, 0.5, 0.6, 0.64, 0.645, 0.655, 0.66, 0.7, 0.75, 0.8, 0.9],
 )
 def test_bloom_filter(most_common_frequency):
-    rows = 10000
+    rows = 1000000
     keys = gen_str_keys(rows)
     num_most_common_element = int(rows * most_common_frequency)
     other_elements = rows - num_most_common_element
