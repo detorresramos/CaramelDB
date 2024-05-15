@@ -29,6 +29,7 @@ def parse_args():
     parser.add_argument("--zipfian_s_val", type=int, default=2)
     parser.add_argument("--uniform_num_unique_values", type=int, default=64)
     parser.add_argument("--geometric_p_val", type=float, default=0.5)
+    parser.add_argument("--parallel_queries", action="store_true")
 
     return dotdict(vars(parser.parse_args()))
 
@@ -71,16 +72,30 @@ def main(args):
 
     os.remove(filename)
 
-    query_time = 0
+    csf_query_time = 0
     for i, key in enumerate(keys):
         start = time.perf_counter_ns()
-        val = csf.query(key)
-        query_time += time.perf_counter_ns() - start
+        if args.columns != 1:
+            val = csf.query(key, parallel=args.parallel_queries)
+        else:
+            val = csf.query(key)
+        csf_query_time += time.perf_counter_ns() - start
         if args.columns == 1:
             assert val == values[i]
         else:
             assert list(val) == list(values[i])
-    query_time /= len(keys)
+    csf_query_time /= len(keys)
+
+    lookup = {}
+    for key, value in zip(keys, values):
+        lookup[key] = value
+    
+    map_query_time = 0
+    for key in keys:
+        start = time.perf_counter_ns()
+        val = lookup[key]
+        map_query_time += time.perf_counter_ns() - start
+    map_query_time /= len(keys)
 
     print(
         f"Results for distribution '{args.dist}' with {args.rows} rows and {args.columns} columns.\n"
@@ -89,7 +104,9 @@ def main(args):
         f"Construction Time: {construction_time:.3f} seconds or {(construction_time * 1e6) / args.rows:.3f} microseconds / key"
     )
     print(f"File Size: {csf_size} bytes or {csf_size / args.rows:.3f} bytes / key")
-    print(f"Average Query Time: {query_time:.3f} ns")
+    print(f"Average Query Time: {csf_query_time:.3f} ns")
+
+    print(f"Python Dict Query Time: {map_query_time:.3f} ns")
 
 
 if __name__ == "__main__":

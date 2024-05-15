@@ -11,10 +11,11 @@ template <typename T> class MultisetCsf {
 public:
   MultisetCsf(const std::vector<CsfPtr<T>> &csfs) : _csfs(csfs) {}
 
-  std::vector<T> query(const std::string &key) const {
+  std::vector<T> query(const std::string &key, bool parallelize = true) const {
     std::vector<T> outputs(_csfs.size());
 
-#pragma omp parallel for default(none) shared(key, _csfs, outputs)
+#pragma omp parallel for default(none)                                         \
+    shared(key, _csfs, outputs) if (parallelize)
     for (size_t i = 0; i < _csfs.size(); i++) {
       outputs[i] = _csfs[i]->query(key);
     }

@@ -16,18 +16,17 @@ BitArray::BitArray(uint32_t num_bits) : _num_bits(num_bits) {
     throw std::invalid_argument("Error: Bit Array must have at least 1 bit.");
   }
 
-  _num_bytes = BITS_TO_CHARS(num_bits);
+  uint32_t num_blocks = ((num_bits - 1) / BLOCK_SIZE) + 1;
 
-  _backing_array = std::vector<unsigned char>(_num_bytes, 0);
+  _backing_array = std::vector<uint64_t>(num_blocks, 0);
 }
 
 BitArray::BitArray(const BitArray &other) {
   _num_bits = other._num_bits;
-  _num_bytes = other._num_bytes;
   _backing_array = other._backing_array;
 }
 
-std::shared_ptr<BitArray> BitArray::fromNumber(uint32_t number,
+std::shared_ptr<BitArray> BitArray::fromNumber(uint64_t number,
                                                uint32_t length) {
   if (length == 0) {
     throw std::invalid_argument("Length must not be 0.");
@@ -41,19 +40,7 @@ std::shared_ptr<BitArray> BitArray::fromNumber(uint32_t number,
   }
 
   BitArrayPtr array = make(length);
-
-  if (number == 0) {
-    return array;
-  }
-
-  for (uint32_t i = 0; i < length; i++) {
-    // Get the ith bit by shifting right i bits and masking with 1
-    uint32_t bit = (number >> i) & 1U;
-    if (bit) {
-      array->setBit(length - i - 1);
-    }
-  }
-
+  array->_backing_array[0] = number << (BLOCK_SIZE - length);
   return array;
 }
 
@@ -62,10 +49,10 @@ void BitArray::clearBit(uint32_t index) {
     throw std::invalid_argument(
         "Index out of range for clearBit: " + std::to_string(index) + ".");
   }
-  unsigned char mask = BIT_IN_CHAR(index);
+  uint64_t mask = BIT_IN_BLOCK(index);
   mask = ~mask;
 
-  _backing_array[BIT_CHAR(index)] &= mask;
+  _backing_array[BIT_BLOCK(index)] &= mask;
 }
 
 void BitArray::setBit(uint32_t index) {
@@ -74,59 +61,41 @@ void BitArray::setBit(uint32_t index) {
         "Index out of range for setBit: " + std::to_string(index) + ".");
   }
 
-  _backing_array[BIT_CHAR(index)] |= BIT_IN_CHAR(index);
+  _backing_array[BIT_BLOCK(index)] |= BIT_IN_BLOCK(index);
 }
 
 BitArray &BitArray::operator^=(const BitArray &other) {
-  if (other.numBits() != _num_bits) {
-    throw std::invalid_argument("Trying to & two BitArray of different sizes.");
+  if (other._num_bits != this->_num_bits) {
+    throw std::invalid_argument(
+        "Trying to ^ two BitArrays of different sizes.");
   }
 
-  uint32_t i = 0;
-  const uint32_t simd_end =
-      _num_bytes / 16 * 16; // Process in chunks of 16 bytes.
-
-  for (; i < simd_end; i += 16) {
-    __m128i a =
-        _mm_loadu_si128(reinterpret_cast<const __m128i *>(&_backing_array[i]));
-    __m128i b = _mm_loadu_si128(
-        reinterpret_cast<const __m128i *>(&other._backing_array[i]));
-    __m128i result = _mm_xor_si128(a, b);
-    _mm_storeu_si128(reinterpret_cast<__m128i *>(&_backing_array[i]), result);
-  }
-
-  // Handle remaining bytes if _num_bytes is not a multiple of 16.
-  for (; i < _num_bytes; i++) {
-    _backing_array[i] = _backing_array[i] ^ other._backing_array[i];
+  for (uint32_t i = 0; i < _backing_array.size(); ++i) {
+    _backing_array[i] ^= other._backing_array[i];
   }
 
   return *this;
 }
 
 BitArray &BitArray::operator&=(const BitArray &other) {
-  if (other.numBits() != _num_bits) {
-    throw std::invalid_argument("Trying to & two BitArray of different sizes.");
+  if (other._num_bits != this->_num_bits) {
+    throw std::invalid_argument(
+        "Trying to & two BitArrays of different sizes.");
   }
 
-  uint32_t i = 0;
-  const uint32_t simd_end =
-      _num_bytes / 16 * 16; // Process in chunks of 16 bytes.
-
-  for (; i < simd_end; i += 16) {
-    __m128i a =
-        _mm_loadu_si128(reinterpret_cast<const __m128i *>(&_backing_array[i]));
-    __m128i b = _mm_loadu_si128(
-        reinterpret_cast<const __m128i *>(&other._backing_array[i]));
-    __m128i result = _mm_and_si128(a, b);
-    _mm_storeu_si128(reinterpret_cast<__m128i *>(&_backing_array[i]), result);
-  }
-
-  // Handle remaining bytes if _num_bytes is not a multiple of 16.
-  for (; i < _num_bytes; i++) {
-    _backing_array[i] = _backing_array[i] & other._backing_array[i];
+  for (uint32_t i = 0; i < _backing_array.size(); ++i) {
+    _backing_array[i] &= other._backing_array[i];
   }
 
   return *this;
+}
+
+BitArray BitArray::operator^(const BitArray &other) const {
+  BitArray result(this->numBits());
+  result = *this;
+  result ^= other;
+
+  return result;
 }
 
 BitArray BitArray::operator&(const BitArray &other) const {
@@ -169,18 +138,17 @@ bool BitArray::operator==(const BitArray &other) const {
 
 std::optional<uint32_t> BitArray::find() const {
   uint32_t location = 0;
-  for (uint32_t byte = 0; byte < _num_bytes; byte++) {
-    if (_backing_array[byte] != 0) {
-      auto temp = _backing_array[byte];
-      for (uint32_t bit = 0; bit < CHAR_BIT; bit++) {
+  for (uint32_t block = 0; block < _backing_array.size(); block++) {
+    if (_backing_array[block] != 0) {
+      auto temp = _backing_array[block];
+      for (uint32_t bit = 0; bit < BLOCK_SIZE; bit++) {
         temp >>= 1;
         if (temp == 0) {
-          // we invert the position here within the byte because of endianness
-          return location + CHAR_BIT - 1 - bit;
+          return location + BLOCK_SIZE - 1 - bit;
         }
       }
     } else {
-      location += CHAR_BIT;
+      location += BLOCK_SIZE;
     }
   }
   return std::nullopt;
@@ -188,20 +156,20 @@ std::optional<uint32_t> BitArray::find() const {
 
 void BitArray::setAll() {
   /* set bits in all bytes to 1 */
-  std::fill(_backing_array.begin(), _backing_array.end(), UCHAR_MAX);
+  std::fill(_backing_array.begin(), _backing_array.end(), UINT64_MAX);
 
   /* zero any spare bits so increment and decrement are consistent */
-  int bits = _num_bits % CHAR_BIT;
+  int bits = _num_bits % BLOCK_SIZE;
   if (bits != 0) {
-    unsigned char mask = UCHAR_MAX << (CHAR_BIT - bits);
-    _backing_array[BIT_CHAR(_num_bits - 1)] = mask;
+    uint64_t mask = UINT64_MAX << (BLOCK_SIZE - bits);
+    _backing_array[BIT_BLOCK(_num_bits - 1)] = mask;
   }
 }
 
 uint32_t BitArray::numSetBits() const {
   uint32_t total = 0;
-  for (auto block : _backing_array) {
-    total += _set_bits_in_char[block];
+  for (auto &block : _backing_array) {
+    total += __builtin_popcountll(block);
   }
   return total;
 }
@@ -230,7 +198,7 @@ template void BitArray::serialize(cereal::BinaryInputArchive &);
 template void BitArray::serialize(cereal::BinaryOutputArchive &);
 
 template <class Archive> void BitArray::serialize(Archive &archive) {
-  archive(_num_bits, _num_bytes, _backing_array);
+  archive(_num_bits, _backing_array);
 }
 
 } // namespace caramel

@@ -8,11 +8,8 @@ namespace caramel {
 template <typename T>
 MultisetCsfPtr<T>
 constructMultisetCsf(const std::vector<std::string> &keys,
-                     const std::vector<std::vector<T>> &values, bool permute,
+                     const std::vector<std::vector<T>> &values,
                      bool use_bloom_filter = true, bool verbose = true) {
-  // TODO(david) add permutation stuff
-  (void)permute;
-
   size_t num_csfs = values.size();
 
   std::vector<CsfPtr<T>> csfs(num_csfs);
