@@ -129,12 +129,36 @@ def test_end_to_end():
         assert_simple_api_correct(keys, values)
 
 
-def test_bloom_filter():
-    keys = gen_str_keys(1000)
-    values = np.concatenate(
-        [gen_int_values(300), np.array([300 for _ in range(700)])], axis=0
-    )
-    assert_simple_api_correct(keys, values)
+@pytest.mark.parametrize(
+    "most_common_frequency",
+    [0.3, 0.5, 0.7, 0.78, 0.8, 0.9, 1.0],
+)
+def test_bloom_filter(most_common_frequency):
+    rows = 10000
+    keys = gen_str_keys(rows)
+    num_most_common_element = int(rows * most_common_frequency)
+    other_elements = rows - num_most_common_element
+    values = [10000 for _ in range(num_most_common_element)] + [
+        i for i in range(other_elements)
+    ]
+
+    csf_bloom = carameldb.Caramel(keys, values, use_bloom_filter=True)
+    bloom_filename = "bloom.csf"
+    csf_bloom.save(bloom_filename)
+    bloom_size = os.path.getsize(bloom_filename)
+
+    csf_no_bloom = carameldb.Caramel(keys, values, use_bloom_filter=False)
+    no_bloom_filename = "no_bloom.csf"
+    csf_no_bloom.save(no_bloom_filename)
+    no_bloom_size = os.path.getsize(no_bloom_filename)
+
+    if most_common_frequency < 0.79 or most_common_frequency == 1.0:
+        assert bloom_size == no_bloom_size
+    else:
+        assert bloom_size < no_bloom_size
+
+    os.remove(bloom_filename)
+    os.remove(no_bloom_filename)
 
 
 def test_uint32_vs_64_values():

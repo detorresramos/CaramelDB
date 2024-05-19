@@ -124,13 +124,9 @@ CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
   // 12% more memory, we can omit lazy gaussian elimination and set delta
   // to 1.23. This delta also depends on the number of hashes we use per
   // equation. This delta is for 3 hashes but for 4 it would be different.
-  double DELTA = 1.10;
+  double DELTA = 1.089;
 
   Timer timer;
-
-  if (verbose) {
-    std::cout << "Applying bloom pre-filtering...";
-  }
 
   std::vector<std::string> filtered_keys = keys;
   std::vector<T> filtered_values = values;
@@ -138,15 +134,35 @@ CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
   std::optional<T> most_common_value = std::nullopt;
 
   if (use_bloom_filter) {
-    auto bloom_prefiltering_output = bloomPrefiltering(keys, values, DELTA);
-    filtered_keys = std::move(std::get<0>(bloom_prefiltering_output));
-    filtered_values = std::move(std::get<1>(bloom_prefiltering_output));
-    bloom_filter = std::get<2>(bloom_prefiltering_output);
-    most_common_value = std::get<3>(bloom_prefiltering_output);
+    auto [highest_frequency, computed_most_common_value] =
+        highestFrequency(values);
+    float highest_normalized_frequency = static_cast<float>(highest_frequency) /
+                                         static_cast<float>(values.size());
+
+    float error_rate = calculateErrorRate(
+        /* alpha= */ highest_normalized_frequency, /* delta= */ DELTA);
+
+    if (error_rate < 0.5 && error_rate != 0) {
+      if (verbose) {
+        std::cout << "Applying bloom pre-filtering...";
+      }
+      auto bloom_prefiltering_output = bloomPrefiltering(
+          keys, values,
+          /* highest_frequency= */ highest_frequency,
+          /* error_rate= */ error_rate,
+          /* most_common_value= */ computed_most_common_value);
+      filtered_keys = std::move(std::get<0>(bloom_prefiltering_output));
+      filtered_values = std::move(std::get<1>(bloom_prefiltering_output));
+      bloom_filter = std::get<2>(bloom_prefiltering_output);
+      most_common_value = std::get<3>(bloom_prefiltering_output);
+      if (verbose) {
+        std::cout << " finished in " << timer.seconds() << " seconds."
+                  << std::endl;
+      }
+    }
   }
 
   if (verbose) {
-    std::cout << " finished in " << timer.seconds() << " seconds." << std::endl;
     std::cout << "Creating codebook...";
   }
 
