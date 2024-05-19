@@ -137,6 +137,14 @@ class CSFQueryWrapper(object):
     def __getattr__(self, name):
         return getattr(self._csf, name)
 
+    def __dir__(self):
+        """Return the list of attributes of the wrapped object and this wrapper to aid with introspection."""
+        return sorted(set(dir(self._csf) + super().__dir__()))
+
+    def __repr__(self):
+        """Return a string representation of the wrapper that identifies the wrapped object."""
+        return repr(self._csf)
+
 
 def _infer_backend(values, max_to_infer=None):
     """Returns a CSF class, selected based on the key / value types."""

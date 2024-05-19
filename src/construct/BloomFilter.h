@@ -13,18 +13,14 @@ namespace caramel {
 class BloomFilter {
 public:
   BloomFilter(size_t num_elements, float error_rate) {
-    if (error_rate == 0) {
-      _single_element = true;
-      return;
-    }
-
-    size_t size = std::ceil((1 / log(2)) * log2(1.0 / error_rate) *
-                            static_cast<float>(num_elements));
+    size_t size =
+        std::ceil(log2(std::exp(1)) * log2(std::exp(1)) *
+                  log2(1.0 / error_rate) * static_cast<float>(num_elements));
 
     _bitarray = BitArray::make(size);
 
-    _num_hashes = std::floor((static_cast<float>(size) * log(2)) /
-                             (static_cast<float>(num_elements)));
+    _num_hashes = std::ceil((static_cast<float>(size) * log(2)) /
+                            (static_cast<float>(num_elements)));
   }
 
   static std::shared_ptr<BloomFilter> make(size_t num_elements,
@@ -33,13 +29,6 @@ public:
   }
 
   void add(const std::string &key) {
-    if (_single_element) {
-      if (_single_key.has_value() && _single_key.value() != key) {
-        throw std::invalid_argument(
-            "Too many items added to single element bloom filter.");
-      }
-    }
-
     std::vector<uint64_t> hash_values = getHashValues(key);
     for (uint64_t hash : hash_values) {
       _bitarray->setBit(hash % _bitarray->numBits());
@@ -47,10 +36,6 @@ public:
   }
 
   bool contains(const std::string &key) {
-    if (_single_element) {
-      return true;
-    }
-
     std::vector<uint64_t> hash_values = getHashValues(key);
     for (uint64_t hash : hash_values) {
       if (!(*_bitarray)[hash]) {
@@ -61,6 +46,8 @@ public:
   }
 
   size_t size() const { return _bitarray->numBits(); }
+
+  size_t numHashes() const { return _num_hashes; }
 
 private:
   std::vector<uint64_t> getHashValues(const std::string &key) {
@@ -84,13 +71,11 @@ private:
 
   friend class cereal::access;
   template <class Archive> void serialize(Archive &archive) {
-    archive(_bitarray, _num_hashes, _single_element);
+    archive(_bitarray, _num_hashes);
   }
 
-  BitArrayPtr _bitarray;
-  size_t _num_hashes;
-  bool _single_element = false;
-  std::optional<std::string> _single_key = std::nullopt;
+  BitArrayPtr _bitarray = nullptr;
+  size_t _num_hashes = 0;
 };
 
 using BloomFilterPtr = std::shared_ptr<BloomFilter>;

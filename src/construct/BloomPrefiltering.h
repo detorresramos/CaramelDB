@@ -37,18 +37,8 @@ template <typename T>
 std::tuple<std::vector<std::string>, std::vector<T>, BloomFilterPtr,
            std::optional<T>>
 bloomPrefiltering(const std::vector<std::string> &keys,
-                  const std::vector<T> &values, float delta) {
-  auto [highest_frequency, most_common_value] = highestFrequency(values);
-  float highest_normalized_frequency =
-      static_cast<float>(highest_frequency) / static_cast<float>(values.size());
-
-  float error_rate = calculateErrorRate(
-      /* alpha= */ highest_normalized_frequency, /* delta= */ delta);
-
-  if (error_rate > 1) {
-    return {std::move(keys), std::move(values), nullptr, std::nullopt};
-  }
-
+                  const std::vector<T> &values, size_t highest_frequency,
+                  float error_rate, T most_common_value) {
   auto bloom_filter =
       BloomFilter::make(values.size() - highest_frequency, error_rate);
 

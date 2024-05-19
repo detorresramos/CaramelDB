@@ -113,6 +113,10 @@ public:
     return deserialize_into;
   }
 
+  std::optional<BloomFilterPtr> bloomFilter() const {
+    return _bloom_filter ? std::make_optional(_bloom_filter) : std::nullopt;
+  }
+
 private:
   // Private constructor for cereal
   Csf() {}
@@ -128,7 +132,7 @@ private:
   std::vector<uint32_t> _code_length_counts;
   std::vector<T> _ordered_symbols;
   uint32_t _hash_store_seed;
-  BloomFilterPtr _bloom_filter;
+  BloomFilterPtr _bloom_filter = nullptr;
   std::optional<T> _most_common_value;
   uint32_t _max_codelength;
 };

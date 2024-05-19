@@ -15,6 +15,13 @@ namespace py = pybind11;
 
 namespace caramel::python {
 
+void bindBloomFilter(py::module &module) {
+  py::class_<BloomFilter, BloomFilterPtr>(module, "BloomFilter")
+      .def("size", &BloomFilter::size)
+      .def("num_hashes", &BloomFilter::numHashes)
+      .def("contains", &BloomFilter::contains, py::arg("key"));
+}
+
 template <typename T>
 void bindCsf(py::module &module, const char *name, const uint32_t type_id) {
   py::class_<Csf<T>, std::shared_ptr<Csf<T>>>(module, name)
@@ -26,6 +33,7 @@ void bindCsf(py::module &module, const char *name, const uint32_t type_id) {
            py::arg("keys"), py::arg("values"),
            py::arg("use_bloom_filter") = true, py::arg("verbose") = true)
       .def("query", &Csf<T>::query, py::arg("key"))
+      .def("bloom_filter", &Csf<T>::bloomFilter)
       // Call save / load through a lambda to avoid user visibility of type_id.
       .def(
           "save",
@@ -89,6 +97,8 @@ template <typename T> void bindPermutation(py::module &m, const char *name) {
 }
 
 PYBIND11_MODULE(_caramel, module) { // NOLINT
+  bindBloomFilter(module);
+
   bindCsf<uint32_t>(module, "CSFUint32", 1);
   bindCsf<uint64_t>(module, "CSFUint64", 2);
   bindCsf<std::array<char, 10>>(module, "CSFChar10", 3);

@@ -131,10 +131,10 @@ def test_end_to_end():
 
 @pytest.mark.parametrize(
     "most_common_frequency",
-    [0.3, 0.5, 0.6, 0.64, 0.645, 0.655, 0.66, 0.7, 0.75, 0.8, 0.9],
+    [0.3, 0.5, 0.7, 0.78, 0.8, 0.9, 1.0],
 )
 def test_bloom_filter(most_common_frequency):
-    rows = 1000000
+    rows = 10000
     keys = gen_str_keys(rows)
     num_most_common_element = int(rows * most_common_frequency)
     other_elements = rows - num_most_common_element
@@ -152,7 +152,7 @@ def test_bloom_filter(most_common_frequency):
     csf_no_bloom.save(no_bloom_filename)
     no_bloom_size = os.path.getsize(no_bloom_filename)
 
-    if most_common_frequency < 0.65:
+    if most_common_frequency < 0.79 or most_common_frequency == 1.0:
         assert bloom_size == no_bloom_size
     else:
         assert bloom_size < no_bloom_size

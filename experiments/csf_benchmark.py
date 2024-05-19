@@ -89,7 +89,7 @@ def main(args):
     lookup = {}
     for key, value in zip(keys, values):
         lookup[key] = value
-    
+
     map_query_time = 0
     for key in keys:
         start = time.perf_counter_ns()
