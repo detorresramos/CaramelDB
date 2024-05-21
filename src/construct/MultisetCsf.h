@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Csf.h"
+#include <src/utils/Timer.h>
 
 namespace caramel {
 
@@ -12,6 +13,7 @@ public:
   MultisetCsf(const std::vector<CsfPtr<T>> &csfs) : _csfs(csfs) {}
 
   std::vector<T> query(const std::string &key, bool parallelize = true) const {
+    Timer timer;
     std::vector<T> outputs(_csfs.size());
 
 #pragma omp parallel for default(none)                                         \
@@ -19,6 +21,10 @@ public:
     for (size_t i = 0; i < _csfs.size(); i++) {
       outputs[i] = _csfs[i]->query(key);
     }
+
+    auto time = timer.nanoseconds();
+
+    std::cout << "Time taken: " << time << std::endl;
 
     return outputs;
   }
