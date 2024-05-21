@@ -16,6 +16,7 @@
 #include <src/BitArray.h>
 #include <src/construct/BloomFilter.h>
 #include <src/utils/SafeFileIO.h>
+#include <src/utils/Timer.h>
 #include <vector>
 
 namespace caramel {
@@ -60,6 +61,7 @@ public:
   }
 
   T query(const std::string &key) const {
+    Timer timer;
     if (_bloom_filter && !_bloom_filter->contains(key)) {
       return *_most_common_value;
     }
@@ -81,8 +83,12 @@ public:
                              solution->getuint64(e[1], _max_codelength) ^
                              solution->getuint64(e[2], _max_codelength);
 
-    return cannonicalDecodeFromNumber(encoded_value, _code_length_counts,
-                                      _ordered_symbols, _max_codelength);
+    auto val = cannonicalDecodeFromNumber(encoded_value, _code_length_counts,
+                                          _ordered_symbols, _max_codelength);
+    auto time = timer.nanoseconds();
+
+    std::cout << "Time taken: " << time << std::endl;
+    return val;
   }
 
   void save(const std::string &filename, const uint32_t type_id = 0) const {
