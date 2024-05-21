@@ -109,7 +109,8 @@ constructAndSolveSubsystem(const std::vector<Uint128Signature> &key_signatures,
 template <typename T>
 CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
                        const std::vector<T> &values,
-                       bool use_bloom_filter = true, bool verbose = true) {
+                       bool use_bloom_filter = true, bool verbose = true,
+                       std::optional<float> custom_threshold = std::nullopt) {
   if (values.empty()) {
     throw std::invalid_argument("Values must be non-empty but found length 0.");
   }
@@ -142,7 +143,14 @@ CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
     float error_rate = calculateErrorRate(
         /* alpha= */ highest_normalized_frequency, /* delta= */ DELTA);
 
-    if (error_rate < 0.5 && error_rate != 0) {
+    bool use_bloom_filter = error_rate < 0.5 && error_rate != 0;
+
+    if (custom_threshold.has_value()) {
+      error_rate = custom_threshold.value();
+      use_bloom_filter = error_rate < 1;
+    }
+
+    if (use_bloom_filter) {
       if (verbose) {
         std::cout << "Applying bloom pre-filtering...";
       }

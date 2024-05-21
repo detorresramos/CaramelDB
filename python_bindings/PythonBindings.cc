@@ -27,11 +27,13 @@ void bindCsf(py::module &module, const char *name, const uint32_t type_id) {
   py::class_<Csf<T>, std::shared_ptr<Csf<T>>>(module, name)
       .def(py::init([](const std::vector<std::string> &keys,
                        const std::vector<T> &values, bool use_bloom_filter,
-                       bool verbose) {
-             return constructCsf<T>(keys, values, use_bloom_filter, verbose);
+                       bool verbose, std::optional<float> custom_threshold) {
+             return constructCsf<T>(keys, values, use_bloom_filter, verbose,
+                                    custom_threshold);
            }),
            py::arg("keys"), py::arg("values"),
-           py::arg("use_bloom_filter") = true, py::arg("verbose") = true)
+           py::arg("use_bloom_filter") = true, py::arg("verbose") = true,
+           py::arg("custom_threshold") = std::nullopt)
       .def("query", &Csf<T>::query, py::arg("key"))
       .def("bloom_filter", &Csf<T>::bloomFilter)
       // Call save / load through a lambda to avoid user visibility of type_id.
@@ -56,12 +58,14 @@ void bindMultisetCsf(py::module &module, const char *name,
   py::class_<MultisetCsf<T>, std::shared_ptr<MultisetCsf<T>>>(module, name)
       .def(py::init([](const std::vector<std::string> &keys,
                        const std::vector<std::vector<T>> &values,
-                       bool use_bloom_filter, bool verbose) {
+                       bool use_bloom_filter, bool verbose,
+                       std::optional<float> custom_threshold) {
              return constructMultisetCsf<T>(keys, values, use_bloom_filter,
-                                            verbose);
+                                            verbose, custom_threshold);
            }),
            py::arg("keys"), py::arg("values"),
-           py::arg("use_bloom_filter") = true, py::arg("verbose") = true)
+           py::arg("use_bloom_filter") = true, py::arg("verbose") = true,
+           py::arg("custom_threshold") = std::nullopt)
       .def("query", &MultisetCsf<T>::query, py::arg("key"),
            py::arg("parallel") = true)
       // Call save / load through a lambda to avoid user visibility of

@@ -44,6 +44,7 @@ def Caramel(
     permute=False,
     max_to_infer=None,
     verbose=True,
+    custom_threshold=None,
 ):
     """
     Constructs a Caramel object, automatically inferring the correct CSF backend.
@@ -95,9 +96,10 @@ def Caramel(
             values,
             use_bloom_filter=use_bloom_filter,
             verbose=verbose,
+            custom_threshold=custom_threshold,
         )
     else:
-        csf = CSFClass(keys, values, use_bloom_filter=use_bloom_filter, verbose=verbose)
+        csf = CSFClass(keys, values, use_bloom_filter=use_bloom_filter, verbose=verbose, custom_threshold=custom_threshold)
     csf = _wrap_backend(csf)
     return csf
 
