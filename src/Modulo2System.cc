@@ -108,7 +108,7 @@ DenseSystemPtr sparseToDense(const SparseSystemPtr &sparse_system) {
 
   DenseSystemPtr dense_system = DenseSystem::make(num_variables);
 
-  std::vector<uint32_t> equation_ids = sparse_system->equationIds();
+  std::vector<uint64_t> equation_ids = sparse_system->equationIds();
   for (auto equation_id : equation_ids) {
     auto [participating_vars, constant] =
         sparse_system->getEquation(equation_id);

@@ -35,21 +35,19 @@ constructModulo2System(const std::vector<Uint128Signature> &key_signatures,
                        const std::vector<T> &values,
                        const CodeDict<T> &codedict, uint32_t max_codelength,
                        uint32_t seed, float DELTA) {
-  uint32_t num_equations = 0;
+  uint64_t num_equations = 0;
   for (const auto &v : values) {
     num_equations += codedict.find(v)->second->numBits();
   }
 
-  uint32_t num_variables =
+  uint64_t num_variables =
       std::ceil(static_cast<double>(num_equations) * DELTA);
 
-  std::vector<std::vector<uint32_t>> equations;
-  equations.reserve(num_equations);
-  std::vector<uint32_t> constants;
-  constants.reserve(num_equations);
+  auto sparse_system =
+      SparseSystem::make(num_equations, num_variables + max_codelength);
 
+  uint64_t start_var_locations[3];
   for (uint32_t i = 0; i < key_signatures.size(); i++) {
-    int start_var_locations[3];
     signatureToEquation(key_signatures[i], seed, num_variables,
                         start_var_locations);
 
@@ -57,18 +55,9 @@ constructModulo2System(const std::vector<Uint128Signature> &key_signatures,
     uint32_t n_bits = coded_value->numBits();
     for (uint32_t offset = 0; offset < n_bits; offset++) {
       uint32_t bit = (*coded_value)[offset];
-      std::vector<uint32_t> participating_variables;
-      for (uint32_t start_var_location : start_var_locations) {
-        participating_variables.push_back(start_var_location + offset);
-      }
-      equations.emplace_back(std::move(participating_variables));
-      constants.emplace_back(bit);
+      sparse_system->addEquation(start_var_locations, offset, bit);
     }
   }
-
-  auto sparse_system =
-      SparseSystem::make(std::move(equations), std::move(constants),
-                         num_variables + max_codelength);
 
   return sparse_system;
 }
@@ -192,9 +181,10 @@ CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
   auto bar = ProgressBar::makeOptional(verbose, "Solving systems...",
                                        /* max_steps=*/num_buckets);
 
-#pragma omp parallel for default(none)                                         \
-    shared(bucketed_key_signatures, bucketed_values, codedict, max_codelength, \
-           solutions_and_seeds, num_buckets, exception, bar, DELTA)
+  // #pragma omp parallel for default(none)
+  //     shared(bucketed_key_signatures, bucketed_values, codedict,
+  //     max_codelength,
+  //            solutions_and_seeds, num_buckets, exception, bar, DELTA)
   for (uint32_t i = 0; i < num_buckets; i++) {
     if (exception) {
       continue;
@@ -204,11 +194,13 @@ CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
           bucketed_key_signatures[i], bucketed_values[i], codedict,
           max_codelength, DELTA);
     } catch (std::exception &e) {
-#pragma omp critical
-      { exception = std::current_exception(); }
+      // #pragma omp critical
+      // {
+      exception = std::current_exception();
+      //  }
     }
     if (bar) {
-#pragma omp critical
+      // #pragma omp critical
       bar->increment();
     }
   }

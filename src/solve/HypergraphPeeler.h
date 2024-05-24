@@ -25,7 +25,7 @@ recursively repeat this process until we cannot peel any more edges.
 std::tuple<std::vector<uint32_t>, std::vector<uint32_t>, std::vector<uint32_t>,
            SparseSystemPtr>
 peelHypergraph(const SparseSystemPtr &sparse_system,
-               const std::vector<uint32_t> &equation_ids);
+               const std::vector<uint64_t> &equation_ids);
 
 BitArrayPtr solvePeeledFromDense(const std::vector<uint32_t> &peeled_ids,
                                  const std::vector<uint32_t> &solution_order,
