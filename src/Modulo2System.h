@@ -12,36 +12,46 @@ namespace caramel {
 
 class SparseSystem {
 public:
-  SparseSystem(std::vector<std::vector<uint32_t>> &&equations,
-               std::vector<uint32_t> &&constants, uint32_t solution_size)
-      : _equations(equations), _constants(constants),
-        _solution_size(solution_size) {}
-
-  static std::shared_ptr<SparseSystem>
-  make(std::vector<std::vector<uint32_t>> &&equations,
-       std::vector<uint32_t> &&constants, uint32_t solution_size) {
-    return std::make_shared<SparseSystem>(std::move(equations),
-                                          std::move(constants), solution_size);
+  SparseSystem(uint64_t num_equations, uint64_t solution_size)
+      : _num_equations(num_equations), _solution_size(solution_size) {
+    _equations.reserve(num_equations * 3);
+    _constants.reserve(num_equations);
   }
 
-  std::pair<std::vector<uint32_t>, uint32_t> getEquation(uint32_t equation_id) {
-    return std::make_pair(_equations[equation_id], _constants[equation_id]);
+  static std::shared_ptr<SparseSystem> make(uint64_t num_equations,
+                                            uint64_t solution_size) {
+    return std::make_shared<SparseSystem>(num_equations, solution_size);
   }
 
-  std::vector<uint32_t> equationIds() const {
-    std::vector<uint32_t> equation_ids(_equations.size());
+  void addEquation(uint64_t *start_var_locations, uint32_t offset, uint32_t bit) {
+    _equations.push_back(start_var_locations[0] + offset);
+    _equations.push_back(start_var_locations[1] + offset);
+    _equations.push_back(start_var_locations[2] + offset);
+    _constants.emplace_back(bit);
+  }
+
+  std::pair<std::vector<uint64_t>, uint32_t> getEquation(uint64_t equation_id) {
+    std::vector<uint64_t> temp{_equations[equation_id * 3],
+                               _equations[equation_id * 3 + 1],
+                               _equations[equation_id * 3 + 2]};
+    return std::make_pair(std::move(temp), _constants[equation_id]);
+  }
+
+  std::vector<uint64_t> equationIds() const {
+    std::vector<uint64_t> equation_ids(_num_equations);
     std::iota(equation_ids.begin(), equation_ids.end(), 0);
     return equation_ids;
   }
 
-  uint32_t numEquations() const { return _equations.size(); }
+  uint64_t numEquations() const { return _num_equations; }
 
-  uint32_t solutionSize() const { return _solution_size; }
+  uint64_t solutionSize() const { return _solution_size; }
 
 private:
-  std::vector<std::vector<uint32_t>> _equations;
+  uint64_t _num_equations;
+  uint64_t _solution_size;
+  std::vector<uint64_t> _equations;
   std::vector<uint32_t> _constants;
-  uint32_t _solution_size;
 };
 
 using SparseSystemPtr = std::shared_ptr<SparseSystem>;

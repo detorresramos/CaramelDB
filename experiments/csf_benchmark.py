@@ -23,10 +23,11 @@ def parse_args():
         "--dist",
         type=str,
         choices=["zipfian", "geometric", "uniform"],
+        default="zipfian"
     )
-    parser.add_argument("--rows", type=int)
+    parser.add_argument("--rows", type=int, default=10000000)
     parser.add_argument("--columns", type=int, default=1)
-    parser.add_argument("--zipfian_s_val", type=int, default=2)
+    parser.add_argument("--zipfian_s_val", type=int, default=1.6)
     parser.add_argument("--uniform_num_unique_values", type=int, default=64)
     parser.add_argument("--geometric_p_val", type=float, default=0.5)
     parser.add_argument("--parallel_queries", action="store_true")
@@ -56,10 +57,10 @@ def get_values(distribution_name, rows, columns, args):
 
 
 def main(args):
-    keys = [f"key{i}" for i in range(args.rows)]
+    keys = np.array([f"key{i}" for i in range(args.rows)])
     values = get_values(
         distribution_name=args.dist, rows=args.rows, columns=args.columns, args=args
-    )
+    ).astype(np.uint32)
 
     start = time.time()
     csf = carameldb.Caramel(keys, values, verbose=False)
@@ -90,13 +91,6 @@ def main(args):
     for key, value in zip(keys, values):
         lookup[key] = value
 
-    map_query_time = 0
-    for key in keys:
-        start = time.perf_counter_ns()
-        val = lookup[key]
-        map_query_time += time.perf_counter_ns() - start
-    map_query_time /= len(keys)
-
     print(
         f"Results for distribution '{args.dist}' with {args.rows} rows and {args.columns} columns.\n"
     )
@@ -105,8 +99,6 @@ def main(args):
     )
     print(f"File Size: {csf_size} bytes or {csf_size / args.rows:.3f} bytes / key")
     print(f"Average Query Time: {csf_query_time:.3f} ns")
-
-    print(f"Python Dict Query Time: {map_query_time:.3f} ns")
 
 
 if __name__ == "__main__":

@@ -9,9 +9,9 @@ namespace caramel {
 std::tuple<std::vector<uint32_t>, std::vector<uint32_t>, std::vector<uint32_t>,
            SparseSystemPtr>
 peelHypergraph(const SparseSystemPtr &sparse_system,
-               const std::vector<uint32_t> &equation_ids) {
-  uint32_t num_equations = sparse_system->numEquations();
-  uint32_t num_variables = sparse_system->solutionSize();
+               const std::vector<uint64_t> &equation_ids) {
+  uint64_t num_equations = sparse_system->numEquations();
+  uint64_t num_variables = sparse_system->solutionSize();
 
   // Degree of a variable is the number of unpeeled equations that contain it.
   std::vector<uint32_t> degree(num_variables, 0);
@@ -21,7 +21,7 @@ peelHypergraph(const SparseSystemPtr &sparse_system,
   // Stores the XOR of edges (equations) each variable participates in.
   std::vector<uint32_t> equation_id_xors(num_variables, 0);
 
-  for (uint32_t equation_id : equation_ids){
+  for (uint64_t equation_id : equation_ids){
     auto [participating_variables, _ignore_constant_] = 
       sparse_system->getEquation(equation_id);
 

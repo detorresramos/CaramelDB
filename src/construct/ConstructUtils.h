@@ -9,8 +9,8 @@
 namespace caramel {
 
 void inline signatureToEquation(const Uint128Signature &signature,
-                                const uint64_t seed, int num_variables,
-                                int *e) {
+                                const uint64_t seed, uint64_t num_variables,
+                                uint64_t *e) {
   uint64_t hash[4];
   spooky_short_rehash(signature, seed, hash);
   const int shift = __builtin_clzll(num_variables);
