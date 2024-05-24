@@ -10,8 +10,8 @@ std::tuple<std::unordered_map<uint32_t, std::vector<uint32_t>>,
            std::unordered_map<uint32_t, uint32_t>, std::vector<uint32_t>,
            DenseSystemPtr>
 constructDenseSystem(const SparseSystemPtr &sparse_system,
-                     const std::vector<uint32_t> &equation_ids) {
-  uint32_t num_variables = sparse_system->solutionSize();
+                     const std::vector<uint64_t> &equation_ids) {
+  uint64_t num_variables = sparse_system->solutionSize();
 
   // The weight is the number of sparse equations containing variable_id.
   std::vector<uint32_t> variable_weight(num_variables, 0);
@@ -86,9 +86,9 @@ countsortVariableIds(const std::vector<uint32_t> &variable_weight,
 std::tuple<std::vector<uint32_t>, std::vector<uint32_t>, std::vector<uint32_t>,
            DenseSystemPtr>
 lazyGaussianElimination(const SparseSystemPtr &sparse_system,
-                        const std::vector<uint32_t> &equation_ids) {
-  uint32_t num_equations = sparse_system->numEquations();
-  uint32_t num_variables = sparse_system->solutionSize();
+                        const std::vector<uint64_t> &equation_ids) {
+  uint64_t num_equations = sparse_system->numEquations();
+  uint64_t num_variables = sparse_system->solutionSize();
 
   auto [var_to_equations, equation_priority, variable_weight, dense_system] =
       constructDenseSystem(sparse_system, equation_ids);
