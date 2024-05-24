@@ -6,8 +6,8 @@
 
 namespace caramel {
 
-std::tuple<std::unordered_map<uint32_t, std::vector<uint32_t>>,
-           std::unordered_map<uint32_t, uint32_t>, std::vector<uint32_t>,
+std::tuple<std::unordered_map<uint64_t, std::vector<uint64_t>>,
+           std::unordered_map<uint64_t, uint32_t>, std::vector<uint32_t>,
            DenseSystemPtr>
 constructDenseSystem(const SparseSystemPtr &sparse_system,
                      const std::vector<uint64_t> &equation_ids) {
@@ -17,16 +17,16 @@ constructDenseSystem(const SparseSystemPtr &sparse_system,
   std::vector<uint32_t> variable_weight(num_variables, 0);
 
   // The equation priority is the number of idle variables in equation_id.
-  std::unordered_map<uint32_t, uint32_t> equation_priority;
+  std::unordered_map<uint64_t, uint32_t> equation_priority;
   equation_priority.reserve(equation_ids.size());
 
   DenseSystemPtr dense_system =
       DenseSystem::make(num_variables, equation_ids.size());
 
-  std::unordered_set<uint32_t> vars_to_add;
-  std::unordered_map<uint32_t, std::vector<uint32_t>> var_to_equations;
+  std::unordered_set<uint64_t> vars_to_add;
+  std::unordered_map<uint64_t, std::vector<uint64_t>> var_to_equations;
   var_to_equations.reserve(num_variables);
-  for (uint32_t equation_id : equation_ids) {
+  for (uint64_t equation_id : equation_ids) {
     auto [participating_vars, constant] =
         sparse_system->getEquation(equation_id);
     // We should only add a variable to the equation in the dense system if
@@ -34,7 +34,7 @@ constructDenseSystem(const SparseSystemPtr &sparse_system,
     // as XOR(solution[hash_1], solution[hash_2] ...). If hash_1 = hash_2 =
     // variable_id, then XOR(solution[hash_1], solution[hash_2]) = 0 and
     // the variable_id did not actually participate in the solution.
-    for (uint32_t variable_id : participating_vars) {
+    for (uint64_t variable_id : participating_vars) {
       auto [_, inserted] = vars_to_add.insert(variable_id);
       if (!inserted) {
         vars_to_add.erase(variable_id);
@@ -42,7 +42,7 @@ constructDenseSystem(const SparseSystemPtr &sparse_system,
     }
     dense_system->addEquation(equation_id, vars_to_add, constant);
     // Update weight and priority for de-duped variables.
-    for (uint32_t variable_id : vars_to_add) {
+    for (uint64_t variable_id : vars_to_add) {
       variable_weight[variable_id]++;
       var_to_equations[variable_id].push_back(equation_id);
     }

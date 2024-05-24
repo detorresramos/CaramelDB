@@ -6,7 +6,7 @@
 namespace caramel {
 
 void DenseSystem::addEquation(
-    uint32_t equation_id, const std::vector<uint32_t> &participating_variables,
+    uint64_t equation_id, const std::vector<uint64_t> &participating_variables,
     uint32_t constant) {
 #ifdef DEBUG
   for (auto var : participating_variables) {
@@ -32,7 +32,8 @@ void DenseSystem::addEquation(
 }
 
 void DenseSystem::addEquation(
-    uint32_t equation_id, const std::unordered_set<uint32_t> &participating_variables,
+    uint64_t equation_id,
+    const std::unordered_set<uint64_t> &participating_variables,
     uint32_t constant) {
 #ifdef DEBUG
   for (auto var : participating_variables) {
@@ -57,25 +58,25 @@ void DenseSystem::addEquation(
   _equations[equation_id] = std::make_pair(std::move(equation), constant);
 }
 
-void DenseSystem::xorEquations(uint32_t equation_to_modify,
-                               uint32_t equation_to_xor) {
+void DenseSystem::xorEquations(uint64_t equation_to_modify,
+                               uint64_t equation_to_xor) {
   auto &[equation_modify, constant_modify] = _equations[equation_to_modify];
   const auto &[equation_xor, constant_xor] = _equations[equation_to_xor];
   *equation_modify ^= *equation_xor;
   constant_modify ^= constant_xor;
 }
 
-void DenseSystem::swapEquations(uint32_t equation_id_1,
-                                uint32_t equation_id_2) {
+void DenseSystem::swapEquations(uint64_t equation_id_1,
+                                uint64_t equation_id_2) {
   auto temp_equation = _equations.find(equation_id_1)->second;
   _equations[equation_id_1] = _equations.find(equation_id_2)->second;
   _equations[equation_id_2] = temp_equation;
 }
 
-uint32_t DenseSystem::getFirstVar(uint32_t equation_id) {
+uint64_t DenseSystem::getFirstVar(uint64_t equation_id) {
   auto &[equation, constant] = _equations.find(equation_id)->second;
   // returns the first non-zero bit index in equation_id's equation
-  std::optional<uint32_t> first_var = equation->find();
+  std::optional<uint64_t> first_var = equation->find();
   // the equation is all 0s
   if (!first_var.has_value()) {
     if (constant) {
@@ -123,7 +124,7 @@ DenseSystemPtr sparseToDense(const SparseSystemPtr &sparse_system) {
     // Update weight and priority for de-duped variables.
     dense_system->addEquation(
         equation_id,
-        std::vector<uint32_t>(vars_to_add.begin(), vars_to_add.end()),
+        std::vector<uint64_t>(vars_to_add.begin(), vars_to_add.end()),
         constant);
   }
 

@@ -58,8 +58,8 @@ using SparseSystemPtr = std::shared_ptr<SparseSystem>;
 
 class DenseSystem {
 public:
-  DenseSystem(uint32_t solution_size,
-              std::optional<uint32_t> expected_num_equations = std::nullopt)
+  DenseSystem(uint64_t solution_size,
+              std::optional<uint64_t> expected_num_equations = std::nullopt)
       : _solution_size(solution_size) {
     if (expected_num_equations.has_value()) {
       _equations.reserve(expected_num_equations.value());
@@ -67,50 +67,50 @@ public:
   }
 
   static std::shared_ptr<DenseSystem>
-  make(uint32_t solution_size,
-       std::optional<uint32_t> expected_num_equations = std::nullopt) {
+  make(uint64_t solution_size,
+       std::optional<uint64_t> expected_num_equations = std::nullopt) {
     return std::make_shared<DenseSystem>(solution_size, expected_num_equations);
   }
 
-  void addEquation(uint32_t equation_id,
-                   const std::vector<uint32_t> &participating_variables,
+  void addEquation(uint64_t equation_id,
+                   const std::vector<uint64_t> &participating_variables,
                    uint32_t constant);
 
-  void addEquation(uint32_t equation_id,
-                   const std::unordered_set<uint32_t> &participating_variables,
+  void addEquation(uint64_t equation_id,
+                   const std::unordered_set<uint64_t> &participating_variables,
                    uint32_t constant);
 
-  std::pair<BitArrayPtr, uint32_t> getEquation(uint32_t equation_id) const {
+  std::pair<BitArrayPtr, uint32_t> getEquation(uint64_t equation_id) const {
     return _equations.find(equation_id)->second;
   }
 
-  void xorEquations(uint32_t equation_to_modify, uint32_t equation_to_xor);
+  void xorEquations(uint64_t equation_to_modify, uint64_t equation_to_xor);
 
-  void swapEquations(uint32_t equation_id_1, uint32_t equation_id_2);
+  void swapEquations(uint64_t equation_id_1, uint64_t equation_id_2);
 
-  uint32_t getFirstVar(uint32_t equation_id);
+  uint64_t getFirstVar(uint64_t equation_id);
 
-  bool isUnsolvable(uint32_t equation_id) const {
+  bool isUnsolvable(uint64_t equation_id) const {
     auto &[equation, constant] = _equations.find(equation_id)->second;
     bool is_empty = !equation;
     return is_empty && constant != 0;
   }
 
-  bool isIdentity(uint32_t equation_id) const {
+  bool isIdentity(uint64_t equation_id) const {
     auto &[equation, constant] = _equations.find(equation_id)->second;
     bool is_empty = !equation->any();
     return is_empty && constant == 0;
   }
 
-  uint32_t numEquations() const { return _equations.size(); }
+  uint64_t numEquations() const { return _equations.size(); }
 
-  uint32_t solutionSize() const { return _solution_size; }
+  uint64_t solutionSize() const { return _solution_size; }
 
   std::string str() const;
 
 private:
-  std::unordered_map<uint32_t, std::pair<BitArrayPtr, uint32_t>> _equations;
-  uint32_t _solution_size;
+  std::unordered_map<uint64_t, std::pair<BitArrayPtr, uint32_t>> _equations;
+  uint64_t _solution_size;
 };
 
 using DenseSystemPtr = std::shared_ptr<DenseSystem>;
