@@ -4,9 +4,9 @@ namespace caramel {
 
 BitArrayPtr
 gaussianElimination(const DenseSystemPtr &dense_system,
-                    const std::vector<uint32_t> &relevant_equation_ids) {
-  std::unordered_map<uint32_t, uint32_t> first_vars;
-  for (uint32_t equation_id : relevant_equation_ids) {
+                    const std::vector<uint64_t> &relevant_equation_ids) {
+  std::unordered_map<uint64_t, uint64_t> first_vars;
+  for (uint64_t equation_id : relevant_equation_ids) {
     first_vars[equation_id] = dense_system->getFirstVar(equation_id);
   }
 
@@ -14,8 +14,8 @@ gaussianElimination(const DenseSystemPtr &dense_system,
   for (int top_index = 0; top_index < num_equations - 1; top_index++) {
     for (int bot_index = top_index + 1; bot_index < num_equations;
          bot_index++) {
-      uint32_t top_eq_id = relevant_equation_ids[top_index];
-      uint32_t bot_eq_id = relevant_equation_ids[bot_index];
+      uint64_t top_eq_id = relevant_equation_ids[top_index];
+      uint64_t bot_eq_id = relevant_equation_ids[bot_index];
 
       if (first_vars[top_eq_id] == first_vars[bot_eq_id]) {
         // Since both virst vars are equal we'd like to eliminate one of them
@@ -41,10 +41,10 @@ gaussianElimination(const DenseSystemPtr &dense_system,
     }
   }
 
-  uint32_t solution_size = dense_system->solutionSize();
+  uint64_t solution_size = dense_system->solutionSize();
   BitArrayPtr solution = BitArray::make(solution_size);
   for (int i = relevant_equation_ids.size() - 1; i >= 0; i--) {
-    uint32_t equation_id = relevant_equation_ids[i];
+    uint64_t equation_id = relevant_equation_ids[i];
     if (dense_system->isIdentity(equation_id)) {
       continue;
     }
