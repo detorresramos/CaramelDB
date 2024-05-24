@@ -60,10 +60,10 @@ def main(args):
     keys = np.array([f"key{i}" for i in range(args.rows)])
     values = get_values(
         distribution_name=args.dist, rows=args.rows, columns=args.columns, args=args
-    )
+    ).astype(np.uint32)
 
     start = time.time()
-    csf = carameldb.Caramel(keys, values.astype(np.uint32), verbose=False)
+    csf = carameldb.Caramel(keys, values, verbose=False)
     construction_time = time.time() - start
 
     filename = "test_file.csf"
