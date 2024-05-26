@@ -197,8 +197,8 @@ lazyGaussianElimination(const SparseSystemPtr &sparse_system,
           dense_system};
 }
 
-BitArrayPtr solveLazyFromDense(const std::vector<uint32_t> &solved_ids,
-                               const std::vector<uint32_t> &solved_vars,
+BitArrayPtr solveLazyFromDense(const std::vector<uint64_t> &solved_ids,
+                               const std::vector<uint64_t> &solved_vars,
                                const DenseSystemPtr &dense_system,
                                const BitArrayPtr &dense_solution) {
   // Solve the lazy gaussian elimination variables using the solutions to the

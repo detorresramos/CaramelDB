@@ -31,12 +31,11 @@ inline SparseSystemPtr genRandomSparseSystem(uint32_t num_equations,
   std::uniform_int_distribution<uint32_t> var_dist(0, num_variables - 1);
   std::uniform_int_distribution<uint32_t> const_dist(0, 1);
 
-  std::vector<std::vector<uint32_t>> equations;
+  std::vector<std::vector<uint64_t>> equations;
   std::vector<uint32_t> constants;
 
   for (uint32_t equation_id = 0; equation_id < num_equations; equation_id++) {
-
-    std::vector<uint32_t> vars;
+    std::vector<uint64_t> vars;
     for (int i = 0; i < 3; i++) {
       vars.push_back(var_dist(gen));
     }
@@ -45,8 +44,11 @@ inline SparseSystemPtr genRandomSparseSystem(uint32_t num_equations,
     constants.push_back(constant);
   }
 
-  auto sparse_system = SparseSystem::make(std::move(equations),
-                                          std::move(constants), num_variables);
+  auto sparse_system = SparseSystem::make(equations.size(), num_variables);
+
+  for (uint32_t i = 0; i < equations.size(); i++) {
+    sparse_system->addTestEquation(equations[i], constants[i]);
+  }
 
   return sparse_system;
 }
@@ -84,7 +86,7 @@ inline std::vector<uint32_t> genRandomMatrix(size_t num_rows, size_t num_cols) {
       int num_repeats = 0;
       for (size_t col_next = 0; col_next < num_cols; col_next++) {
         size_t index_next = row * num_cols + col_next;
-        if (vector[index] == vector[index_next]){
+        if (vector[index] == vector[index_next]) {
           num_repeats++;
           vector[index_next] += max_value * num_repeats;
         }
@@ -95,11 +97,11 @@ inline std::vector<uint32_t> genRandomMatrix(size_t num_rows, size_t num_cols) {
   return vector;
 }
 
-inline void verify_peeling_order(std::vector<uint32_t> &unpeeled,
-                                 std::vector<uint32_t> &peeled,
-                                 std::vector<uint32_t> &order,
+inline void verify_peeling_order(std::vector<uint64_t> &unpeeled,
+                                 std::vector<uint64_t> &peeled,
+                                 std::vector<uint64_t> &order,
                                  const SparseSystemPtr &sparse_system,
-                                 std::vector<uint32_t> &equation_ids) {
+                                 std::vector<uint64_t> &equation_ids) {
 
   std::stringstream error_stream;
 
@@ -192,8 +194,8 @@ inline void verify_peeling_order(std::vector<uint32_t> &unpeeled,
 }
 
 inline void verifyValidPermutation(const std::vector<uint32_t> &original,
-                                  const std::vector<uint32_t> &permutation,
-                                  size_t num_rows, size_t num_cols) {
+                                   const std::vector<uint32_t> &permutation,
+                                   size_t num_rows, size_t num_cols) {
   // Checks that the permutation is a valid transformation of the original.
   // Assumes vectors are in row-major order.
   ASSERT_EQ(original.size(), permutation.size())
@@ -209,7 +211,7 @@ inline void verifyValidPermutation(const std::vector<uint32_t> &original,
         }
       }
       ASSERT_EQ(found_value, true)
-          << "The value " << original[original_location] << " from row "<< row
+          << "The value " << original[original_location] << " from row " << row
           << " and column " << col << " in the original matrix is not present"
           << " in row " << row << " of the permuted matrix.";
     }
@@ -228,7 +230,7 @@ inline float computeColumnEntropy(const std::vector<uint32_t> &matrix,
       auto value = matrix[index];
       ++frequency_map[value];
     }
-    for (const auto & [value, counts]: frequency_map) {
+    for (const auto &[value, counts] : frequency_map) {
       float p = static_cast<float>(counts) / num_rows;
       column_entropy += -1.0 * p * std::log2(p);
     }

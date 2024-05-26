@@ -25,7 +25,7 @@ def parse_args():
         choices=["zipfian", "geometric", "uniform"],
         default="zipfian"
     )
-    parser.add_argument("--rows", type=int, default=10000000)
+    parser.add_argument("--rows", type=int, default=10_000_000)
     parser.add_argument("--columns", type=int, default=1)
     parser.add_argument("--zipfian_s_val", type=int, default=1.6)
     parser.add_argument("--uniform_num_unique_values", type=int, default=64)

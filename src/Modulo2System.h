@@ -23,10 +23,18 @@ public:
     return std::make_shared<SparseSystem>(num_equations, solution_size);
   }
 
-  void addEquation(uint64_t *start_var_locations, uint32_t offset, uint32_t bit) {
+  void addEquation(uint64_t *start_var_locations, uint32_t offset,
+                   uint32_t bit) {
     _equations.push_back(start_var_locations[0] + offset);
     _equations.push_back(start_var_locations[1] + offset);
     _equations.push_back(start_var_locations[2] + offset);
+    _constants.emplace_back(bit);
+  }
+
+  void addTestEquation(std::vector<uint64_t> equation, uint32_t bit) {
+    _equations.push_back(equation[0]);
+    _equations.push_back(equation[1]);
+    _equations.push_back(equation[2]);
     _constants.emplace_back(bit);
   }
 
