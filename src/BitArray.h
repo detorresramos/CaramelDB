@@ -15,7 +15,7 @@ namespace caramel {
 #define BIT_BLOCK(bit) ((bit) / BLOCK_SIZE)
 
 /* position of bit within character */
-#define BIT_IN_BLOCK(bit) (1ULL << (BLOCK_SIZE - 1ULL - ((bit) % BLOCK_SIZE)))
+#define BIT_IN_BLOCK(bit) (1ULL << (BLOCK_SIZE - 1ULL - (bit % BLOCK_SIZE)))
 
 class BitArray;
 using BitArrayPtr = std::shared_ptr<BitArray>;
@@ -106,6 +106,7 @@ private:
   template <class Archive> void serialize(Archive &archive);
 
   uint32_t _num_bits;
+  uint32_t _num_blocks;
 
   // Use a vector since cereal doesn't allow serialization of pointers
   std::vector<uint64_t> _backing_array;

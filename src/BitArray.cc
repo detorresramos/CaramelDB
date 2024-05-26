@@ -1,4 +1,5 @@
 #include "BitArray.h"
+#include <bit>
 #include <cereal/archives/binary.hpp>
 #include <cereal/types/vector.hpp>
 #include <climits>
@@ -16,9 +17,9 @@ BitArray::BitArray(uint32_t num_bits) : _num_bits(num_bits) {
     throw std::invalid_argument("Error: Bit Array must have at least 1 bit.");
   }
 
-  uint32_t num_blocks = ((num_bits - 1) / BLOCK_SIZE) + 1;
+  _num_blocks = ((num_bits - 1) / BLOCK_SIZE) + 1;
 
-  _backing_array = std::vector<uint64_t>(num_blocks, 0);
+  _backing_array = std::vector<uint64_t>(_num_blocks, 0);
 }
 
 BitArray::BitArray(const BitArray &other) {
@@ -70,7 +71,7 @@ BitArray &BitArray::operator^=(const BitArray &other) {
         "Trying to ^ two BitArrays of different sizes.");
   }
 
-  for (uint32_t i = 0; i < _backing_array.size(); ++i) {
+  for (uint32_t i = 0; i < _num_blocks; ++i) {
     _backing_array[i] ^= other._backing_array[i];
   }
 
@@ -83,7 +84,7 @@ BitArray &BitArray::operator&=(const BitArray &other) {
         "Trying to & two BitArrays of different sizes.");
   }
 
-  for (uint32_t i = 0; i < _backing_array.size(); ++i) {
+  for (uint32_t i = 0; i < _num_blocks; ++i) {
     _backing_array[i] &= other._backing_array[i];
   }
 
@@ -138,15 +139,9 @@ bool BitArray::operator==(const BitArray &other) const {
 
 std::optional<uint32_t> BitArray::find() const {
   uint32_t location = 0;
-  for (uint32_t block = 0; block < _backing_array.size(); block++) {
+  for (uint32_t block = 0; block < _num_blocks; block++) {
     if (_backing_array[block] != 0) {
-      auto temp = _backing_array[block];
-      for (uint32_t bit = 0; bit < BLOCK_SIZE; bit++) {
-        temp >>= 1;
-        if (temp == 0) {
-          return location + BLOCK_SIZE - 1 - bit;
-        }
-      }
+      return location + std::__countl_zero<uint64_t>(_backing_array[block]);
     } else {
       location += BLOCK_SIZE;
     }
