@@ -28,7 +28,7 @@ void DenseSystem::addEquation(
     // of XORs will yield 0 and an odd number yields 1.
   }
 
-  _equations[equation_id] = std::make_pair(std::move(equation), constant);
+  _equations[equation_id] = std::tuple(std::move(equation), constant, 0);
 }
 
 void DenseSystem::addEquation(
@@ -55,49 +55,49 @@ void DenseSystem::addEquation(
     // of XORs will yield 0 and an odd number yields 1.
   }
 
-  _equations[equation_id] = std::make_pair(std::move(equation), constant);
+  _equations[equation_id] = std::tuple(std::move(equation), constant, 0);
 }
 
 void DenseSystem::xorEquations(uint64_t equation_to_modify,
                                uint64_t equation_to_xor) {
-  auto &[equation_modify, constant_modify] = _equations[equation_to_modify];
-  const auto &[equation_xor, constant_xor] = _equations[equation_to_xor];
+  auto &[equation_modify, constant_modify, _] = _equations[equation_to_modify];
+  const auto &[equation_xor, constant_xor, __] = _equations[equation_to_xor];
   *equation_modify ^= *equation_xor;
   constant_modify ^= constant_xor;
 }
 
 void DenseSystem::swapEquations(uint64_t equation_id_1,
                                 uint64_t equation_id_2) {
-  auto temp_equation = _equations.find(equation_id_1)->second;
-  _equations[equation_id_1] = _equations.find(equation_id_2)->second;
-  _equations[equation_id_2] = temp_equation;
+  std::swap(_equations[equation_id_1], _equations[equation_id_2]);
 }
 
-uint64_t DenseSystem::getFirstVar(uint64_t equation_id) {
-  auto &[equation, constant] = _equations.find(equation_id)->second;
+void DenseSystem::updateFirstVar(uint64_t equation_id) {
+  auto &[equation, constant, first_var] = _equations[equation_id];
+
   // returns the first non-zero bit index in equation_id's equation
-  std::optional<uint64_t> first_var = equation->find();
+  std::optional<uint64_t> temp_first_var = equation->find();
   // the equation is all 0s
-  if (!first_var.has_value()) {
+  if (!temp_first_var.has_value()) {
     if (constant) {
       // In this case, we have a linearly dependent row
       throw UnsolvableSystemException(
           "Can't find a 1 in the equation yet the constant is 1.");
     } else {
       // In this case, we have an identity row
-      return _solution_size;
+      first_var = _solution_size;
+      return;
     }
   }
 
-  return *first_var;
+  first_var = *temp_first_var;
 }
 
 std::string DenseSystem::str() const {
   std::string output;
-  std::map<uint32_t, std::pair<BitArrayPtr, uint32_t>> sorted_map(
-      _equations.begin(), _equations.end());
-  for (auto [equation_id, equation_and_constant] : sorted_map) {
-    auto &[equation, constant] = equation_and_constant;
+
+  for (uint32_t equation_id = 0; equation_id < _equations.size();
+       equation_id++) {
+    auto &[equation, constant, _] = _equations[equation_id];
     output += equation->str() + " | " + std::to_string(constant) +
               "(Equation [" + std::to_string(equation_id) + "])\n";
   }
@@ -107,7 +107,8 @@ std::string DenseSystem::str() const {
 DenseSystemPtr sparseToDense(const SparseSystemPtr &sparse_system) {
   uint32_t num_variables = sparse_system->solutionSize();
 
-  DenseSystemPtr dense_system = DenseSystem::make(num_variables);
+  DenseSystemPtr dense_system =
+      DenseSystem::make(num_variables, sparse_system->numEquations());
 
   std::vector<uint64_t> equation_ids = sparse_system->equationIds();
   for (auto equation_id : equation_ids) {
