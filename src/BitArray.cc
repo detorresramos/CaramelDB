@@ -71,7 +71,18 @@ BitArray &BitArray::operator^=(const BitArray &other) {
         "Trying to ^ two BitArrays of different sizes.");
   }
 
-  for (uint32_t i = 0; i < _num_blocks; ++i) {
+  size_t i = 0;
+  for (; i + 1 < _num_blocks; i += 2) {
+    __m128i a =
+        _mm_loadu_si128(reinterpret_cast<const __m128i *>(&_backing_array[i]));
+    __m128i b = _mm_loadu_si128(
+        reinterpret_cast<const __m128i *>(&other._backing_array[i]));
+    __m128i result = _mm_xor_si128(a, b);
+    _mm_storeu_si128(reinterpret_cast<__m128i *>(&_backing_array[i]), result);
+  }
+
+  // Handle the last element if the total number is odd
+  if (i < _num_blocks) {
     _backing_array[i] ^= other._backing_array[i];
   }
 
@@ -81,10 +92,21 @@ BitArray &BitArray::operator^=(const BitArray &other) {
 BitArray &BitArray::operator&=(const BitArray &other) {
   if (other._num_bits != this->_num_bits) {
     throw std::invalid_argument(
-        "Trying to & two BitArrays of different sizes.");
+        "Trying to ^ two BitArrays of different sizes.");
   }
 
-  for (uint32_t i = 0; i < _num_blocks; ++i) {
+  size_t i = 0;
+  for (; i + 1 < _num_blocks; i += 2) {
+    __m128i a =
+        _mm_loadu_si128(reinterpret_cast<const __m128i *>(&_backing_array[i]));
+    __m128i b = _mm_loadu_si128(
+        reinterpret_cast<const __m128i *>(&other._backing_array[i]));
+    __m128i result = _mm_and_si128(a, b);
+    _mm_storeu_si128(reinterpret_cast<__m128i *>(&_backing_array[i]), result);
+  }
+
+  // Handle the last element if the total number is odd
+  if (i < _num_blocks) {
     _backing_array[i] &= other._backing_array[i];
   }
 
