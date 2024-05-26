@@ -66,18 +66,14 @@ using SparseSystemPtr = std::shared_ptr<SparseSystem>;
 
 class DenseSystem {
 public:
-  DenseSystem(uint64_t solution_size,
-              std::optional<uint64_t> expected_num_equations = std::nullopt)
+  DenseSystem(uint64_t solution_size, uint64_t num_equations)
       : _solution_size(solution_size) {
-    if (expected_num_equations.has_value()) {
-      _equations.reserve(expected_num_equations.value());
-    }
+    _equations.resize(num_equations);
   }
 
-  static std::shared_ptr<DenseSystem>
-  make(uint64_t solution_size,
-       std::optional<uint64_t> expected_num_equations = std::nullopt) {
-    return std::make_shared<DenseSystem>(solution_size, expected_num_equations);
+  static std::shared_ptr<DenseSystem> make(uint64_t solution_size,
+                                           uint64_t num_equations) {
+    return std::make_shared<DenseSystem>(solution_size, num_equations);
   }
 
   void addEquation(uint64_t equation_id,
@@ -88,24 +84,25 @@ public:
                    const std::unordered_set<uint64_t> &participating_variables,
                    uint32_t constant);
 
-  std::pair<BitArrayPtr, uint32_t> getEquation(uint64_t equation_id) const {
-    return _equations.find(equation_id)->second;
+  std::tuple<BitArrayPtr, uint32_t, uint64_t> &
+  getEquation(uint64_t equation_id) {
+    return _equations[equation_id];
   }
 
   void xorEquations(uint64_t equation_to_modify, uint64_t equation_to_xor);
 
   void swapEquations(uint64_t equation_id_1, uint64_t equation_id_2);
 
-  uint64_t getFirstVar(uint64_t equation_id);
+  void updateFirstVar(uint64_t equation_id);
 
   bool isUnsolvable(uint64_t equation_id) const {
-    auto &[equation, constant] = _equations.find(equation_id)->second;
+    auto &[equation, constant, _] = _equations[equation_id];
     bool is_empty = !equation;
     return is_empty && constant != 0;
   }
 
   bool isIdentity(uint64_t equation_id) const {
-    auto &[equation, constant] = _equations.find(equation_id)->second;
+    auto &[equation, constant, _] = _equations[equation_id];
     bool is_empty = !equation->any();
     return is_empty && constant == 0;
   }
@@ -117,7 +114,7 @@ public:
   std::string str() const;
 
 private:
-  std::unordered_map<uint64_t, std::pair<BitArrayPtr, uint32_t>> _equations;
+  std::vector<std::tuple<BitArrayPtr, uint32_t, uint64_t>> _equations;
   uint64_t _solution_size;
 };
 

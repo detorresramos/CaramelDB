@@ -11,6 +11,7 @@ std::tuple<std::unordered_map<uint64_t, std::vector<uint64_t>>,
            DenseSystemPtr>
 constructDenseSystem(const SparseSystemPtr &sparse_system,
                      const std::vector<uint64_t> &equation_ids) {
+
   uint64_t num_variables = sparse_system->solutionSize();
 
   // The weight is the number of sparse equations containing variable_id.
@@ -21,7 +22,7 @@ constructDenseSystem(const SparseSystemPtr &sparse_system,
   equation_priority.reserve(equation_ids.size());
 
   DenseSystemPtr dense_system =
-      DenseSystem::make(num_variables, equation_ids.size());
+      DenseSystem::make(num_variables, sparse_system->numEquations());
 
   std::unordered_set<uint64_t> vars_to_add;
   std::unordered_map<uint64_t, std::vector<uint64_t>> var_to_equations;
@@ -151,7 +152,7 @@ lazyGaussianElimination(const SparseSystemPtr &sparse_system,
       sparse_equation_ids.pop_back();
       uint32_t priority = equation_priority.find(equation_id)->second;
       if (priority == 0) {
-        auto [equation, constant] = dense_system->getEquation(equation_id);
+        auto &[equation, constant, _] = dense_system->getEquation(equation_id);
         bool equation_is_nonempty = equation->any();
         if (equation_is_nonempty) {
           // Since priority is 0, all variables are active.
@@ -167,7 +168,7 @@ lazyGaussianElimination(const SparseSystemPtr &sparse_system,
         // If there is only 1 idle variable, the equation is solved.
         // We need to find the pivot - the variable_id of the only
         // remaining idle variable in the equation.
-        auto [equation, constant] = dense_system->getEquation(equation_id);
+        auto &[equation, constant, _] = dense_system->getEquation(equation_id);
         uint64_t variable_id = *(*equation & *idle_variable_indicator)
                                     .find(); // TODO handle optional case?
 
@@ -213,7 +214,7 @@ BitArrayPtr solveLazyFromDense(const std::vector<uint64_t> &solved_ids,
     // variable_id(by the invariants of the lazy gaussian elimination)
     // The solution is zero at this index, so the bit to set is just
     // the constant XOR < equation_coefficients, solution_so_far>
-    auto [equation, constant] = dense_system->getEquation(equation_id);
+    auto &[equation, constant, _] = dense_system->getEquation(equation_id);
     // TODO: The mod-2 might be less efficient than alternatives (this is a
     // holdover from the Python implementation where bitwise ops were hard).
     // If X = BitArray::scalarProduct, check if we can replace X % 2 with X & 1.
