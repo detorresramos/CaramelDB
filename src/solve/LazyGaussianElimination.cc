@@ -39,10 +39,12 @@ countsortVariableIds(const std::vector<uint32_t> &variable_weight,
   return sorted_variable_ids;
 }
 
-std::tuple<std::vector<uint64_t>, std::vector<uint64_t>, std::vector<uint64_t>,
-           DenseSystemPtr>
-lazyGaussianElimination(const SparseSystemPtr &sparse_system,
-                        const std::vector<uint64_t> &equation_ids) {
+void lazyGaussianElimination(const SparseSystemPtr &sparse_system,
+                             const std::vector<uint64_t> &equation_ids,
+                             std::vector<uint64_t> dense_equation_ids,
+                             std::vector<uint64_t> solved_equation_ids,
+                             std::vector<uint64_t> solved_variable_ids,
+                             DenseSystemPtr dense_system) {
   uint64_t num_equations = sparse_system->numEquations();
   uint64_t num_variables = sparse_system->solutionSize();
 
@@ -52,7 +54,7 @@ lazyGaussianElimination(const SparseSystemPtr &sparse_system,
   // The equation priority is the number of idle variables in equation_id.
   std::vector<uint32_t> equation_priority(sparse_system->numEquations());
 
-  DenseSystemPtr dense_system =
+  dense_system =
       DenseSystem::make(num_variables, sparse_system->numEquations());
 
   std::unordered_set<uint64_t> vars_to_add;
@@ -96,11 +98,7 @@ lazyGaussianElimination(const SparseSystemPtr &sparse_system,
       sparse_equation_ids.push_back(id);
     }
   }
-  // List of dense equations with entirely active variables.
-  std::vector<uint64_t> dense_equation_ids;
-  // Equations that define a solved variable in terms of active variables.
-  std::vector<uint64_t> solved_equation_ids;
-  std::vector<uint64_t> solved_variable_ids;
+
   // List of currently-idle variables. Starts as a bit vector of all 1's, and
   // is filled in with 0s as variables become non-idle.
   BitArrayPtr idle_variable_indicator = BitArray::make(num_variables);
@@ -178,9 +176,6 @@ lazyGaussianElimination(const SparseSystemPtr &sparse_system,
       }
     }
   }
-
-  return {dense_equation_ids, solved_equation_ids, solved_variable_ids,
-          dense_system};
 }
 
 BitArrayPtr solveLazyFromDense(const std::vector<uint64_t> &solved_ids,
