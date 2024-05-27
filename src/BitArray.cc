@@ -146,6 +146,8 @@ BitArray &BitArray::operator=(const BitArray &other) {
   }
 
   _backing_array = other._backing_array;
+  _num_bits = other._num_bits;
+  _num_blocks = other._num_blocks;
 
   return *this;
 }
