@@ -6,54 +6,6 @@
 
 namespace caramel {
 
-std::tuple<std::unordered_map<uint64_t, std::vector<uint64_t>>,
-           std::unordered_map<uint64_t, uint32_t>, std::vector<uint32_t>,
-           DenseSystemPtr>
-constructDenseSystem(const SparseSystemPtr &sparse_system,
-                     const std::vector<uint64_t> &equation_ids) {
-  uint64_t num_variables = sparse_system->solutionSize();
-
-  // The weight is the number of sparse equations containing variable_id.
-  std::vector<uint32_t> variable_weight(num_variables, 0);
-
-  // The equation priority is the number of idle variables in equation_id.
-  std::unordered_map<uint64_t, uint32_t> equation_priority;
-  equation_priority.reserve(equation_ids.size());
-
-  DenseSystemPtr dense_system =
-      DenseSystem::make(num_variables, sparse_system->numEquations());
-
-  std::unordered_map<uint64_t, std::vector<uint64_t>> var_to_equations;
-  var_to_equations.reserve(num_variables);
-  for (uint64_t equation_id : equation_ids) {
-    auto [participating_vars, constant] =
-        sparse_system->getEquation(equation_id);
-
-    if (participating_vars[0] != participating_vars[1] &&
-        participating_vars[1] != participating_vars[2]) {
-      dense_system->addEquation(equation_id, participating_vars, constant);
-      for (uint64_t &variable_id : participating_vars) {
-        variable_weight[variable_id]++;
-        var_to_equations[variable_id].push_back(equation_id);
-      }
-      equation_priority[equation_id] += 3;
-    } else {
-      std::unordered_set<uint64_t> vars_to_add(participating_vars.begin(),
-                                               participating_vars.end());
-
-      dense_system->addEquation(equation_id, vars_to_add, constant);
-      for (uint64_t variable_id : vars_to_add) {
-        variable_weight[variable_id]++;
-        var_to_equations[variable_id].push_back(equation_id);
-      }
-      equation_priority[equation_id] += vars_to_add.size();
-    }
-  }
-
-  return {std::move(var_to_equations), std::move(equation_priority),
-          std::move(variable_weight), dense_system};
-}
-
 std::vector<uint32_t> cumsum(const std::vector<uint32_t> &input) {
   std::vector<uint32_t> output(input.size());
   uint32_t cumulated = 0;
@@ -94,17 +46,63 @@ lazyGaussianElimination(const SparseSystemPtr &sparse_system,
   uint64_t num_equations = sparse_system->numEquations();
   uint64_t num_variables = sparse_system->solutionSize();
 
-  auto [var_to_equations, equation_priority, variable_weight, dense_system] =
-      constructDenseSystem(sparse_system, equation_ids);
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
 
+  // The weight is the number of sparse equations containing variable_id.
+  std::vector<uint32_t> variable_weight(num_variables, 0);
+
+  // The equation priority is the number of idle variables in equation_id.
+  std::vector<uint32_t> equation_priority(equation_ids.size());
+std::cout << __FILE__ << " " << __LINE__ << std::endl;
+  DenseSystemPtr dense_system =
+      DenseSystem::make(num_variables, sparse_system->numEquations());
+std::cout << __FILE__ << " " << __LINE__ << std::endl;
+  std::vector<std::vector<uint64_t>> var_to_equations(num_variables);
+  for (uint64_t equation_id : equation_ids) {
+    std::cout << __FILE__ << " " << __LINE__ << std::endl;
+    auto [participating_vars, constant] =
+        sparse_system->getEquation(equation_id);
+std::cout << __FILE__ << " " << __LINE__ << std::endl;
+    if (participating_vars[0] != participating_vars[1] &&
+        participating_vars[1] != participating_vars[2]) {
+          std::cout << __FILE__ << " " << __LINE__ << std::endl;
+      dense_system->addEquation(equation_id, participating_vars, constant);
+      std::cout << __FILE__ << " " << __LINE__ << std::endl;
+      for (uint64_t &variable_id : participating_vars) {
+        std::cout << __FILE__ << " " << __LINE__ << std::endl;
+        variable_weight[variable_id]++;
+        std::cout << __FILE__ << " " << __LINE__ << std::endl;
+        std::cout << variable_id << " " << num_variables << std::endl;
+        std::cout << var_to_equations[variable_id].size() << std::endl;
+        std::cout << __FILE__ << " " << __LINE__ << std::endl;
+        std::cout << equation_id << std::endl;
+        var_to_equations[variable_id].push_back(equation_id);
+        std::cout << __FILE__ << " " << __LINE__ << std::endl;
+      }
+      std::cout << __FILE__ << " " << __LINE__ << std::endl;
+      equation_priority[equation_id] += 3;
+      std::cout << __FILE__ << " " << __LINE__ << std::endl;
+    } else {
+      std::unordered_set<uint64_t> vars_to_add(participating_vars.begin(),
+                                               participating_vars.end());
+std::cout << __FILE__ << " " << __LINE__ << std::endl;
+      dense_system->addEquation(equation_id, vars_to_add, constant);
+      for (uint64_t variable_id : vars_to_add) {
+        variable_weight[variable_id]++;
+        var_to_equations[variable_id].push_back(equation_id);
+      }
+      equation_priority[equation_id] += vars_to_add.size();
+    }
+  }
+std::cout << __FILE__ << " " << __LINE__ << std::endl;
   // List of sparse equations with priority 0 or 1. Probably needs a re-name.
   std::vector<uint64_t> sparse_equation_ids;
   for (uint64_t id : equation_ids) {
-    if (equation_priority.find(id)->second <= 1) {
+    if (equation_priority[id] <= 1) {
       sparse_equation_ids.push_back(id);
     }
   }
-
+std::cout << __FILE__ << " " << __LINE__ << std::endl;
   // List of dense equations with entirely active variables.
   std::vector<uint64_t> dense_equation_ids;
   // Equations that define a solved variable in terms of active variables.
@@ -114,45 +112,53 @@ lazyGaussianElimination(const SparseSystemPtr &sparse_system,
   // is filled in with 0s as variables become non-idle.
   BitArrayPtr idle_variable_indicator = BitArray::make(num_variables);
   idle_variable_indicator->setAll();
+  std::cout << __FILE__ << " " << __LINE__ << std::endl;
 
   // Sorted list of variable ids, in descending weight order.
   std::vector<uint64_t> sorted_variable_ids =
       countsortVariableIds(variable_weight, num_variables, num_equations);
-
-  uint32_t num_active_variables = 0;
+std::cout << __FILE__ << " " << __LINE__ << std::endl;
   uint64_t num_remaining_equations = equation_ids.size();
 
   while (num_remaining_equations > 0) {
     if (sparse_equation_ids.empty()) {
       // If there are no sparse equations with priority 0 or 1, then
       // we make another variable active and see if this status changes.
+      std::cout << __FILE__ << " " << __LINE__ << std::endl;
       uint64_t variable_id = sorted_variable_ids.back();
       sorted_variable_ids.pop_back();
       // Skip variables with weight = 0 (these are already solved).
+      std::cout << __FILE__ << " " << __LINE__ << std::endl;
       while (variable_weight[variable_id] == 0) {
         variable_id = sorted_variable_ids.back();
         sorted_variable_ids.pop_back();
       }
+      std::cout << __FILE__ << " " << __LINE__ << std::endl;
       // Mark variable as no longer idle
       idle_variable_indicator->clearBit(variable_id);
-      num_active_variables++;
-
+std::cout << __FILE__ << " " << __LINE__ << std::endl;
       // By marking this variable as active, we must update priorities.
-      for (uint64_t equation_id : var_to_equations[variable_id]) {
+      for (uint64_t &equation_id : var_to_equations[variable_id]) {
         equation_priority[equation_id] -= 1;
+        std::cout << __FILE__ << " " << __LINE__ << std::endl;
         if (equation_priority[equation_id] == 1) {
+          std::cout << __FILE__ << " " << __LINE__ << std::endl;
           sparse_equation_ids.push_back(equation_id);
         }
       }
     } else {
       // There is at least one sparse equation with priority 0 or 1.
       num_remaining_equations--;
+      std::cout << __FILE__ << " " << __LINE__ << std::endl;
       uint64_t equation_id = sparse_equation_ids.back();
       sparse_equation_ids.pop_back();
-      uint32_t priority = equation_priority.find(equation_id)->second;
+      std::cout << __FILE__ << " " << __LINE__ << std::endl;
+      uint32_t priority = equation_priority[equation_id];
       if (priority == 0) {
+        std::cout << __FILE__ << " " << __LINE__ << std::endl;
         auto &[equation, constant, _] = dense_system->getEquation(equation_id);
         bool equation_is_nonempty = equation->any();
+        std::cout << __FILE__ << " " << __LINE__ << std::endl;
         if (equation_is_nonempty) {
           // Since priority is 0, all variables are active.
           dense_equation_ids.push_back(equation_id);
@@ -167,19 +173,23 @@ lazyGaussianElimination(const SparseSystemPtr &sparse_system,
         // If there is only 1 idle variable, the equation is solved.
         // We need to find the pivot - the variable_id of the only
         // remaining idle variable in the equation.
+        std::cout << __FILE__ << " " << __LINE__ << std::endl;
         auto &[equation, constant, _] = dense_system->getEquation(equation_id);
         uint64_t variable_id = *(*equation & *idle_variable_indicator)
                                     .find(); // TODO handle optional case?
-
+std::cout << __FILE__ << " " << __LINE__ << std::endl;
         solved_variable_ids.push_back(variable_id);
         solved_equation_ids.push_back(equation_id);
         // By making the weight 0, we will skip this variable_id in the
         // future when looking for new active variables.
         variable_weight[variable_id] = 0;
+        std::cout << __FILE__ << " " << __LINE__ << std::endl;
         // Remove this variable from all other equations.
         for (uint64_t other_equation_id : var_to_equations[variable_id]) {
+          std::cout << __FILE__ << " " << __LINE__ << std::endl;
           if (other_equation_id != equation_id) {
             equation_priority[other_equation_id] -= 1;
+            std::cout << __FILE__ << " " << __LINE__ << std::endl;
             if (equation_priority[other_equation_id] == 1) {
               sparse_equation_ids.push_back(other_equation_id);
             } else if (equation_priority[other_equation_id] == 0) {
@@ -192,7 +202,7 @@ lazyGaussianElimination(const SparseSystemPtr &sparse_system,
       }
     }
   }
-
+std::cout << __FILE__ << " " << __LINE__ << std::endl;
   return {dense_equation_ids, solved_equation_ids, solved_variable_ids,
           dense_system};
 }
