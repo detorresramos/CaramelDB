@@ -30,8 +30,9 @@ constructDenseSystem(const SparseSystemPtr &sparse_system,
     auto [participating_vars, constant] =
         sparse_system->getEquation(equation_id);
 
-    if (participating_vars[0] != participating_vars[1] &&
-        participating_vars[1] != participating_vars[2]) {
+    if ((participating_vars[0] != participating_vars[1]) &&
+        (participating_vars[1] != participating_vars[2]) &&
+        (participating_vars[0] != participating_vars[2])) {
       dense_system->addEquation(equation_id, participating_vars, constant);
       for (uint64_t variable_id : participating_vars) {
         variable_weight[variable_id]++;
