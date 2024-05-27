@@ -20,7 +20,7 @@ void DenseSystem::addEquation(
 #endif
 
   BitArrayPtr equation = BitArray::make(_solution_size);
-  for (auto &var : participating_variables) {
+  for (auto var : participating_variables) {
     equation->setBit(var);
   }
 
