@@ -23,8 +23,7 @@ BitArray::BitArray(uint32_t num_bits) : _num_bits(num_bits) {
 }
 
 BitArray::BitArray(const BitArray &other) {
-  _num_bits = other._num_bits;
-  _backing_array = other._backing_array;
+  copyFrom(other);
 }
 
 std::shared_ptr<BitArray> BitArray::fromNumber(uint64_t number,
@@ -123,18 +122,14 @@ BitArray &BitArray::operator&=(const BitArray &other) {
 }
 
 BitArray BitArray::operator^(const BitArray &other) const {
-  BitArray result(this->numBits());
-  result = *this;
+  BitArray result = *this;
   result ^= other;
-
   return result;
 }
 
 BitArray BitArray::operator&(const BitArray &other) const {
-  BitArray result(this->numBits());
-  result = *this;
+  BitArray result = *this;
   result &= other;
-
   return result;
 }
 
@@ -154,9 +149,7 @@ BitArray &BitArray::operator=(const BitArray &other) {
     return *this;
   }
 
-  _backing_array = other._backing_array;
-  _num_bits = other._num_bits;
-  _num_blocks = other._num_blocks;
+  copyFrom(other);
 
   return *this;
 }
@@ -171,12 +164,10 @@ bool BitArray::operator==(const BitArray &other) const {
 }
 
 std::optional<uint32_t> BitArray::find() const {
-  uint32_t location = 0;
   for (uint32_t block = 0; block < _num_blocks; block++) {
     if (_backing_array[block] != 0) {
-      return location + std::__countl_zero<uint64_t>(_backing_array[block]);
-    } else {
-      location += BLOCK_SIZE;
+      return (block * BLOCK_SIZE) +
+             std::__countl_zero<uint64_t>(_backing_array[block]);
     }
   }
   return std::nullopt;
@@ -222,11 +213,17 @@ std::string BitArray::str() const {
   return output;
 }
 
+void BitArray::copyFrom(const BitArray& other) {
+  _num_bits = other._num_bits;
+  _num_blocks = other._num_blocks;
+  _backing_array = other._backing_array;
+}
+
 template void BitArray::serialize(cereal::BinaryInputArchive &);
 template void BitArray::serialize(cereal::BinaryOutputArchive &);
 
 template <class Archive> void BitArray::serialize(Archive &archive) {
-  archive(_num_bits, _backing_array);
+  archive(_num_bits, _num_blocks, _backing_array);
 }
 
 } // namespace caramel

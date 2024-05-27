@@ -104,6 +104,8 @@ private:
   // Private constructor for cereal
   BitArray() {}
 
+  void copyFrom(const BitArray &other);
+
   friend class cereal::access;
   template <class Archive> void serialize(Archive &archive);
 
