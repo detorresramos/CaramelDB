@@ -65,6 +65,15 @@ void BitArray::setBit(uint32_t index) {
   _backing_array[BIT_BLOCK(index)] |= BIT_IN_BLOCK(index);
 }
 
+void BitArray::flipBit(uint32_t index) {
+  if (_num_bits <= index) {
+    throw std::invalid_argument(
+        "Index out of range for setBit: " + std::to_string(index) + ".");
+  }
+
+  _backing_array[BIT_BLOCK(index)] ^= BIT_IN_BLOCK(index);
+}
+
 BitArray &BitArray::operator^=(const BitArray &other) {
   if (other._num_bits != this->_num_bits) {
     throw std::invalid_argument(
