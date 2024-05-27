@@ -11,7 +11,6 @@ std::tuple<std::unordered_map<uint64_t, std::vector<uint64_t>>,
            DenseSystemPtr>
 constructDenseSystem(const SparseSystemPtr &sparse_system,
                      const std::vector<uint64_t> &equation_ids) {
-
   uint64_t num_variables = sparse_system->solutionSize();
 
   // The weight is the number of sparse equations containing variable_id.
@@ -24,31 +23,31 @@ constructDenseSystem(const SparseSystemPtr &sparse_system,
   DenseSystemPtr dense_system =
       DenseSystem::make(num_variables, sparse_system->numEquations());
 
-  std::unordered_set<uint64_t> vars_to_add;
   std::unordered_map<uint64_t, std::vector<uint64_t>> var_to_equations;
   var_to_equations.reserve(num_variables);
   for (uint64_t equation_id : equation_ids) {
     auto [participating_vars, constant] =
         sparse_system->getEquation(equation_id);
-    // We should only add a variable to the equation in the dense system if
-    // it appears an odd number of times. This is because we compute output
-    // as XOR(solution[hash_1], solution[hash_2] ...). If hash_1 = hash_2 =
-    // variable_id, then XOR(solution[hash_1], solution[hash_2]) = 0 and
-    // the variable_id did not actually participate in the solution.
-    for (uint64_t variable_id : participating_vars) {
-      auto [_, inserted] = vars_to_add.insert(variable_id);
-      if (!inserted) {
-        vars_to_add.erase(variable_id);
+
+    if (participating_vars[0] != participating_vars[1] &&
+        participating_vars[1] != participating_vars[2]) {
+      dense_system->addEquation(equation_id, participating_vars, constant);
+      for (uint64_t &variable_id : participating_vars) {
+        variable_weight[variable_id]++;
+        var_to_equations[variable_id].push_back(equation_id);
       }
+      equation_priority[equation_id] += 3;
+    } else {
+      std::unordered_set<uint64_t> vars_to_add(participating_vars.begin(),
+                                               participating_vars.end());
+
+      dense_system->addEquation(equation_id, vars_to_add, constant);
+      for (uint64_t variable_id : vars_to_add) {
+        variable_weight[variable_id]++;
+        var_to_equations[variable_id].push_back(equation_id);
+      }
+      equation_priority[equation_id] += vars_to_add.size();
     }
-    dense_system->addEquation(equation_id, vars_to_add, constant);
-    // Update weight and priority for de-duped variables.
-    for (uint64_t variable_id : vars_to_add) {
-      variable_weight[variable_id]++;
-      var_to_equations[variable_id].push_back(equation_id);
-    }
-    equation_priority[equation_id] += vars_to_add.size();
-    vars_to_add.clear();
   }
 
   return {std::move(var_to_equations), std::move(equation_priority),
