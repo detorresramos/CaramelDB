@@ -23,30 +23,37 @@ constructDenseSystem(const SparseSystemPtr &sparse_system,
   DenseSystemPtr dense_system =
       DenseSystem::make(num_variables, sparse_system->numEquations());
 
+  std::unordered_set<uint64_t> vars_to_add;
   std::unordered_map<uint64_t, std::vector<uint64_t>> var_to_equations;
   var_to_equations.reserve(num_variables);
   for (uint64_t equation_id : equation_ids) {
     auto [participating_vars, constant] =
         sparse_system->getEquation(equation_id);
 
-    if (participating_vars[0] != participating_vars[1] &&
-        participating_vars[1] != participating_vars[2]) {
+    if ((participating_vars[0] != participating_vars[1]) &&
+        (participating_vars[1] != participating_vars[2]) &&
+        (participating_vars[0] != participating_vars[2])) {
       dense_system->addEquation(equation_id, participating_vars, constant);
-      for (uint64_t &variable_id : participating_vars) {
+      for (uint64_t variable_id : participating_vars) {
         variable_weight[variable_id]++;
         var_to_equations[variable_id].push_back(equation_id);
       }
       equation_priority[equation_id] += 3;
     } else {
-      std::unordered_set<uint64_t> vars_to_add(participating_vars.begin(),
-                                               participating_vars.end());
-
+      for (uint64_t variable_id : participating_vars) {
+        auto [_, inserted] = vars_to_add.insert(variable_id);
+        if (!inserted) {
+          vars_to_add.erase(variable_id);
+        }
+      }
       dense_system->addEquation(equation_id, vars_to_add, constant);
+      // Update weight and priority for de-duped variables.
       for (uint64_t variable_id : vars_to_add) {
         variable_weight[variable_id]++;
         var_to_equations[variable_id].push_back(equation_id);
       }
       equation_priority[equation_id] += vars_to_add.size();
+      vars_to_add.clear();
     }
   }
 

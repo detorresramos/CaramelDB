@@ -43,6 +43,8 @@ public:
 
   void setBit(uint32_t index);
 
+  void flipBit(uint32_t index);
+
   BitArray &operator^=(const BitArray &other);
 
   BitArray &operator&=(const BitArray &other);
