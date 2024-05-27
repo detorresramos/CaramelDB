@@ -41,10 +41,10 @@ countsortVariableIds(const std::vector<uint32_t> &variable_weight,
 
 void lazyGaussianElimination(const SparseSystemPtr &sparse_system,
                              const std::vector<uint64_t> &equation_ids,
-                             std::vector<uint64_t> dense_equation_ids,
-                             std::vector<uint64_t> solved_equation_ids,
-                             std::vector<uint64_t> solved_variable_ids,
-                             DenseSystemPtr dense_system) {
+                             std::vector<uint64_t>& dense_equation_ids,
+                             std::vector<uint64_t>& solved_equation_ids,
+                             std::vector<uint64_t>& solved_variable_ids,
+                             DenseSystemPtr& dense_system) {
   uint64_t num_equations = sparse_system->numEquations();
   uint64_t num_variables = sparse_system->solutionSize();
 
