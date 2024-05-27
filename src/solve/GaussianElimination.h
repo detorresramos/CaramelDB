@@ -30,6 +30,6 @@ Throws UnsolvableSystemException.
 
 BitArrayPtr
 gaussianElimination(const DenseSystemPtr &dense_system,
-                    const std::vector<uint32_t> &relevant_equation_ids);
+                    const std::vector<uint64_t> &relevant_equation_ids);
 
 } // namespace caramel

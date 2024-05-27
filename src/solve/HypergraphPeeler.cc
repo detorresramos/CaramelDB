@@ -6,12 +6,12 @@
 
 namespace caramel {
 
-std::tuple<std::vector<uint32_t>, std::vector<uint32_t>, std::vector<uint32_t>,
+std::tuple<std::vector<uint64_t>, std::vector<uint64_t>, std::vector<uint64_t>,
            SparseSystemPtr>
 peelHypergraph(const SparseSystemPtr &sparse_system,
-               const std::vector<uint32_t> &equation_ids) {
-  uint32_t num_equations = sparse_system->numEquations();
-  uint32_t num_variables = sparse_system->solutionSize();
+               const std::vector<uint64_t> &equation_ids) {
+  uint64_t num_equations = sparse_system->numEquations();
+  uint64_t num_variables = sparse_system->solutionSize();
 
   // Degree of a variable is the number of unpeeled equations that contain it.
   std::vector<uint32_t> degree(num_variables, 0);
@@ -21,18 +21,18 @@ peelHypergraph(const SparseSystemPtr &sparse_system,
   // Stores the XOR of edges (equations) each variable participates in.
   std::vector<uint32_t> equation_id_xors(num_variables, 0);
 
-  for (uint32_t equation_id : equation_ids){
+  for (uint64_t equation_id : equation_ids){
     auto [participating_variables, _ignore_constant_] = 
       sparse_system->getEquation(equation_id);
 
 #ifdef DEBUG_HYPERGRAPH
     std::cout<<"Edge (equation) "<<equation_id<< ": <";
-    for (uint32_t variable_id : participating_variables) {
+    for (uint64_t variable_id : participating_variables) {
       std::cout<<" "<<variable_id;
     } std::cout<<">"<<std::endl;
 #endif
 
-    for (uint32_t variable_id : participating_variables) {
+    for (uint64_t variable_id : participating_variables) {
       // Increment the degree for each vertex in the incident edge.
       degree[variable_id]++;
       // Add the edge to the XOR list corresponding to variable_id.
@@ -53,12 +53,12 @@ peelHypergraph(const SparseSystemPtr &sparse_system,
 #endif
 
 
-  std::vector<uint32_t> vertex_stack;
+  std::vector<uint64_t> vertex_stack;
   // This is different from the Python for efficiency reasons only. It is
   // allocated out here to avoid re-allocation / re-initialization in the loop.
-  std::vector<uint32_t> vars_to_peel;
+  std::vector<uint64_t> vars_to_peel;
 
-  for (uint32_t variable_id = 0; variable_id < num_variables; variable_id++){
+  for (uint64_t variable_id = 0; variable_id < num_variables; variable_id++){
     if (degree[variable_id] == 1) {
       // Then we should peel the only equation containing variable_id.
       vars_to_peel.clear();
@@ -68,7 +68,7 @@ peelHypergraph(const SparseSystemPtr &sparse_system,
         // The first trip through this inner loop, we peel the equation that
         // contains variable_id. Subsequent trips through the loop peel
         // equations that have become "freed up" by previous peeling steps.
-        uint32_t var_to_peel = vars_to_peel[num_processed];
+        uint64_t var_to_peel = vars_to_peel[num_processed];
         num_processed++;
         // If degree is zero, then we've already peeled this equation.
         // If the degree is > 1, then we can't peel this equation anyway.
@@ -79,7 +79,7 @@ peelHypergraph(const SparseSystemPtr &sparse_system,
         // Because var_to_peel participates in only one unpeeled equation,
         // equation_id_xors contains that equation id (as all the other xor ops
         // have been undone).
-        uint32_t peeled_equation_id = equation_id_xors[var_to_peel];
+        uint64_t peeled_equation_id = equation_id_xors[var_to_peel];
         equation_is_peeled[peeled_equation_id] = true;
 
 #ifdef DEBUG_HYPERGRAPH
@@ -121,8 +121,8 @@ peelHypergraph(const SparseSystemPtr &sparse_system,
     }
   }
 
-  std::vector<uint32_t> unpeeled_equation_ids;
-  for (uint32_t equation_id : equation_ids) {
+  std::vector<uint64_t> unpeeled_equation_ids;
+  for (uint64_t equation_id : equation_ids) {
     if (!equation_is_peeled[equation_id]) {
       unpeeled_equation_ids.push_back(equation_id);
     }
@@ -134,9 +134,9 @@ peelHypergraph(const SparseSystemPtr &sparse_system,
 
   // The peeled_equation_ids array is ordered so that peeled_equation_ids[n] can
   // be used to solve for the variable with variable_id = var_solution_order[n].
-  std::vector<uint32_t> peeled_equation_ids(vertex_stack.size(), 0);
+  std::vector<uint64_t> peeled_equation_ids(vertex_stack.size(), 0);
   for (size_t i = 0; i < vertex_stack.size(); i++) {
-    uint32_t var = vertex_stack[i];
+    uint64_t var = vertex_stack[i];
     peeled_equation_ids[i] = equation_id_xors[var];
   }
 
@@ -152,8 +152,8 @@ peelHypergraph(const SparseSystemPtr &sparse_system,
 }
 
 
-BitArrayPtr solvePeeledFromDense(const std::vector<uint32_t> &peeled_ids,
-                                 const std::vector<uint32_t> &solution_order,
+BitArrayPtr solvePeeledFromDense(const std::vector<uint64_t> &peeled_ids,
+                                 const std::vector<uint64_t> &solution_order,
                                  const SparseSystemPtr &sparse_system,
                                  const BitArrayPtr &dense_solution) {
   // Solve the peeled hypergraph representation of the linear system using the
@@ -164,14 +164,14 @@ BitArrayPtr solvePeeledFromDense(const std::vector<uint32_t> &peeled_ids,
   // for performance (and also because this is covered by the unit tests).
 
   for (size_t i = 0; i < peeled_ids.size(); i++) {
-    uint32_t equation_id = peeled_ids[i];
-    uint32_t variable_id = solution_order[i];
+    uint64_t equation_id = peeled_ids[i];
+    uint64_t variable_id = solution_order[i];
 
     // Update dense_solution to include the solution to this variable.
     auto [participating_vars, constant] =
         sparse_system->getEquation(equation_id);
     bool accumulator = false;
-    for (uint32_t participating_var : participating_vars) {
+    for (uint64_t participating_var : participating_vars) {
       accumulator ^= (*dense_solution)[participating_var];
     }
     accumulator ^= constant;

@@ -5,11 +5,12 @@
 namespace caramel::tests {
 
 TEST(GaussianEliminationTest, TestSimple) {
-  std::vector<std::vector<uint32_t>> matrix = {{0, 1, 2}, {1, 2}, {0, 2}};
+  std::vector<std::vector<uint64_t>> matrix = {{0, 1, 2}, {1, 2}, {0, 2}};
   std::vector<uint32_t> constants = {1, 0, 1};
   std::string solution_str = "100";
 
-  auto system = DenseSystem::make(solution_str.size());
+  auto system = DenseSystem::make(solution_str.size(), 3);
+
   for (uint32_t i = 0; i < matrix.size(); i++) {
     system->addEquation(/* equation_id = */ i,
                         /* participating_variables = */ matrix[i],
@@ -20,14 +21,14 @@ TEST(GaussianEliminationTest, TestSimple) {
 }
 
 TEST(GaussianEliminationTest, TestWithSwaps) {
-  std::vector<std::vector<uint32_t>> matrix = {{1, 34}, {0, 1, 34}, {0, 34}};
+  std::vector<std::vector<uint64_t>> matrix = {{1, 34}, {0, 1, 34}, {0, 34}};
   std::vector<uint32_t> constants = {0, 1, 1};
   std::string solution_str = "1";
   for (uint32_t i = 0; i < 34; i++) {
     solution_str += "0";
   }
 
-  auto system = DenseSystem::make(solution_str.size());
+  auto system = DenseSystem::make(solution_str.size(), 3);
   for (uint32_t i = 0; i < matrix.size(); i++) {
     system->addEquation(/* equation_id = */ i,
                         /* participating_variables = */ matrix[i],
@@ -38,14 +39,14 @@ TEST(GaussianEliminationTest, TestWithSwaps) {
 }
 
 TEST(GaussianEliminationTest, TestEmpty) {
-  std::vector<std::vector<uint32_t>> matrix = {{1, 34}, {0, 1, 34}, {0, 34}};
+  std::vector<std::vector<uint64_t>> matrix = {{1, 34}, {0, 1, 34}, {0, 34}};
   std::vector<uint32_t> constants = {0, 1, 1};
   std::string solution_str;
   for (uint32_t i = 0; i < 35; i++) {
     solution_str += "0";
   }
 
-  auto system = DenseSystem::make(solution_str.size());
+  auto system = DenseSystem::make(solution_str.size(), 3);
   for (uint32_t i = 0; i < matrix.size(); i++) {
     system->addEquation(/* equation_id = */ i,
                         /* participating_variables = */ matrix[i],
@@ -56,10 +57,10 @@ TEST(GaussianEliminationTest, TestEmpty) {
 }
 
 TEST(GaussianEliminationTest, TestUnsolvable) {
-  std::vector<std::vector<uint32_t>> matrix = {{0, 1}, {0, 1}, {0, 2}};
+  std::vector<std::vector<uint64_t>> matrix = {{0, 1}, {0, 1}, {0, 2}};
   std::vector<uint32_t> constants = {0, 1, 1};
 
-  auto system = DenseSystem::make(3);
+  auto system = DenseSystem::make(3, 3);
   for (uint32_t i = 0; i < matrix.size(); i++) {
     system->addEquation(/* equation_id = */ i,
                         /* participating_variables = */ matrix[i],
@@ -71,11 +72,11 @@ TEST(GaussianEliminationTest, TestUnsolvable) {
 }
 
 TEST(GaussianEliminationTest, TestSettingMultipleSolutionBits) {
-  std::vector<std::vector<uint32_t>> matrix = {{0, 1}, {1, 2}, {2, 3}, {3, 4}};
+  std::vector<std::vector<uint64_t>> matrix = {{0, 1}, {1, 2}, {2, 3}, {3, 4}};
   std::vector<uint32_t> constants = {1, 1, 1, 1};
   std::string solution_str = "01010";
 
-  auto system = DenseSystem::make(solution_str.size());
+  auto system = DenseSystem::make(solution_str.size(), 4);
   for (uint32_t i = 0; i < matrix.size(); i++) {
     system->addEquation(/* equation_id = */ i,
                         /* participating_variables = */ matrix[i],

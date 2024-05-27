@@ -1,4 +1,5 @@
 #include "BitArray.h"
+#include <bit>
 #include <cereal/archives/binary.hpp>
 #include <cereal/types/vector.hpp>
 #include <climits>
@@ -16,14 +17,13 @@ BitArray::BitArray(uint32_t num_bits) : _num_bits(num_bits) {
     throw std::invalid_argument("Error: Bit Array must have at least 1 bit.");
   }
 
-  uint32_t num_blocks = ((num_bits - 1) / BLOCK_SIZE) + 1;
+  _num_blocks = ((num_bits - 1) / BLOCK_SIZE) + 1;
 
-  _backing_array = std::vector<uint64_t>(num_blocks, 0);
+  _backing_array = std::vector<uint64_t>(_num_blocks, 0);
 }
 
 BitArray::BitArray(const BitArray &other) {
-  _num_bits = other._num_bits;
-  _backing_array = other._backing_array;
+  copyFrom(other);
 }
 
 std::shared_ptr<BitArray> BitArray::fromNumber(uint64_t number,
@@ -64,13 +64,33 @@ void BitArray::setBit(uint32_t index) {
   _backing_array[BIT_BLOCK(index)] |= BIT_IN_BLOCK(index);
 }
 
+void BitArray::flipBit(uint32_t index) {
+  if (_num_bits <= index) {
+    throw std::invalid_argument(
+        "Index out of range for setBit: " + std::to_string(index) + ".");
+  }
+
+  _backing_array[BIT_BLOCK(index)] ^= BIT_IN_BLOCK(index);
+}
+
 BitArray &BitArray::operator^=(const BitArray &other) {
   if (other._num_bits != this->_num_bits) {
     throw std::invalid_argument(
         "Trying to ^ two BitArrays of different sizes.");
   }
 
-  for (uint32_t i = 0; i < _backing_array.size(); ++i) {
+  size_t i = 0;
+  for (; i + 1 < _num_blocks; i += 2) {
+    __m128i a =
+        _mm_loadu_si128(reinterpret_cast<const __m128i *>(&_backing_array[i]));
+    __m128i b = _mm_loadu_si128(
+        reinterpret_cast<const __m128i *>(&other._backing_array[i]));
+    __m128i result = _mm_xor_si128(a, b);
+    _mm_storeu_si128(reinterpret_cast<__m128i *>(&_backing_array[i]), result);
+  }
+
+  // Handle the last element if the total number is odd
+  if (i < _num_blocks) {
     _backing_array[i] ^= other._backing_array[i];
   }
 
@@ -80,10 +100,21 @@ BitArray &BitArray::operator^=(const BitArray &other) {
 BitArray &BitArray::operator&=(const BitArray &other) {
   if (other._num_bits != this->_num_bits) {
     throw std::invalid_argument(
-        "Trying to & two BitArrays of different sizes.");
+        "Trying to ^ two BitArrays of different sizes.");
   }
 
-  for (uint32_t i = 0; i < _backing_array.size(); ++i) {
+  size_t i = 0;
+  for (; i + 1 < _num_blocks; i += 2) {
+    __m128i a =
+        _mm_loadu_si128(reinterpret_cast<const __m128i *>(&_backing_array[i]));
+    __m128i b = _mm_loadu_si128(
+        reinterpret_cast<const __m128i *>(&other._backing_array[i]));
+    __m128i result = _mm_and_si128(a, b);
+    _mm_storeu_si128(reinterpret_cast<__m128i *>(&_backing_array[i]), result);
+  }
+
+  // Handle the last element if the total number is odd
+  if (i < _num_blocks) {
     _backing_array[i] &= other._backing_array[i];
   }
 
@@ -91,18 +122,14 @@ BitArray &BitArray::operator&=(const BitArray &other) {
 }
 
 BitArray BitArray::operator^(const BitArray &other) const {
-  BitArray result(this->numBits());
-  result = *this;
+  BitArray result = *this;
   result ^= other;
-
   return result;
 }
 
 BitArray BitArray::operator&(const BitArray &other) const {
-  BitArray result(this->numBits());
-  result = *this;
+  BitArray result = *this;
   result &= other;
-
   return result;
 }
 
@@ -122,7 +149,7 @@ BitArray &BitArray::operator=(const BitArray &other) {
     return *this;
   }
 
-  _backing_array = other._backing_array;
+  copyFrom(other);
 
   return *this;
 }
@@ -137,18 +164,10 @@ bool BitArray::operator==(const BitArray &other) const {
 }
 
 std::optional<uint32_t> BitArray::find() const {
-  uint32_t location = 0;
-  for (uint32_t block = 0; block < _backing_array.size(); block++) {
+  for (uint32_t block = 0; block < _num_blocks; block++) {
     if (_backing_array[block] != 0) {
-      auto temp = _backing_array[block];
-      for (uint32_t bit = 0; bit < BLOCK_SIZE; bit++) {
-        temp >>= 1;
-        if (temp == 0) {
-          return location + BLOCK_SIZE - 1 - bit;
-        }
-      }
-    } else {
-      location += BLOCK_SIZE;
+      return (block * BLOCK_SIZE) +
+             std::__countl_zero<uint64_t>(_backing_array[block]);
     }
   }
   return std::nullopt;
@@ -194,11 +213,17 @@ std::string BitArray::str() const {
   return output;
 }
 
+void BitArray::copyFrom(const BitArray& other) {
+  _num_bits = other._num_bits;
+  _num_blocks = other._num_blocks;
+  _backing_array = other._backing_array;
+}
+
 template void BitArray::serialize(cereal::BinaryInputArchive &);
 template void BitArray::serialize(cereal::BinaryOutputArchive &);
 
 template <class Archive> void BitArray::serialize(Archive &archive) {
-  archive(_num_bits, _backing_array);
+  archive(_num_bits, _num_blocks, _backing_array);
 }
 
 } // namespace caramel

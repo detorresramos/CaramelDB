@@ -73,7 +73,7 @@ public:
 
     uint32_t solution_size = solution->numBits();
 
-    int e[3];
+    uint64_t e[3];
     signatureToEquation(signature, construction_seed,
                         solution_size - _max_codelength, e);
 

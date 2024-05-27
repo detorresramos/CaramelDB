@@ -22,13 +22,13 @@ appears in exactly 1 equation, we have found our next equation to peel. We
 recursively repeat this process until we cannot peel any more edges.
 */
 
-std::tuple<std::vector<uint32_t>, std::vector<uint32_t>, std::vector<uint32_t>,
+std::tuple<std::vector<uint64_t>, std::vector<uint64_t>, std::vector<uint64_t>,
            SparseSystemPtr>
 peelHypergraph(const SparseSystemPtr &sparse_system,
-               const std::vector<uint32_t> &equation_ids);
+               const std::vector<uint64_t> &equation_ids);
 
-BitArrayPtr solvePeeledFromDense(const std::vector<uint32_t> &peeled_ids,
-                                 const std::vector<uint32_t> &solution_order,
+BitArrayPtr solvePeeledFromDense(const std::vector<uint64_t> &peeled_ids,
+                                 const std::vector<uint64_t> &solution_order,
                                  const SparseSystemPtr &sparse_system,
                                  const BitArrayPtr &dense_solution);
 
