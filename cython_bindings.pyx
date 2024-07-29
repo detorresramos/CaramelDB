@@ -55,14 +55,17 @@ cdef extern from "src/construct/Construct.h" namespace "caramel":
     shared_ptr[Csf[T]] constructCsf[T](const vector[string] &keys,
                                        const vector[T] &values,
                                        bool use_bloom_filter,
-                                       bool verbose)
+                                       bool verbose) except +
 
 
 cdef class PyCsfInt:
     cdef shared_ptr[Csf[int]] cpp_csf
-
-    def __cinit__(self, vector[string] keys, vector[int] values, bint use_bloom_filter=True, bint verbose=True):
-        self.cpp_csf = constructCsf[int](keys, values, use_bloom_filter, verbose)
+    
+    @staticmethod
+    def construct(vector[string] keys, vector[int] values, bint use_bloom_filter=True, bint verbose=True):
+        cdef PyCsfInt obj = PyCsfInt()
+        obj.cpp_csf = constructCsf(keys, values, use_bloom_filter, verbose)
+        return obj
 
     def query(self, key):
         return self.cpp_csf.get().query(key)
@@ -72,6 +75,6 @@ cdef class PyCsfInt:
 
     @staticmethod
     def load(filename):
-        cdef PyCsfInt obj = PyCsfInt()
+        cdef PyCsfInt obj = PyCsfInt.__new__(PyCsfInt)
         obj.cpp_csf = Csf[int].load(filename, 0)
         return obj

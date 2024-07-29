@@ -34,5 +34,15 @@ extensions = [
 
 setup(
     name="carameldb",
+    version="0.0.1",
+    author="Ben Coleman, Vihan Lakshman, David Torres, Chen Luo",
+    author_email="detorresramos1@gmail.com",
+    description="A Succinct Read-Only Lookup Table via Compressed Static Functions",
+    long_description="",
+    license_files=("LICENSE",),
     ext_modules=cythonize(extensions),
+    zip_safe=False,
+    install_requires=["numpy"],
+    extras_require={"test": ["pytest>=6.0"]},
+    python_requires=">=3.7",
 )
