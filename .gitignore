@@ -58,3 +58,5 @@ deps/
 *.perf
 *.data
 *.old
+
+cython_bindings.cpp
