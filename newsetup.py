@@ -4,21 +4,27 @@ from Cython.Build import cythonize
 
 include_dirs = [
     os.path.join(os.getcwd(), 'deps', 'cereal/include'),
-#     os.path.join(os.getcwd(), ''),
+    os.path.join(os.getcwd(), ''),
 #     os.path.join(os.getcwd(), 'src'),
 #     os.path.join(os.getcwd(), 'src/construct'),
 #     os.path.join(os.getcwd(), 'src/solve'),
 ]
-
-print(include_dirs)
 
 extensions = [
     Extension(
         name="carameldb",
         sources=[
             "cython_bindings.pyx",
-          #   "src/construct/SpookyHash.cc",
-          #   "src/BitArray.cc",
+            "src/construct/SpookyHash.cc",
+            "src/construct/SpookyHash2.cc",
+            "src/construct/BucketedHashStore.cc",
+            "src/construct/Codec.cc",
+            "src/solve/GaussianElimination.cc",
+            "src/solve/HypergraphPeeler.cc",
+            "src/solve/LazyGaussianElimination.cc",
+            "src/solve/Solve.cc",
+            "src/Modulo2System.cc",
+            "src/BitArray.cc",
           ],
         include_dirs=include_dirs,
         language='c++',
