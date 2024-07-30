@@ -358,6 +358,15 @@ public:
     h1 += h0;
   }
 
+  static INLINE void SpookyShortRehash(const Uint128Signature &signature,
+                                       uint64_t seed, uint64_t *const tuple) {
+    tuple[0] = seed;
+    tuple[1] = sc_const + signature.first;
+    tuple[2] = sc_const + signature.second;
+    tuple[3] = sc_const;
+    ShortMix(tuple[0], tuple[1], tuple[2], tuple[3]);
+  }
+
 private:
   //
   // Short is used for messages under 192 bytes in length
