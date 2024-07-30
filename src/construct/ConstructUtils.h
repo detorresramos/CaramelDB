@@ -1,6 +1,6 @@
 #pragma once
 
-#include "SpookyHash2.h"
+#include "SpookyHash.h"
 #include <algorithm>
 #include <array>
 #include <functional>
@@ -12,7 +12,7 @@ void inline signatureToEquation(const Uint128Signature &signature,
                                 const uint64_t seed, uint64_t num_variables,
                                 uint64_t *e) {
   uint64_t hash[4];
-  spooky_short_rehash(signature, seed, hash);
+  SpookyHash::SpookyShortRehash(signature, seed, hash);
   const int shift = __builtin_clzll(num_variables);
   const uint64_t mask = (UINT64_C(1) << shift) - 1;
   e[0] = ((hash[0] & mask) * num_variables) >> shift;
