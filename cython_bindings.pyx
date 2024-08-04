@@ -78,3 +78,41 @@ cdef class PyCsfInt:
         cdef PyCsfInt obj = PyCsfInt.__new__(PyCsfInt)
         obj.cpp_csf = Csf[int].load(filename, 0)
         return obj
+
+
+
+cdef extern from "src/construct/MultisetCsf.h" namespace "caramel":
+    cdef cppclass MultisetCsf[T]:
+        vector[T] query(const string &key, bool parallelize) const
+        void save(const string &filename, const uint32_t type_id) const
+        @staticmethod
+        shared_ptr[MultisetCsf[T]] load(const string &filename, const uint32_t type_id)
+
+
+cdef extern from "src/construct/ConstructMultiset.h" namespace "caramel":
+    shared_ptr[MultisetCsf[T]] constructMultisetCsf[T](const vector[string] &keys,
+                                       const vector[vector[T]] &values,
+                                       bool use_bloom_filter,
+                                       bool verbose) except +
+
+
+cdef class PyMultisetCsfInt:
+    cdef shared_ptr[MultisetCsf[int]] cpp_csf
+    
+    @staticmethod
+    def construct(vector[string] keys, vector[vector[int]] values, bint use_bloom_filter=True, bint verbose=True):
+        cdef PyMultisetCsfInt obj = PyMultisetCsfInt()
+        obj.cpp_csf = constructMultisetCsf(keys, values, use_bloom_filter, verbose)
+        return obj
+
+    def query(self, key, parallelize):
+        return self.cpp_csf.get().query(key, parallelize)
+
+    def save(self, filename):
+        self.cpp_csf.get().save(filename, 0)
+
+    @staticmethod
+    def load(filename):
+        cdef PyMultisetCsfInt obj = PyMultisetCsfInt.__new__(PyMultisetCsfInt)
+        obj.cpp_csf = MultisetCsf[int].load(filename, 0)
+        return obj
