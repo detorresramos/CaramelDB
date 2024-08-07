@@ -1,14 +1,40 @@
 import os
 from setuptools import setup, Extension
 from Cython.Build import cythonize
+import sys
 
-include_dirs = [
-    os.path.join(os.getcwd(), 'deps', 'cereal/include'),
-    os.path.join(os.getcwd(), ''),
-#     os.path.join(os.getcwd(), 'src'),
-#     os.path.join(os.getcwd(), 'src/construct'),
-#     os.path.join(os.getcwd(), 'src/solve'),
-]
+
+def get_compile_args():
+    compile_options = [
+        # '-Wall', '-Werror', '-Wextra', '-Wno-unused-function', '-Wno-psabi', '-pedantic', '-Wno-ignored-optimization-argument'
+        '-Wall', '-Wextra', '-Wno-unused-function', '-Wno-psabi', '-pedantic'
+    ]
+
+    build_mode = 'Release'
+    if '--debug' in sys.argv:
+        build_mode = 'Debug'
+        sys.argv.remove('--debug')
+
+    build_mode_compile_options = {
+        'Debug': [
+            '-Og', '-g', '-fno-omit-frame-pointer'
+        ],
+        'Release': [
+            '-DNDEBUG', '-Ofast', '-funroll-loops', '-ftree-vectorize'
+        ]
+    }
+
+    return compile_options + build_mode_compile_options[build_mode]
+
+
+def get_include_dirs():
+    return [
+        os.path.join(os.getcwd(), 'deps', 'cereal/include'),
+        os.path.join(os.getcwd(), ''),
+        os.path.join(os.getcwd(), 'src'),
+        os.path.join(os.getcwd(), 'src/construct'),
+        os.path.join(os.getcwd(), 'src/solve'),
+    ]
 
 extensions = [
     Extension(
@@ -25,10 +51,10 @@ extensions = [
             "src/solve/Solve.cc",
             "src/Modulo2System.cc",
             "src/BitArray.cc",
-          ],
-        include_dirs=include_dirs,
+        ],
+        include_dirs=get_include_dirs(),
         language='c++',
-        extra_compile_args=['-std=c++17'],  # Use C++17 standard
+        extra_compile_args=get_compile_args(),
     )
 ]
 
@@ -40,7 +66,12 @@ setup(
     description="A Succinct Read-Only Lookup Table via Compressed Static Functions",
     long_description="",
     license_files=("LICENSE",),
-    ext_modules=cythonize(extensions),
+    ext_modules=cythonize(
+        extensions,
+        build_dir="build",  # Specify build directory
+        annotate=True,      # Generate HTML annotation of the source
+        compiler_directives={'language_level': "3"}  # Specify language level
+    ),
     zip_safe=False,
     install_requires=["numpy"],
     extras_require={"test": ["pytest>=6.0"]},
