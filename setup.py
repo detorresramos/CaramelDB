@@ -42,7 +42,6 @@ extensions = [
         sources=[
             "cython_bindings.pyx",
             "src/construct/SpookyHash.cc",
-            "src/construct/SpookyHash2.cc",
             "src/construct/BucketedHashStore.cc",
             "src/construct/Codec.cc",
             "src/solve/GaussianElimination.cc",
