@@ -6,8 +6,7 @@ import sys
 
 def get_compile_args():
     compile_options = [
-        # '-Wall', '-Werror', '-Wextra', '-Wno-unused-function', '-Wno-psabi', '-pedantic', '-Wno-ignored-optimization-argument'
-        '-Wall', '-Wextra', '-Wno-unused-function', '-Wno-psabi', '-pedantic'
+        '-std=c++17', '-Wall', '-Wextra', '-Wno-unused-function', '-Wno-psabi', '-pedantic'
     ]
 
     build_mode = 'Release'

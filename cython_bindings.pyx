@@ -21,6 +21,7 @@ cdef extern from "src/construct/BloomFilter.h" namespace "caramel":
 
     ctypedef shared_ptr[BloomFilter] BloomFilterPtr
 
+
 cdef class PyBloomFilter:
     cdef BloomFilterPtr cpp_bloom_filter
 
@@ -58,29 +59,6 @@ cdef extern from "src/construct/Construct.h" namespace "caramel":
                                        bool verbose) except +
 
 
-cdef class PyCsfInt:
-    cdef shared_ptr[Csf[int]] cpp_csf
-    
-    @staticmethod
-    def construct(vector[string] keys, vector[int] values, bint use_bloom_filter=True, bint verbose=True):
-        cdef PyCsfInt obj = PyCsfInt()
-        obj.cpp_csf = constructCsf(keys, values, use_bloom_filter, verbose)
-        return obj
-
-    def query(self, key):
-        return self.cpp_csf.get().query(key)
-
-    def save(self, filename):
-        self.cpp_csf.get().save(filename, 0)
-
-    @staticmethod
-    def load(filename):
-        cdef PyCsfInt obj = PyCsfInt.__new__(PyCsfInt)
-        obj.cpp_csf = Csf[int].load(filename, 0)
-        return obj
-
-
-
 cdef extern from "src/construct/MultisetCsf.h" namespace "caramel":
     cdef cppclass MultisetCsf[T]:
         vector[T] query(const string &key, bool parallelize) const
@@ -96,23 +74,63 @@ cdef extern from "src/construct/ConstructMultiset.h" namespace "caramel":
                                        bool verbose) except +
 
 
-cdef class PyMultisetCsfInt:
-    cdef shared_ptr[MultisetCsf[int]] cpp_csf
+# cdef extern from "<array>" namespace "std" nogil:
+#     cdef cppclass char10array "std::array<char, 10>":
+#         char10array() except +
+#         char *data() nogil
+
+
+cdef class PyCsfUint32:
+    cdef shared_ptr[Csf[uint32_t]] cpp_csf
     
+    # we have a static constructor because I couldn't get the load method to 
+    # work properly if this logic was defined in the __cinit__ method
+    # if we can get that to work we can move this logic to the __cinit__ method
+    # and remove the checks for self.cpp_csf
     @staticmethod
-    def construct(vector[string] keys, vector[vector[int]] values, bint use_bloom_filter=True, bint verbose=True):
-        cdef PyMultisetCsfInt obj = PyMultisetCsfInt()
-        obj.cpp_csf = constructMultisetCsf(keys, values, use_bloom_filter, verbose)
+    def construct(vector[string] keys, vector[uint32_t] values, bint use_bloom_filter=True, bint verbose=True):
+        cdef PyCsfUint32 obj = PyCsfUint32()
+        obj.cpp_csf = constructCsf(keys, values, use_bloom_filter, verbose)
         return obj
 
-    def query(self, key, parallelize):
-        return self.cpp_csf.get().query(key, parallelize)
+    def query(self, key):
+        if not self.cpp_csf:
+            raise ValueError("CSF object not built properly, please use the static construct method instead.")
+        return self.cpp_csf.get().query(key)
 
     def save(self, filename):
+        if not self.cpp_csf:
+            raise ValueError("CSF object not built properly, please use the static construct method instead.")
         self.cpp_csf.get().save(filename, 0)
 
     @staticmethod
     def load(filename):
-        cdef PyMultisetCsfInt obj = PyMultisetCsfInt.__new__(PyMultisetCsfInt)
-        obj.cpp_csf = MultisetCsf[int].load(filename, 0)
+        cdef PyCsfUint32 obj = PyCsfUint32.__new__(PyCsfUint32)
+        obj.cpp_csf = Csf[uint32_t].load(filename, 0)
+        return obj
+
+
+cdef class PyMultisetCsfUint32:
+    cdef shared_ptr[MultisetCsf[uint32_t]] cpp_csf
+    
+    @staticmethod
+    def construct(vector[string] keys, vector[vector[uint32_t]] values, bint use_bloom_filter=True, bint verbose=True):
+        cdef PyMultisetCsfUint32 obj = PyMultisetCsfUint32()
+        obj.cpp_csf = constructMultisetCsf(keys, values, use_bloom_filter, verbose)
+        return obj
+
+    def query(self, key, parallelize):
+        if not self.cpp_csf:
+            raise ValueError("CSF object not built properly, please use the static construct method instead.")
+        return self.cpp_csf.get().query(key, parallelize)
+
+    def save(self, filename):
+        if not self.cpp_csf:
+            raise ValueError("CSF object not built properly, please use the static construct method instead.")
+        self.cpp_csf.get().save(filename, 0)
+
+    @staticmethod
+    def load(filename):
+        cdef PyMultisetCsfUint32 obj = PyMultisetCsfUint32.__new__(PyMultisetCsfUint32)
+        obj.cpp_csf = MultisetCsf[uint32_t].load(filename, 0)
         return obj
