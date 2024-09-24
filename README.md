@@ -1,4 +1,5 @@
-# :candy: CaramelDB: A High-Performance Succinct Retrieval Library
+# CaramelDB: A High-Performance Succinct Retrieval Library <img src="caramel.jpg" alt="caramel" width="200"/>
+
 
 CaramelDB is a performant C++/Python library of succinct retrieval data structures with applications in data management, machine learning systems, computational biology, and more! The centerpiece of CaramelDB is an implementation of the [CARAMEL data structure](https://arxiv.org/pdf/2305.16545.pdf), a space-efficient table with state-of-the-art performance on practical succinct retrieval workloads. 
 
