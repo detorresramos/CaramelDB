@@ -47,16 +47,6 @@ typedef uint8_t uint8;
 
 namespace caramel {
 
-// TODO(any): does this have data type size problems on windows?
-struct Uint128Signature {
-  uint64_t first;
-  uint64_t second;
-
-  bool operator==(const Uint128Signature &other) const {
-    return first == other.first && second == other.second;
-  }
-};
-
 class SpookyHash {
 public:
   //
@@ -358,11 +348,11 @@ public:
     h1 += h0;
   }
 
-  static INLINE void SpookyShortRehash(const Uint128Signature &signature,
+  static INLINE void SpookyShortRehash(const __uint128_t &signature,
                                        uint64_t seed, uint64_t *const tuple) {
     tuple[0] = seed;
-    tuple[1] = sc_const + signature.first;
-    tuple[2] = sc_const + signature.second;
+    tuple[1] = sc_const + static_cast<uint64_t>(signature);
+    tuple[2] = sc_const + static_cast<uint64_t>(signature >> 64);
     tuple[3] = sc_const;
     ShortMix(tuple[0], tuple[1], tuple[2], tuple[3]);
   }

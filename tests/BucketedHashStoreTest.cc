@@ -33,7 +33,7 @@ std::vector<std::string> manyRandomStrings(uint32_t num_strings = 10) {
 }
 
 TEST(BucketedHashStoreTest, TestGetBucketID) {
-  std::vector<Uint128Signature> signatures;
+  std::vector<__uint128_t> signatures;
   for (auto key : manyRandomStrings(100)) {
     signatures.push_back(hashKey(key, 341));
   }
@@ -58,7 +58,7 @@ TEST(BucketedHashStoreTest, TestPartitioning) {
       partitionToBuckets<uint32_t>(keys, values, 20);
 
   for (auto key : keys) {
-    Uint128Signature signature = hashKey(key, 0);
+    __uint128_t signature = hashKey(key, 0);
     uint32_t bucket_id = getBucketID(signature, 6);
     if (std::find(key_buckets[bucket_id].begin(), key_buckets[bucket_id].end(),
                   signature) == key_buckets[bucket_id].end()) {
