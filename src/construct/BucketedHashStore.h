@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <stdexcept>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace caramel {
@@ -23,25 +24,26 @@ inline uint32_t getBucketID(const __uint128_t &signature,
 __uint128_t hashKey(const std::string &key, uint64_t seed);
 
 template <typename T>
-std::tuple<std::vector<std::vector<__uint128_t>>,
-           std::vector<std::vector<T>>, uint64_t>
+std::tuple<std::vector<std::vector<__uint128_t>>, std::vector<std::vector<T>>,
+           uint64_t>
 construct(const std::vector<std::string> &keys, const std::vector<T> &values,
           uint32_t num_buckets, uint64_t seed) {
   if (keys.size() != values.size()) {
     throw std::invalid_argument("Keys and values must match sizes.");
   }
 
+  std::unordered_set<__uint128_t> seen_keys;
   std::vector<std::vector<__uint128_t>> key_buckets(num_buckets);
   std::vector<std::vector<T>> value_buckets(num_buckets);
 
   for (uint32_t i = 0; i < keys.size(); i++) {
     __uint128_t signature = hashKey(keys[i], seed);
-    uint32_t bucket_id = getBucketID(signature, num_buckets);
-    if (std::find(key_buckets[bucket_id].begin(), key_buckets[bucket_id].end(),
-                  signature) != key_buckets[bucket_id].end()) {
+    if (seen_keys.find(signature) != seen_keys.end()) {
       throw std::runtime_error("Detected a key collision under 128-bit hash. "
                                "Likely due to a duplicate key.");
     }
+    seen_keys.insert(signature);
+    uint32_t bucket_id = getBucketID(signature, num_buckets);
     key_buckets[bucket_id].push_back(signature);
     value_buckets[bucket_id].push_back(values[i]);
   }
@@ -50,8 +52,8 @@ construct(const std::vector<std::string> &keys, const std::vector<T> &values,
 }
 
 template <typename T>
-std::tuple<std::vector<std::vector<__uint128_t>>,
-           std::vector<std::vector<T>>, uint64_t>
+std::tuple<std::vector<std::vector<__uint128_t>>, std::vector<std::vector<T>>,
+           uint64_t>
 partitionToBuckets(const std::vector<std::string> &keys,
                    const std::vector<T> &values, uint32_t bucket_size = 1000,
                    uint32_t num_attempts = 3) {
