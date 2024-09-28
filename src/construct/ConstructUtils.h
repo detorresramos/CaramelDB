@@ -8,7 +8,7 @@
 
 namespace caramel {
 
-void inline signatureToEquation(const Uint128Signature &signature,
+void inline signatureToEquation(const __uint128_t &signature,
                                 const uint64_t seed, uint64_t num_variables,
                                 uint64_t *e) {
   uint64_t hash[4];

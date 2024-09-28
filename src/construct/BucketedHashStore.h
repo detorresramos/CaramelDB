@@ -8,10 +8,10 @@
 
 namespace caramel {
 
-inline uint32_t getBucketID(const Uint128Signature &signature,
+inline uint32_t getBucketID(const __uint128_t &signature,
                             uint32_t num_buckets) {
   // Use first 64 bits of the signature to identify the segment
-  uint64_t bucket_hash = signature.first;
+  uint64_t bucket_hash = static_cast<uint64_t>(signature);
   // This outputs a uniform integer from [0, self._num_buckets]
   uint32_t bucket_id =
       ((__uint128_t)(bucket_hash >> 1) * (__uint128_t)(num_buckets << 1)) >> 64;
@@ -20,10 +20,10 @@ inline uint32_t getBucketID(const Uint128Signature &signature,
   return bucket_id;
 }
 
-Uint128Signature hashKey(const std::string &key, uint64_t seed);
+__uint128_t hashKey(const std::string &key, uint64_t seed);
 
 template <typename T>
-std::tuple<std::vector<std::vector<Uint128Signature>>,
+std::tuple<std::vector<std::vector<__uint128_t>>,
            std::vector<std::vector<T>>, uint64_t>
 construct(const std::vector<std::string> &keys, const std::vector<T> &values,
           uint32_t num_buckets, uint64_t seed) {
@@ -31,11 +31,11 @@ construct(const std::vector<std::string> &keys, const std::vector<T> &values,
     throw std::invalid_argument("Keys and values must match sizes.");
   }
 
-  std::vector<std::vector<Uint128Signature>> key_buckets(num_buckets);
+  std::vector<std::vector<__uint128_t>> key_buckets(num_buckets);
   std::vector<std::vector<T>> value_buckets(num_buckets);
 
   for (uint32_t i = 0; i < keys.size(); i++) {
-    Uint128Signature signature = hashKey(keys[i], seed);
+    __uint128_t signature = hashKey(keys[i], seed);
     uint32_t bucket_id = getBucketID(signature, num_buckets);
     if (std::find(key_buckets[bucket_id].begin(), key_buckets[bucket_id].end(),
                   signature) != key_buckets[bucket_id].end()) {
@@ -50,7 +50,7 @@ construct(const std::vector<std::string> &keys, const std::vector<T> &values,
 }
 
 template <typename T>
-std::tuple<std::vector<std::vector<Uint128Signature>>,
+std::tuple<std::vector<std::vector<__uint128_t>>,
            std::vector<std::vector<T>>, uint64_t>
 partitionToBuckets(const std::vector<std::string> &keys,
                    const std::vector<T> &values, uint32_t bucket_size = 1000,

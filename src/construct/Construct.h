@@ -31,7 +31,7 @@ Arguments:
 */
 template <typename T>
 SparseSystemPtr
-constructModulo2System(const std::vector<Uint128Signature> &key_signatures,
+constructModulo2System(const std::vector<__uint128_t> &key_signatures,
                        const std::vector<T> &values,
                        const CodeDict<T> &codedict, uint32_t max_codelength,
                        uint32_t seed, float DELTA) {
@@ -64,7 +64,7 @@ constructModulo2System(const std::vector<Uint128Signature> &key_signatures,
 
 template <typename T>
 SubsystemSolutionSeedPair
-constructAndSolveSubsystem(const std::vector<Uint128Signature> &key_signatures,
+constructAndSolveSubsystem(const std::vector<__uint128_t> &key_signatures,
                            const std::vector<T> &values,
                            const CodeDict<T> &codedict, uint32_t max_codelength,
                            float DELTA) {
@@ -181,9 +181,9 @@ CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
   auto bar = ProgressBar::makeOptional(verbose, "Solving systems...",
                                        /* max_steps=*/num_buckets);
 
-#pragma omp parallel for default(none)                                         \
-    shared(bucketed_key_signatures, bucketed_values, codedict, max_codelength, \
-           solutions_and_seeds, num_buckets, exception, bar, DELTA)
+// #pragma omp parallel for default(none)                                         
+//     shared(bucketed_key_signatures, bucketed_values, codedict, max_codelength, 
+//            solutions_and_seeds, num_buckets, exception, bar, DELTA)
   for (uint32_t i = 0; i < num_buckets; i++) {
     if (exception) {
       continue;
@@ -193,11 +193,11 @@ CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
           bucketed_key_signatures[i], bucketed_values[i], codedict,
           max_codelength, DELTA);
     } catch (std::exception &e) {
-#pragma omp critical
+// #pragma omp critical
       { exception = std::current_exception(); }
     }
     if (bar) {
-#pragma omp critical
+// #pragma omp critical
       bar->increment();
     }
   }
