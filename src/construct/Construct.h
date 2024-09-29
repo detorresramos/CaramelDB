@@ -40,6 +40,8 @@ constructModulo2System(const std::vector<__uint128_t> &key_signatures,
     num_equations += codedict.find(v)->second->numBits();
   }
 
+  // TODO(david) should we add max_codelength to num_variables, was getting a
+  // core dumped error
   uint64_t num_variables =
       std::ceil(static_cast<double>(num_equations) * DELTA);
 
@@ -193,11 +195,11 @@ CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
           bucketed_key_signatures[i], bucketed_values[i], codedict,
           max_codelength, DELTA);
     } catch (std::exception &e) {
-      #pragma omp critical
+#pragma omp critical
       { exception = std::current_exception(); }
     }
     if (bar) {
-      #pragma omp critical
+#pragma omp critical
       bar->increment();
     }
   }

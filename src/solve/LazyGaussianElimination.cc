@@ -89,18 +89,24 @@ lazyGaussianElimination(const SparseSystemPtr &sparse_system,
     }
   }
 
+  uint64_t num_relevant_equations = equation_ids.size();
+
   // List of sparse equations with priority 0 or 1. Probably needs a re-name.
   std::vector<uint64_t> sparse_equation_ids;
-  for (uint64_t id : equation_ids) {
+  sparse_equation_ids.reserve(num_relevant_equations);
+  for (const uint64_t& id : equation_ids) {
     if (equation_priority[id] <= 1) {
       sparse_equation_ids.push_back(id);
     }
   }
   // List of dense equations with entirely active variables.
   std::vector<uint64_t> dense_equation_ids;
+  dense_equation_ids.reserve(num_relevant_equations);
   // Equations that define a solved variable in terms of active variables.
   std::vector<uint64_t> solved_equation_ids;
+  solved_equation_ids.reserve(num_relevant_equations);
   std::vector<uint64_t> solved_variable_ids;
+  solved_variable_ids.reserve(num_relevant_equations);
   // List of currently-idle variables. Starts as a bit vector of all 1's, and
   // is filled in with 0s as variables become non-idle.
   BitArrayPtr idle_variable_indicator = BitArray::make(num_variables);
