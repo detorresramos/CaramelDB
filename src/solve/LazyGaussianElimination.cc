@@ -59,23 +59,25 @@ lazyGaussianElimination(const SparseSystemPtr &sparse_system,
   std::vector<std::vector<uint64_t>> var_to_equations(num_variables);
   var_to_equations.reserve(num_variables);
   for (uint64_t equation_id : equation_ids) {
-    auto [participating_vars, constant] =
-        sparse_system->getEquation(equation_id);
+    const uint64_t *equation_ptr = sparse_system->getEquation(equation_id);
+    uint64_t constant = equation_ptr[3];
 
-    if ((participating_vars[0] != participating_vars[1]) &&
-        (participating_vars[1] != participating_vars[2]) &&
-        (participating_vars[0] != participating_vars[2])) {
-      dense_system->addEquation(equation_id, participating_vars, constant);
-      for (uint64_t variable_id : participating_vars) {
-        variable_weight[variable_id]++;
-        var_to_equations[variable_id].push_back(equation_id);
+    if ((equation_ptr[0] != equation_ptr[1]) &&
+        (equation_ptr[1] != equation_ptr[2]) &&
+        (equation_ptr[0] != equation_ptr[2])) {
+      dense_system->addEquation(equation_id, equation_ptr, constant);
+      for (const uint64_t *var_id = equation_ptr; var_id < equation_ptr + 3;
+           ++var_id) {
+        variable_weight[*var_id]++;
+        var_to_equations[*var_id].push_back(equation_id);
       }
       equation_priority[equation_id] += 3;
     } else {
-      for (uint64_t variable_id : participating_vars) {
-        auto [_, inserted] = vars_to_add.insert(variable_id);
+      for (const uint64_t *var_id = equation_ptr; var_id < equation_ptr + 3;
+           ++var_id) {
+        auto [_, inserted] = vars_to_add.insert(*var_id);
         if (!inserted) {
-          vars_to_add.erase(variable_id);
+          vars_to_add.erase(*var_id);
         }
       }
       dense_system->addEquation(equation_id, vars_to_add, constant);
@@ -94,7 +96,7 @@ lazyGaussianElimination(const SparseSystemPtr &sparse_system,
   // List of sparse equations with priority 0 or 1. Probably needs a re-name.
   std::vector<uint64_t> sparse_equation_ids;
   sparse_equation_ids.reserve(num_relevant_equations);
-  for (const uint64_t& id : equation_ids) {
+  for (const uint64_t &id : equation_ids) {
     if (equation_priority[id] <= 1) {
       sparse_equation_ids.push_back(id);
     }
