@@ -50,6 +50,29 @@ void DenseSystem::addEquation(
   _equations[equation_id] = std::tuple(std::move(equation), constant, 0);
 }
 
+void DenseSystem::addEquation(uint64_t equation_id,
+                              const uint64_t *equation_ptr, uint32_t constant) {
+#ifdef DEBUG
+  for (const uint64_t *var_id = equation_ptr; var_id < equation_ptr + 3;
+       ++var_id) {
+    if (*var_id > _solution_size) {
+      throw std::invalid_argument("Adding equation with var " +
+                                  std::to_string(*var_id) +
+                                  " greater than solution size of " +
+                                  std::to_string(_solution_size) + ".");
+    }
+  }
+#endif
+
+  BitArrayPtr equation = BitArray::make(_solution_size);
+  for (const uint64_t *var_id = equation_ptr; var_id < equation_ptr + 3;
+       ++var_id) {
+    equation->setBit(*var_id);
+  }
+
+  _equations[equation_id] = std::tuple(std::move(equation), constant, 0);
+}
+
 void DenseSystem::xorEquations(uint64_t equation_to_modify,
                                uint64_t equation_to_xor) {
   auto &[equation_modify, constant_modify, _] = _equations[equation_to_modify];
@@ -104,14 +127,15 @@ DenseSystemPtr sparseToDense(const SparseSystemPtr &sparse_system) {
 
   std::vector<uint64_t> equation_ids = sparse_system->equationIds();
   for (auto equation_id : equation_ids) {
-    auto [participating_vars, constant] =
-        sparse_system->getEquation(equation_id);
+    const uint64_t *equation_ptr = sparse_system->getEquation(equation_id);
+    uint64_t constant = equation_ptr[3];
     std::unordered_set<uint32_t> vars_to_add;
-    for (auto variable_id : participating_vars) {
-      if (!vars_to_add.count(variable_id)) {
-        vars_to_add.insert(variable_id);
+    for (const uint64_t *var_id = equation_ptr; var_id < equation_ptr + 3;
+         ++var_id) {
+      if (!vars_to_add.count(*var_id)) {
+        vars_to_add.insert(*var_id);
       } else {
-        vars_to_add.erase(variable_id);
+        vars_to_add.erase(*var_id);
       }
     }
     // Update weight and priority for de-duped variables.

@@ -147,8 +147,9 @@ inline void verify_peeling_order(std::vector<uint64_t> &unpeeled,
   // Create a graph to check against.
   std::unordered_map<uint32_t, std::vector<uint32_t>> variable_to_equations;
   for (uint32_t equation_id : equation_ids) {
-    auto [participating_variables, _ignore_constant_] =
-        sparse_system->getEquation(equation_id);
+    const uint64_t *equation_ptr = sparse_system->getEquation(equation_id);
+    std::vector<uint64_t> participating_variables = {
+        equation_ptr[0], equation_ptr[1], equation_ptr[2]};
     for (uint32_t variable_id : participating_variables) {
       variable_to_equations[variable_id].push_back(equation_id);
     }
@@ -167,8 +168,9 @@ inline void verify_peeling_order(std::vector<uint64_t> &unpeeled,
         << variable_to_equations[variable_id][0] << " not " << equation_id
         << " as expected.";
     // 3. Remove the peeled equation from the graph.
-    auto [participating_variables, _ignore_constant_] =
-        sparse_system->getEquation(equation_id);
+    const uint64_t *equation_ptr = sparse_system->getEquation(equation_id);
+    std::vector<uint64_t> participating_variables = {
+        equation_ptr[0], equation_ptr[1], equation_ptr[2]};
     for (uint32_t participating_variable : participating_variables) {
       // Remove all of the places where this equation shows up.
       variable_to_equations[participating_variable].erase(
@@ -181,8 +183,9 @@ inline void verify_peeling_order(std::vector<uint64_t> &unpeeled,
 
   // Check there aren't additional equations that could be peeled, but weren't.
   for (uint32_t equation_id : unpeeled) {
-    auto [participating_variables, _ignore_constant_] =
-        sparse_system->getEquation(equation_id);
+    const uint64_t *equation_ptr = sparse_system->getEquation(equation_id);
+    std::vector<uint64_t> participating_variables = {
+        equation_ptr[0], equation_ptr[1], equation_ptr[2]};
     for (uint32_t participating_variable : participating_variables) {
       int num_equations = variable_to_equations[participating_variable].size();
       ASSERT_GE(num_equations, 2)

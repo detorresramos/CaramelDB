@@ -21,8 +21,7 @@ peelHypergraph(const SparseSystemPtr &sparse_system,
   std::vector<uint32_t> equation_id_xors(num_variables, 0);
 
   for (uint64_t equation_id : equation_ids) {
-    auto [participating_variables, _ignore_constant_] =
-        sparse_system->getEquation(equation_id);
+    const uint64_t *equation_ptr = sparse_system->getEquation(equation_id);
 
 #ifdef DEBUG_HYPERGRAPH
     std::cout << "Edge (equation) " << equation_id << ": <";
@@ -32,11 +31,12 @@ peelHypergraph(const SparseSystemPtr &sparse_system,
     std::cout << ">" << std::endl;
 #endif
 
-    for (uint64_t variable_id : participating_variables) {
+    for (const uint64_t *var_id = equation_ptr; var_id < equation_ptr + 3;
+         ++var_id) {
       // Increment the degree for each vertex in the incident edge.
-      degree[variable_id]++;
+      degree[*var_id]++;
       // Add the edge to the XOR list corresponding to variable_id.
-      equation_id_xors[variable_id] ^= equation_id;
+      equation_id_xors[*var_id] ^= equation_id;
     }
   }
 
@@ -94,16 +94,17 @@ peelHypergraph(const SparseSystemPtr &sparse_system,
 
         // We must remove peeled_equation_id from equation_id_xors for the other
         // variables that participate in this equation.
-        auto [vars_to_update, _ignore_constant_] =
+        const uint64_t *equation_ptr =
             sparse_system->getEquation(peeled_equation_id);
-        for (uint32_t var_to_update : vars_to_update) {
+        for (const uint64_t *var_id = equation_ptr; var_id < equation_ptr + 3;
+             ++var_id) {
           // Since we peeled this equation, decrease the degree.
-          degree[var_to_update]--;
-          if (var_to_update != var_to_peel) {
+          degree[*var_id]--;
+          if (*var_id != var_to_peel) {
             // If this isn't the variable we are currently peeling, remove it
             // from the XOR list (If it is, then doing the XOR is pointless as
             // it will just yield 0).
-            equation_id_xors[var_to_update] ^= peeled_equation_id;
+            equation_id_xors[*var_id] ^= peeled_equation_id;
           }
         }
         // Iterate through the other variables involved in the peeled equation,
@@ -114,17 +115,18 @@ peelHypergraph(const SparseSystemPtr &sparse_system,
         // Since vars_to_update can only have 3 elements and the duplicate case
         // happens so infrequently, its faster to first check for duplicates
         // manually and only use a set if there are duplicates
-        if ((vars_to_update[0] != vars_to_update[1]) &&
-            (vars_to_update[1] != vars_to_update[2]) &&
-            (vars_to_update[0] != vars_to_update[2])) {
-          for (uint32_t var_to_maybe_peel : vars_to_update) {
-            if (degree[var_to_maybe_peel] == 1) {
-              vars_to_peel.push_back(var_to_maybe_peel);
+        if ((equation_ptr[0] != equation_ptr[1]) &&
+            (equation_ptr[1] != equation_ptr[2]) &&
+            (equation_ptr[0] != equation_ptr[2])) {
+          for (const uint64_t *var_id = equation_ptr; var_id < equation_ptr + 3;
+               ++var_id) {
+            if (degree[*var_id] == 1) {
+              vars_to_peel.push_back(*var_id);
             }
           }
         } else {
-          std::set<uint32_t> set_to_update(vars_to_update.begin(),
-                                           vars_to_update.end());
+          std::set<uint64_t> set_to_update = {equation_ptr[0], equation_ptr[1],
+                                              equation_ptr[2]};
           for (uint32_t var_to_maybe_peel : set_to_update) {
             if (degree[var_to_maybe_peel] == 1) {
               vars_to_peel.push_back(var_to_maybe_peel);
@@ -182,11 +184,12 @@ BitArrayPtr solvePeeledFromDense(const std::vector<uint64_t> &peeled_ids,
     uint64_t variable_id = solution_order[i];
 
     // Update dense_solution to include the solution to this variable.
-    auto [participating_vars, constant] =
-        sparse_system->getEquation(equation_id);
+    const uint64_t *equation_ptr = sparse_system->getEquation(equation_id);
+    uint64_t constant = equation_ptr[3];
     bool accumulator = false;
-    for (uint64_t participating_var : participating_vars) {
-      accumulator ^= (*dense_solution)[participating_var];
+    for (const uint64_t *var_id = equation_ptr; var_id < equation_ptr + 3;
+         ++var_id) {
+      accumulator ^= (*dense_solution)[*var_id];
     }
     accumulator ^= constant;
     if (accumulator) {
