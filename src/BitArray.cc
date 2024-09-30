@@ -12,19 +12,22 @@
 
 namespace caramel {
 
-BitArray::BitArray(uint32_t num_bits) : _num_bits(num_bits) {
+BitArray::BitArray(uint32_t num_bits) : _num_bits(num_bits), _owns_data(true) {
   if (num_bits < 1) {
     throw std::invalid_argument("Error: Bit Array must have at least 1 bit.");
   }
 
   _num_blocks = ((num_bits - 1) / BLOCK_SIZE) + 1;
 
-  _backing_array = std::vector<uint64_t>(_num_blocks, 0);
+  _backing_array = new uint64_t[_num_blocks]();
 }
 
-BitArray::BitArray(const BitArray &other) {
-  copyFrom(other);
-}
+BitArray::BitArray(const BitArray &other) { copyFrom(other); }
+
+BitArray::BitArray(uint64_t *backing_array, uint64_t num_bits,
+                   uint64_t num_blocks)
+    : _num_bits(num_bits), _num_blocks(num_blocks),
+      _backing_array(backing_array), _owns_data(false) {}
 
 std::shared_ptr<BitArray> BitArray::fromNumber(uint64_t number,
                                                uint32_t length) {
@@ -175,7 +178,7 @@ std::optional<uint32_t> BitArray::find() const {
 
 void BitArray::setAll() {
   /* set bits in all bytes to 1 */
-  std::fill(_backing_array.begin(), _backing_array.end(), UINT64_MAX);
+  std::fill(_backing_array, _backing_array + _num_blocks, UINT64_MAX);
 
   /* zero any spare bits so increment and decrement are consistent */
   int bits = _num_bits % BLOCK_SIZE;
@@ -187,20 +190,20 @@ void BitArray::setAll() {
 
 uint32_t BitArray::numSetBits() const {
   uint32_t total = 0;
-  for (auto &block : _backing_array) {
-    total += __builtin_popcountll(block);
+  for (size_t block = 0; block < _num_blocks; block++) {
+    total += __builtin_popcountll(_backing_array[block]);
   }
   return total;
 }
 
-bool BitArray::scalarProduct(const BitArrayPtr &bitarray1,
-                             const BitArrayPtr &bitarray2) {
-  if (bitarray1->numBits() != bitarray2->numBits()) {
+bool BitArray::scalarProduct(const BitArray &bitarray1,
+                             const BitArray &bitarray2) {
+  if (bitarray1.numBits() != bitarray2.numBits()) {
     throw std::invalid_argument(
         "scalarProduct recieved two bitarrays of different sizes.");
   }
 
-  auto temp_result = (*bitarray1) & (*bitarray2);
+  auto temp_result = bitarray1 & bitarray2;
 
   return temp_result.numSetBits() % 2;
 }
@@ -213,17 +216,26 @@ std::string BitArray::str() const {
   return output;
 }
 
-void BitArray::copyFrom(const BitArray& other) {
+void BitArray::copyFrom(const BitArray &other) {
   _num_bits = other._num_bits;
   _num_blocks = other._num_blocks;
-  _backing_array = other._backing_array;
+  _backing_array = new uint64_t[_num_blocks];
+  std::copy(other._backing_array, other._backing_array + _num_blocks,
+            _backing_array);
+  _owns_data = true;
+}
+
+BitArray::~BitArray() noexcept {
+  if (_owns_data) {
+    delete[] this->_backing_array;
+  }
 }
 
 template void BitArray::serialize(cereal::BinaryInputArchive &);
 template void BitArray::serialize(cereal::BinaryOutputArchive &);
 
 template <class Archive> void BitArray::serialize(Archive &archive) {
-  archive(_num_bits, _num_blocks, _backing_array);
+  archive(_num_bits, _num_blocks, _owns_data); // TODO(david) fix serialization
 }
 
 } // namespace caramel
