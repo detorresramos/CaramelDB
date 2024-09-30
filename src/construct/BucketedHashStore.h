@@ -33,6 +33,7 @@ construct(const std::vector<std::string> &keys, const std::vector<T> &values,
   }
 
   std::unordered_set<__uint128_t> seen_keys;
+  seen_keys.reserve(keys.size());
   std::vector<std::vector<__uint128_t>> key_buckets(num_buckets);
   std::vector<std::vector<T>> value_buckets(num_buckets);
 
