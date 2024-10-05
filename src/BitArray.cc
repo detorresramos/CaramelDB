@@ -26,8 +26,8 @@ BitArray::BitArray(const BitArray &other) { copyFrom(other); }
 
 BitArray::BitArray(uint64_t *backing_array, uint64_t num_bits,
                    uint64_t num_blocks)
-    : _num_bits(num_bits), _num_blocks(num_blocks),
-      _backing_array(backing_array), _owns_data(false) {}
+    : _num_bits(num_bits), _num_blocks(num_blocks), _owns_data(false),
+      _backing_array(backing_array) {}
 
 std::shared_ptr<BitArray> BitArray::fromNumber(uint64_t number,
                                                uint32_t length) {
@@ -231,11 +231,27 @@ BitArray::~BitArray() noexcept {
   }
 }
 
-template void BitArray::serialize(cereal::BinaryInputArchive &);
-template void BitArray::serialize(cereal::BinaryOutputArchive &);
+template <class Archive> void BitArray::save(Archive &archive) const {
+  archive(_num_bits, _num_blocks, _owns_data);
 
-template <class Archive> void BitArray::serialize(Archive &archive) {
-  archive(_num_bits, _num_blocks, _owns_data); // TODO(david) fix serialization
+  archive(cereal::binary_data(_backing_array, _num_blocks * sizeof(uint64_t)));
 }
+
+template <class Archive> void BitArray::load(Archive &archive) {
+  archive(_num_bits, _num_blocks, _owns_data);
+
+  bool is_sparse, has_gradients;
+  archive(is_sparse, has_gradients);
+
+  _backing_array = new uint64_t[_num_blocks];
+  archive(cereal::binary_data(_backing_array, _num_blocks * sizeof(uint64_t)));
+}
+
+template void BitArray::load(cereal::PortableBinaryInputArchive &archive);
+template void BitArray::load(cereal::BinaryInputArchive &archive);
+
+template void
+BitArray::save(cereal::PortableBinaryOutputArchive &archive) const;
+template void BitArray::save(cereal::BinaryOutputArchive &archive) const;
 
 } // namespace caramel

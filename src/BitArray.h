@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cereal/access.hpp>
+#include <cereal/archives/binary.hpp>
+#include <cereal/archives/portable_binary.hpp>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -114,12 +116,14 @@ private:
   void copyFrom(const BitArray &other);
 
   friend class cereal::access;
-  template <class Archive> void serialize(Archive &archive);
+  template <class Archive> void save(Archive &archive) const;
+
+  template <class Archive> void load(Archive &archive);
 
   uint32_t _num_bits;
   uint32_t _num_blocks;
-  uint64_t *_backing_array;
   bool _owns_data;
+  uint64_t *_backing_array;
 };
 
 } // namespace caramel
