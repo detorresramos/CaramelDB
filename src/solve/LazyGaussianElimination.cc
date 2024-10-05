@@ -146,8 +146,9 @@ lazyGaussianElimination(const SparseSystemPtr &sparse_system,
       sparse_equation_ids.pop_back();
       uint32_t priority = equation_priority[equation_id];
       if (priority == 0) {
-        auto &[equation, constant, _] = dense_system->getEquation(equation_id);
-        bool equation_is_nonempty = equation->any();
+        BitArray equation = dense_system->getEquation(equation_id);
+        uint64_t &constant = dense_system->getConstant(equation_id);
+        bool equation_is_nonempty = equation.any();
         if (equation_is_nonempty) {
           // Since priority is 0, all variables are active.
           dense_equation_ids.push_back(equation_id);
@@ -162,8 +163,8 @@ lazyGaussianElimination(const SparseSystemPtr &sparse_system,
         // If there is only 1 idle variable, the equation is solved.
         // We need to find the pivot - the variable_id of the only
         // remaining idle variable in the equation.
-        auto &[equation, constant, _] = dense_system->getEquation(equation_id);
-        uint64_t variable_id = *(*equation & *idle_variable_indicator)
+        BitArray equation = dense_system->getEquation(equation_id);
+        uint64_t variable_id = *(equation & *idle_variable_indicator)
                                     .find(); // TODO handle optional case?
         solved_variable_ids.push_back(variable_id);
         solved_equation_ids.push_back(equation_id);
@@ -207,12 +208,13 @@ BitArrayPtr solveLazyFromDense(const std::vector<uint64_t> &solved_ids,
     // variable_id(by the invariants of the lazy gaussian elimination)
     // The solution is zero at this index, so the bit to set is just
     // the constant XOR < equation_coefficients, solution_so_far>
-    auto &[equation, constant, _] = dense_system->getEquation(equation_id);
+    BitArray equation = dense_system->getEquation(equation_id);
+    uint64_t &constant = dense_system->getConstant(equation_id);
     // TODO: The mod-2 might be less efficient than alternatives (this is a
     // holdover from the Python implementation where bitwise ops were hard).
     // If X = BitArray::scalarProduct, check if we can replace X % 2 with X & 1.
     uint32_t value =
-        constant ^ BitArray::scalarProduct(equation, dense_solution) % 2;
+        constant ^ BitArray::scalarProduct(equation, *dense_solution) % 2;
     value = 1 & value;
     if (value) {
       dense_solution->setBit(variable_id);

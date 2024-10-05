@@ -118,15 +118,15 @@ TEST(BitArrayTest, TestScalarProduct) {
   bitarray2->setBit(3);
   bitarray2->setBit(4);
 
-  uint32_t product = BitArray::scalarProduct(bitarray1, bitarray2);
+  uint32_t product = BitArray::scalarProduct(*bitarray1, *bitarray2);
   ASSERT_EQ(product, 1);
 
   bitarray2->setBit(5);
-  product = BitArray::scalarProduct(bitarray1, bitarray2);
+  product = BitArray::scalarProduct(*bitarray1, *bitarray2);
   ASSERT_EQ(product, 1);
 
   bitarray1->setBit(5);
-  product = BitArray::scalarProduct(bitarray1, bitarray2);
+  product = BitArray::scalarProduct(*bitarray1, *bitarray2);
   ASSERT_EQ(product, 0);
 }
 

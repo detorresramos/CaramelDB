@@ -65,9 +65,9 @@ using SparseSystemPtr = std::shared_ptr<SparseSystem>;
 class DenseSystem {
 public:
   DenseSystem(uint64_t solution_size, uint64_t num_equations)
-      : _solution_size(solution_size) {
-    _equations.resize(num_equations);
-  }
+      : _solution_size(solution_size),
+        _blocks_per_equation(((solution_size - 1) / BLOCK_SIZE) + 1),
+        _equations(num_equations * (_blocks_per_equation + 2), 0) {}
 
   static std::shared_ptr<DenseSystem> make(uint64_t solution_size,
                                            uint64_t num_equations) {
@@ -85,9 +85,19 @@ public:
   void addEquation(uint64_t equation_id, const uint64_t *equation_ptr,
                    uint32_t constant);
 
-  std::tuple<BitArrayPtr, uint32_t, uint64_t> &
-  getEquation(uint64_t equation_id) {
-    return _equations[equation_id];
+  BitArray getEquation(uint64_t equation_id) {
+    return BitArray(&_equations[equation_id * (_blocks_per_equation + 2)],
+                    _solution_size, _blocks_per_equation);
+  }
+
+  uint64_t &getConstant(uint64_t equation_id) {
+    return _equations[equation_id * (_blocks_per_equation + 2) +
+                      _blocks_per_equation];
+  }
+
+  uint64_t &getFirstVar(uint64_t equation_id) {
+    return _equations[equation_id * (_blocks_per_equation + 2) +
+                      _blocks_per_equation + 1];
   }
 
   void xorEquations(uint64_t equation_to_modify, uint64_t equation_to_xor);
@@ -96,27 +106,28 @@ public:
 
   void updateFirstVar(uint64_t equation_id);
 
-  bool isUnsolvable(uint64_t equation_id) const {
-    auto &[equation, constant, _] = _equations[equation_id];
-    bool is_empty = !equation;
+  bool isUnsolvable(uint64_t equation_id) {
+    BitArray equation = getEquation(equation_id);
+    uint64_t &constant = getConstant(equation_id);
+    bool is_empty = !equation.any();
     return is_empty && constant != 0;
   }
 
-  bool isIdentity(uint64_t equation_id) const {
-    auto &[equation, constant, _] = _equations[equation_id];
-    bool is_empty = !equation->any();
+  bool isIdentity(uint64_t equation_id) {
+    BitArray equation = getEquation(equation_id);
+    uint64_t &constant = getConstant(equation_id);
+    bool is_empty = !equation.any();
     return is_empty && constant == 0;
   }
 
-  uint64_t numEquations() const { return _equations.size(); }
-
   uint64_t solutionSize() const { return _solution_size; }
 
-  std::string str() const;
+  std::string str();
 
 private:
-  std::vector<std::tuple<BitArrayPtr, uint32_t, uint64_t>> _equations;
   uint64_t _solution_size;
+  uint64_t _blocks_per_equation;
+  std::vector<uint64_t> _equations;
 };
 
 using DenseSystemPtr = std::shared_ptr<DenseSystem>;
