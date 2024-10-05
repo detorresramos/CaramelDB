@@ -162,7 +162,6 @@ def test_bloom_filter(most_common_frequency):
 
 
 def test_uint32_vs_64_values():
-    keys = gen_str_keys(1000)
     uint32_t_values = np.array([1, 2, 3], dtype=np.uint32)
     assert carameldb._infer_backend(uint32_t_values) == carameldb.CSFUint32
     uint64_t_values = np.array([1, 2, 3], dtype=np.uint64)
@@ -174,3 +173,14 @@ def test_all_same_with_and_without_bloom(bloom_filter):
     keys = gen_str_keys(1000)
     values = np.array([5 for i in range(len(keys))])
     assert_simple_api_correct(keys, values, bloom_filter=bloom_filter)
+
+
+def test_unsolvable():
+    keys = ["1", "2", "3", "4", "4"]
+    values = [1, 2, 3, 4, 5]
+
+    with pytest.raises(
+        ValueError,
+        match="Detected a key collision under 128-bit hash. Likely due to a duplicate key.",
+    ):
+        carameldb.Caramel(keys, values)
