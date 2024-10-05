@@ -55,9 +55,18 @@ lazyGaussianElimination(const SparseSystemPtr &sparse_system,
   DenseSystemPtr dense_system =
       DenseSystem::make(num_variables, sparse_system->numEquations());
 
+  // START CONFUSING SECTION
+  // Basically the objective of this section is to create var_to_equations,
+  // which you can think of as a map from variable_id to the equations that
+  // involve that variable_id. Using a hashmap/vector of vectors for this is a
+  // big bottleneck, mostly because we are not able to allocate this memory
+  // efficiently. The reason for this is that each variable has a different
+  // number of relevant equations. This code calculates offsets for the
+  // variable_ids so we can effectively use a single vector for var_to_equations.
   std::unordered_set<uint64_t> vars_to_add;
-  std::vector<std::vector<uint64_t>> var_to_equations(num_variables);
-  var_to_equations.reserve(num_variables);
+  std::vector<uint64_t> var_to_equations_count(sparse_system->solutionSize() +
+                                               1);
+  uint64_t var_to_equations_size = 0;
   for (uint64_t equation_id : equation_ids) {
     const uint64_t *equation_ptr = sparse_system->getEquation(equation_id);
     uint64_t constant = equation_ptr[3];
@@ -69,7 +78,8 @@ lazyGaussianElimination(const SparseSystemPtr &sparse_system,
       for (const uint64_t *var_id = equation_ptr; var_id < equation_ptr + 3;
            ++var_id) {
         variable_weight[*var_id]++;
-        var_to_equations[*var_id].push_back(equation_id);
+        var_to_equations_count[*var_id + 1]++;
+        var_to_equations_size++;
       }
       equation_priority[equation_id] += 3;
     } else {
@@ -84,12 +94,55 @@ lazyGaussianElimination(const SparseSystemPtr &sparse_system,
       // Update weight and priority for de-duped variables.
       for (uint64_t variable_id : vars_to_add) {
         variable_weight[variable_id]++;
-        var_to_equations[variable_id].push_back(equation_id);
+        var_to_equations_count[variable_id + 1]++;
+        var_to_equations_size++;
       }
       equation_priority[equation_id] += vars_to_add.size();
       vars_to_add.clear();
     }
   }
+
+  std::vector<uint64_t> var_to_num_filled_equations(
+      var_to_equations_count.size());
+
+  for (uint64_t i = 1; i < var_to_equations_count.size(); i++) {
+    var_to_equations_count[i] += var_to_equations_count[i - 1];
+  }
+
+  std::vector<uint64_t> var_to_equations(var_to_equations_size);
+  for (uint64_t equation_id : equation_ids) {
+    const uint64_t *equation_ptr = sparse_system->getEquation(equation_id);
+
+    if ((equation_ptr[0] != equation_ptr[1]) &&
+        (equation_ptr[1] != equation_ptr[2]) &&
+        (equation_ptr[0] != equation_ptr[2])) {
+      for (const uint64_t *var_id = equation_ptr; var_id < equation_ptr + 3;
+           ++var_id) {
+        uint64_t offset = var_to_equations_count[*var_id];
+        uint64_t adjustment = var_to_num_filled_equations[*var_id];
+        var_to_equations[offset + adjustment] = equation_id;
+        var_to_num_filled_equations[*var_id]++;
+      }
+    } else {
+      for (const uint64_t *var_id = equation_ptr; var_id < equation_ptr + 3;
+           ++var_id) {
+        auto [_, inserted] = vars_to_add.insert(*var_id);
+        if (!inserted) {
+          vars_to_add.erase(*var_id);
+        }
+      }
+      // Update weight and priority for de-duped variables.
+      for (uint64_t variable_id : vars_to_add) {
+        uint64_t offset = var_to_equations_count[variable_id];
+        uint64_t adjustment = var_to_num_filled_equations[variable_id];
+        var_to_equations[offset + adjustment] = equation_id;
+        var_to_num_filled_equations[variable_id]++;
+      }
+      vars_to_add.clear();
+    }
+  }
+
+  // END CONFUSING SECTION
 
   uint64_t num_relevant_equations = equation_ids.size();
 
@@ -133,7 +186,11 @@ lazyGaussianElimination(const SparseSystemPtr &sparse_system,
       // Mark variable as no longer idle
       idle_variable_indicator->clearBit(variable_id);
       // By marking this variable as active, we must update priorities.
-      for (uint64_t equation_id : var_to_equations[variable_id]) {
+
+      uint64_t upper_bound = var_to_equations_count[variable_id + 1];
+      for (uint64_t i = var_to_equations_count[variable_id]; i < upper_bound;
+           i++) {
+        uint64_t equation_id = var_to_equations[i];
         equation_priority[equation_id] -= 1;
         if (equation_priority[equation_id] == 1) {
           sparse_equation_ids.push_back(equation_id);
@@ -172,7 +229,10 @@ lazyGaussianElimination(const SparseSystemPtr &sparse_system,
         // future when looking for new active variables.
         variable_weight[variable_id] = 0;
         // Remove this variable from all other equations.
-        for (uint64_t other_equation_id : var_to_equations[variable_id]) {
+        uint64_t upper_bound = var_to_equations_count[variable_id + 1];
+        for (uint64_t i = var_to_equations_count[variable_id]; i < upper_bound;
+             i++) {
+          uint64_t other_equation_id = var_to_equations[i];
           if (other_equation_id != equation_id) {
             equation_priority[other_equation_id] -= 1;
             if (equation_priority[other_equation_id] == 1) {
