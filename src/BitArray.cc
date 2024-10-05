@@ -1,7 +1,8 @@
 #include "BitArray.h"
 #include <bit>
 #include <cereal/archives/binary.hpp>
-#include <cereal/types/vector.hpp>
+#include <cereal/archives/portable_binary.hpp>
+#include <cereal/cereal.hpp>
 #include <climits>
 #include <stdexcept>
 #ifdef __aarch64__
@@ -239,9 +240,6 @@ template <class Archive> void BitArray::save(Archive &archive) const {
 
 template <class Archive> void BitArray::load(Archive &archive) {
   archive(_num_bits, _num_blocks, _owns_data);
-
-  bool is_sparse, has_gradients;
-  archive(is_sparse, has_gradients);
 
   _backing_array = new uint64_t[_num_blocks];
   archive(cereal::binary_data(_backing_array, _num_blocks * sizeof(uint64_t)));
