@@ -52,7 +52,13 @@ set(CARAMEL_COMPILE_OPTIONS
     $<$<CONFIG:Release>:-DNDEBUG>
     $<$<CONFIG:Release>:-Ofast>
     $<$<CONFIG:Release>:-funroll-loops>
-    $<$<CONFIG:Release>:-ftree-vectorize>)
+    $<$<CONFIG:Release>:-ftree-vectorize>
+    $<$<CONFIG:RelWithDebInfo>:-DNDEBUG>
+    $<$<CONFIG:RelWithDebInfo>:-Ofast>
+    $<$<CONFIG:RelWithDebInfo>:-funroll-loops>
+    $<$<CONFIG:RelWithDebInfo>:-ftree-vectorize>
+    $<$<CONFIG:RelWithDebInfo>:-g>
+    $<$<CONFIG:RelWithDebInfo>:-fno-omit-frame-pointer>)
 
 # PERFORMANCE_COMPARISON is always enabled by default in cereal CMakeLists which
 # requires the boost and we dont want to add the boost dependencies, hence
