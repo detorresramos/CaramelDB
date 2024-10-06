@@ -21,7 +21,7 @@ def main():
         "-m",
         "--build_mode",
         default="Release",
-        choices=["Release", "Debug", "RelWithDebInfo"],
+        choices=["Release", "Debug", "RelWithDebInfo", "DebugWithAsan"],
         metavar="MODE",  # Don't print the choices because they're ugly
         help='The mode to build with (see CMakeLists.txt for the specific compiler flags for each mode). Default is "Release".',
     )

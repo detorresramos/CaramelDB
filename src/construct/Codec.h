@@ -49,7 +49,7 @@ cannonicalHuffman(const std::vector<T> &symbols) {
   // accessing element i gives the number of codes of length i in the codedict
   std::vector<uint32_t> code_length_counts(codeword_lengths.back() + 1, 0);
   for (uint32_t i = 0; i < symbol_frequency_pairs.size(); i++) {
-    auto& [symbol, _] = symbol_frequency_pairs[i];
+    auto &[symbol, _] = symbol_frequency_pairs[i];
     uint32_t current_length = codeword_lengths[i];
     codedict.emplace(symbol, BitArray::fromNumber(code, current_length));
     code_length_counts[current_length]++;
@@ -82,7 +82,7 @@ cannonicalHuffman(const std::vector<T> &symbols) {
   Source: https://github.com/madler/zlib/blob/master/contrib/puff/puff.c#L235
 */
 template <typename T>
-T cannonicalDecode(const BitArrayPtr &bitarray,
+T cannonicalDecode(const BitArray &bitarray,
                    const std::vector<uint32_t> &code_length_counts,
                    const std::vector<T> &symbols) {
   // instead of storing the symbols, if we have variable length stuff, store a
@@ -91,7 +91,7 @@ T cannonicalDecode(const BitArrayPtr &bitarray,
   int first = 0;
   int index = 0;
   for (uint32_t i = 1; i < code_length_counts.size(); i++) {
-    uint32_t next_bit = (*bitarray)[i - 1];
+    uint32_t next_bit = bitarray[i - 1];
     code = code | next_bit;
     int count = code_length_counts[i];
     if (code - count < first) {

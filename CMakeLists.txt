@@ -49,6 +49,9 @@ set(CARAMEL_COMPILE_OPTIONS
     $<$<CONFIG:Debug>:-Og>
     $<$<CONFIG:Debug>:-g>
     $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
+    $<$<CONFIG:DebugWithAsan>:-Og>
+    $<$<CONFIG:DebugWithAsan>:-g>
+    $<$<CONFIG:DebugWithAsan>:-fno-omit-frame-pointer>
     $<$<CONFIG:Release>:-DNDEBUG>
     $<$<CONFIG:Release>:-Ofast>
     $<$<CONFIG:Release>:-funroll-loops>
@@ -59,6 +62,8 @@ set(CARAMEL_COMPILE_OPTIONS
     $<$<CONFIG:RelWithDebInfo>:-ftree-vectorize>
     $<$<CONFIG:RelWithDebInfo>:-g>
     $<$<CONFIG:RelWithDebInfo>:-fno-omit-frame-pointer>)
+
+set(CARAMEL_ASAN_COMPILE_OPTIONS $<$<CONFIG:DebugWithAsan>:-fsanitize=address>)
 
 # PERFORMANCE_COMPARISON is always enabled by default in cereal CMakeLists which
 # requires the boost and we dont want to add the boost dependencies, hence
@@ -102,6 +107,14 @@ target_link_libraries(_caramel PUBLIC caramel_lib)
 target_compile_options(caramel_lib PRIVATE ${CARAMEL_COMPILE_OPTIONS})
 target_compile_options(_caramel PRIVATE ${CARAMEL_COMPILE_OPTIONS})
 
+target_compile_options(caramel_lib PUBLIC ${CARAMEL_ASAN_COMPILE_OPTIONS})
+
+target_link_options(caramel_lib PUBLIC ${CARAMEL_ASAN_COMPILE_OPTIONS})
+
+target_compile_options(_caramel PRIVATE ${CARAMEL_ASAN_COMPILE_OPTIONS})
+
+target_link_options(_caramel PRIVATE ${CARAMEL_ASAN_COMPILE_OPTIONS})
+
 message("===================================================")
 message("\tProject Directory = ${PROJECT_SOURCE_DIR}")
 message("\tC++ Compiler = ${CMAKE_CXX_COMPILER}")
@@ -110,3 +123,4 @@ message("\tSource Files = ")
 foreach(SOURCE_FILE IN LISTS CPP_SOURCE)
     message("\t ${SOURCE_FILE}")
 endforeach(SOURCE_FILE IN LISTS CPP_SOURCE)
+
