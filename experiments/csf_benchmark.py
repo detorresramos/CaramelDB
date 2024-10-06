@@ -23,7 +23,7 @@ def parse_args():
         "--dist",
         type=str,
         choices=["zipfian", "geometric", "uniform"],
-        default="zipfian"
+        default="zipfian",
     )
     parser.add_argument("--rows", type=int, default=10_000_000)
     parser.add_argument("--columns", type=int, default=1)

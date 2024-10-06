@@ -28,12 +28,11 @@ public:
 
   BitArray(uint64_t *backing_array, uint64_t num_bits, uint64_t num_blocks);
 
+  static BitArray fromNumber(uint64_t int_value, uint32_t length);
+
   static std::shared_ptr<BitArray> make(uint32_t num_bits) {
     return std::make_shared<BitArray>(num_bits);
   }
-
-  static std::shared_ptr<BitArray> fromNumber(uint64_t int_value,
-                                              uint32_t length);
 
   inline uint32_t numBits() const { return _num_bits; }
 

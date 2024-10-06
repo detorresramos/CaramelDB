@@ -180,7 +180,7 @@ def test_unsolvable():
     values = [1, 2, 3, 4, 5]
 
     with pytest.raises(
-        ValueError,
+        RuntimeError,
         match="Detected a key collision under 128-bit hash. Likely due to a duplicate key.",
     ):
         carameldb.Caramel(keys, values)
