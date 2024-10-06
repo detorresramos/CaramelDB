@@ -84,17 +84,35 @@ BitArray &BitArray::operator^=(const BitArray &other) {
   }
 
   size_t i = 0;
-  for (; i + 1 < _num_blocks; i += 2) {
-    __m128i a =
-        _mm_loadu_si128(reinterpret_cast<const __m128i *>(&_backing_array[i]));
-    __m128i b = _mm_loadu_si128(
-        reinterpret_cast<const __m128i *>(&other._backing_array[i]));
-    __m128i result = _mm_xor_si128(a, b);
-    _mm_storeu_si128(reinterpret_cast<__m128i *>(&_backing_array[i]), result);
-  }
+  // for (; i + 8 <= _num_blocks; i += 8) {
+  //   __m128i a0 =
+  //       _mm_loadu_si128(reinterpret_cast<const __m128i *>(&_backing_array[i]));
+  //   __m128i b0 = _mm_loadu_si128(
+  //       reinterpret_cast<const __m128i *>(&other._backing_array[i]));
+  //   __m128i a1 = _mm_loadu_si128(
+  //       reinterpret_cast<const __m128i *>(&_backing_array[i + 2]));
+  //   __m128i b1 = _mm_loadu_si128(
+  //       reinterpret_cast<const __m128i *>(&other._backing_array[i + 2]));
+  //   __m128i a2 = _mm_loadu_si128(
+  //       reinterpret_cast<const __m128i *>(&_backing_array[i + 4]));
+  //   __m128i b2 = _mm_loadu_si128(
+  //       reinterpret_cast<const __m128i *>(&other._backing_array[i + 4]));
+  //   __m128i a3 = _mm_loadu_si128(
+  //       reinterpret_cast<const __m128i *>(&_backing_array[i + 6]));
+  //   __m128i b3 = _mm_loadu_si128(
+  //       reinterpret_cast<const __m128i *>(&other._backing_array[i + 6]));
 
-  // Handle the last element if the total number is odd
-  if (i < _num_blocks) {
+  //   _mm_storeu_si128(reinterpret_cast<__m128i *>(&_backing_array[i]),
+  //                    _mm_xor_si128(a0, b0));
+  //   _mm_storeu_si128(reinterpret_cast<__m128i *>(&_backing_array[i + 2]),
+  //                    _mm_xor_si128(a1, b1));
+  //   _mm_storeu_si128(reinterpret_cast<__m128i *>(&_backing_array[i + 4]),
+  //                    _mm_xor_si128(a2, b2));
+  //   _mm_storeu_si128(reinterpret_cast<__m128i *>(&_backing_array[i + 6]),
+  //                    _mm_xor_si128(a3, b3));
+  // }
+
+  for (; i < _num_blocks; ++i) {
     _backing_array[i] ^= other._backing_array[i];
   }
 
