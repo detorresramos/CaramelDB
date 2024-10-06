@@ -2,6 +2,7 @@
 
 #include "SpookyHash.h"
 #include <algorithm>
+#include <iostream>
 #include <stdexcept>
 #include <string>
 #include <unordered_set>
@@ -27,24 +28,28 @@ template <typename T>
 std::tuple<std::vector<std::vector<__uint128_t>>, std::vector<std::vector<T>>,
            uint64_t>
 construct(const std::vector<std::string> &keys, const std::vector<T> &values,
-          uint32_t num_buckets, uint64_t seed) {
+          uint32_t num_buckets, uint64_t seed,
+          uint64_t approximate_bucket_size) {
   if (keys.size() != values.size()) {
     throw std::invalid_argument("Keys and values must match sizes.");
   }
 
-  std::unordered_set<__uint128_t> seen_keys;
-  seen_keys.reserve(keys.size());
   std::vector<std::vector<__uint128_t>> key_buckets(num_buckets);
   std::vector<std::vector<T>> value_buckets(num_buckets);
 
-  for (uint32_t i = 0; i < keys.size(); i++) {
+  for (size_t i = 0; i < num_buckets; i++) {
+    key_buckets[i].reserve(approximate_bucket_size);
+    value_buckets[i].reserve(approximate_bucket_size);
+  }
+
+  for (size_t i = 0; i < keys.size(); i++) {
     __uint128_t signature = hashKey(keys[i], seed);
-    if (seen_keys.find(signature) != seen_keys.end()) {
+    uint32_t bucket_id = getBucketID(signature, num_buckets);
+    if (std::find(key_buckets[bucket_id].begin(), key_buckets[bucket_id].end(),
+                  signature) != key_buckets[bucket_id].end()) {
       throw std::runtime_error("Detected a key collision under 128-bit hash. "
                                "Likely due to a duplicate key.");
     }
-    seen_keys.insert(signature);
-    uint32_t bucket_id = getBucketID(signature, num_buckets);
     key_buckets[bucket_id].push_back(signature);
     value_buckets[bucket_id].push_back(values[i]);
   }
@@ -56,7 +61,7 @@ template <typename T>
 std::tuple<std::vector<std::vector<__uint128_t>>, std::vector<std::vector<T>>,
            uint64_t>
 partitionToBuckets(const std::vector<std::string> &keys,
-                   const std::vector<T> &values, uint32_t bucket_size = 1000,
+                   const std::vector<T> &values, uint64_t bucket_size = 1000,
                    uint32_t num_attempts = 3) {
   if (keys.size() != values.size()) {
     throw std::invalid_argument("Keys and values must match sizes.");
@@ -66,7 +71,7 @@ partitionToBuckets(const std::vector<std::string> &keys,
 
   for (uint64_t seed = 0; seed < num_attempts; seed++) {
     try {
-      return construct<T>(keys, values, num_buckets, seed);
+      return construct<T>(keys, values, num_buckets, seed, bucket_size);
     } catch (const std::exception &e) {
       if (seed == num_attempts - 1) {
         throw;
