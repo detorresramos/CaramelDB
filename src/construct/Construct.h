@@ -37,7 +37,7 @@ constructModulo2System(const std::vector<__uint128_t> &key_signatures,
                        uint32_t seed, float DELTA) {
   uint64_t num_equations = 0;
   for (const auto &v : values) {
-    num_equations += codedict.find(v)->second->numBits();
+    num_equations += codedict.find(v)->second.numBits();
   }
 
   // TODO(david) should we add max_codelength to num_variables, was getting a
@@ -53,10 +53,10 @@ constructModulo2System(const std::vector<__uint128_t> &key_signatures,
     signatureToEquation(key_signatures[i], seed, num_variables,
                         start_var_locations);
 
-    BitArrayPtr coded_value = codedict.find(values[i])->second;
-    uint32_t n_bits = coded_value->numBits();
+    const BitArray &coded_value = codedict.find(values[i])->second;
+    uint32_t n_bits = coded_value.numBits();
     for (uint32_t offset = 0; offset < n_bits; offset++) {
-      uint32_t bit = (*coded_value)[offset];
+      uint32_t bit = coded_value[offset];
       sparse_system->addEquation(start_var_locations, offset, bit);
     }
   }

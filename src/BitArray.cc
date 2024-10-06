@@ -30,8 +30,7 @@ BitArray::BitArray(uint64_t *backing_array, uint64_t num_bits,
     : _num_bits(num_bits), _num_blocks(num_blocks), _owns_data(false),
       _backing_array(backing_array) {}
 
-std::shared_ptr<BitArray> BitArray::fromNumber(uint64_t number,
-                                               uint32_t length) {
+BitArray BitArray::fromNumber(uint64_t number, uint32_t length) {
   if (length == 0) {
     throw std::invalid_argument("Length must not be 0.");
   }
@@ -43,8 +42,8 @@ std::shared_ptr<BitArray> BitArray::fromNumber(uint64_t number,
                                 std::to_string(number) + ".");
   }
 
-  BitArrayPtr array = make(length);
-  array->_backing_array[0] = number << (BLOCK_SIZE - length);
+  BitArray array(length);
+  array._backing_array[0] = number << (BLOCK_SIZE - length);
   return array;
 }
 

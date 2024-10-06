@@ -8,7 +8,7 @@ namespace caramel {
 
 void minRedundancyCodewordLengths(std::vector<uint32_t> &A);
 
-template <typename T> using CodeDict = std::unordered_map<T, BitArrayPtr>;
+template <typename T> using CodeDict = std::unordered_map<T, BitArray>;
 
 template <typename T>
 std::tuple<CodeDict<T>, std::vector<uint32_t>, std::vector<T>>
@@ -49,9 +49,9 @@ cannonicalHuffman(const std::vector<T> &symbols) {
   // accessing element i gives the number of codes of length i in the codedict
   std::vector<uint32_t> code_length_counts(codeword_lengths.back() + 1, 0);
   for (uint32_t i = 0; i < symbol_frequency_pairs.size(); i++) {
-    auto [symbol, _] = symbol_frequency_pairs[i];
+    auto& [symbol, _] = symbol_frequency_pairs[i];
     uint32_t current_length = codeword_lengths[i];
-    codedict[symbol] = BitArray::fromNumber(code, current_length);
+    codedict.emplace(symbol, BitArray::fromNumber(code, current_length));
     code_length_counts[current_length]++;
     if (i + 1 < codeword_lengths.size()) {
       code++;
@@ -106,10 +106,9 @@ T cannonicalDecode(const BitArrayPtr &bitarray,
 }
 
 template <typename T>
-inline T cannonicalDecodeFromNumber(uint64_t encoded_value,
-                             const std::vector<uint32_t> &code_length_counts,
-                             const std::vector<T> &symbols,
-                             uint32_t max_codelength) {
+inline T cannonicalDecodeFromNumber(
+    uint64_t encoded_value, const std::vector<uint32_t> &code_length_counts,
+    const std::vector<T> &symbols, uint32_t max_codelength) {
   // instead of storing the symbols, if we have variable length stuff, store a
   // vector of pointers
   int code = 0;
