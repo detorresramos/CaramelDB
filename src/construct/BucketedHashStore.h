@@ -45,13 +45,28 @@ construct(const std::vector<std::string> &keys, const std::vector<T> &values,
   for (size_t i = 0; i < keys.size(); i++) {
     __uint128_t signature = hashKey(keys[i], seed);
     uint32_t bucket_id = getBucketID(signature, num_buckets);
-    if (std::find(key_buckets[bucket_id].begin(), key_buckets[bucket_id].end(),
-                  signature) != key_buckets[bucket_id].end()) {
-      throw std::runtime_error("Detected a key collision under 128-bit hash. "
-                               "Likely due to a duplicate key.");
-    }
     key_buckets[bucket_id].push_back(signature);
     value_buckets[bucket_id].push_back(values[i]);
+  }
+
+  std::exception_ptr exception = nullptr;
+#pragma omp parallel for default(none)                                         \
+    shared(num_buckets, key_buckets, value_buckets, exception)
+  for (size_t i = 0; i < num_buckets; i++) {
+    const auto &bucket = key_buckets.at(i);
+    std::unordered_set<__uint128_t> uniques(bucket.begin(), bucket.end());
+    if (uniques.size() != bucket.size()) {
+#pragma omp critical
+      {
+        exception = std::make_exception_ptr(
+            std::runtime_error("Detected a key collision under 128-bit hash. "
+                               "Likely due to a duplicate key."));
+      }
+    }
+  }
+
+  if (exception) {
+    std::rethrow_exception(exception);
   }
 
   return {key_buckets, value_buckets, seed};
