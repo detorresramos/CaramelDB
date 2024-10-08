@@ -22,14 +22,27 @@ inline uint32_t getBucketID(const __uint128_t &signature,
   return bucket_id;
 }
 
-__uint128_t hashKey(const std::string &key, uint64_t seed);
+inline __uint128_t hashKey(const std::string &key, uint64_t seed) {
+  const void *msgPtr = static_cast<const void *>(key.data());
+  size_t length = key.size();
+  uint64_t hash1 = seed;
+  uint64_t hash2 = seed;
+  SpookyHash::Hash128(msgPtr, length, &hash1, &hash2);
+  return (static_cast<__uint128_t>(hash1) << 64) | hash2;
+}
+
+template <typename T> struct BucketedHashStore {
+  std::vector<std::vector<__uint128_t>> key_buckets;
+  std::vector<std::vector<T>> value_buckets;
+  uint64_t seed;
+  uint64_t num_buckets;
+};
 
 template <typename T>
-std::tuple<std::vector<std::vector<__uint128_t>>, std::vector<std::vector<T>>,
-           uint64_t>
-construct(const std::vector<std::string> &keys, const std::vector<T> &values,
-          uint32_t num_buckets, uint64_t seed,
-          uint64_t approximate_bucket_size) {
+BucketedHashStore<T> construct(const std::vector<std::string> &keys,
+                               const std::vector<T> &values,
+                               uint32_t num_buckets, uint64_t seed,
+                               uint64_t approximate_bucket_size) {
   if (keys.size() != values.size()) {
     throw std::invalid_argument("Keys and values must match sizes.");
   }
@@ -69,15 +82,14 @@ construct(const std::vector<std::string> &keys, const std::vector<T> &values,
     std::rethrow_exception(exception);
   }
 
-  return {key_buckets, value_buckets, seed};
+  return {key_buckets, value_buckets, seed, key_buckets.size()};
 }
 
 template <typename T>
-std::tuple<std::vector<std::vector<__uint128_t>>, std::vector<std::vector<T>>,
-           uint64_t>
-partitionToBuckets(const std::vector<std::string> &keys,
-                   const std::vector<T> &values, uint64_t bucket_size = 1000,
-                   uint32_t num_attempts = 3) {
+BucketedHashStore<T> partitionToBuckets(const std::vector<std::string> &keys,
+                                        const std::vector<T> &values,
+                                        uint64_t bucket_size = 1000,
+                                        uint32_t num_attempts = 3) {
   if (keys.size() != values.size()) {
     throw std::invalid_argument("Keys and values must match sizes.");
   }

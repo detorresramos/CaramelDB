@@ -10,9 +10,15 @@ void minRedundancyCodewordLengths(std::vector<uint32_t> &A);
 
 template <typename T> using CodeDict = std::unordered_map<T, BitArray>;
 
+template <typename T> struct HuffmanOutput {
+  CodeDict<T> codedict;
+  std::vector<uint32_t> code_length_counts;
+  std::vector<T> ordered_symbols;
+  uint64_t max_codelength;
+};
+
 template <typename T>
-std::tuple<CodeDict<T>, std::vector<uint32_t>, std::vector<T>>
-cannonicalHuffman(const std::vector<T> &symbols) {
+HuffmanOutput<T> cannonicalHuffman(const std::vector<T> &symbols) {
   std::unordered_map<T, uint32_t> frequencies;
   for (const auto &symbol : symbols) {
     ++frequencies[symbol];
@@ -64,7 +70,8 @@ cannonicalHuffman(const std::vector<T> &symbols) {
     ordered_symbols.push_back(symbol);
   }
 
-  return {codedict, code_length_counts, ordered_symbols};
+  return {codedict, code_length_counts, ordered_symbols,
+          code_length_counts.size() - 1};
 }
 
 /*
