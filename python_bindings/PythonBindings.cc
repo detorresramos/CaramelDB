@@ -33,7 +33,6 @@ void bindCsf(py::module &module, const char *name, const uint32_t type_id) {
            py::arg("keys"), py::arg("values"),
            py::arg("use_bloom_filter") = true, py::arg("verbose") = true)
       .def("query", &Csf<T>::query, py::arg("key"))
-      .def("bloom_filter", &Csf<T>::bloomFilter)
       // Call save / load through a lambda to avoid user visibility of type_id.
       .def(
           "save",

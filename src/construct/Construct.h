@@ -1,6 +1,5 @@
 #pragma once
 
-#include "BloomPrefiltering.h"
 #include "BucketedHashStore.h"
 #include "Codec.h"
 #include "ConstructUtils.h"
@@ -9,6 +8,7 @@
 #include <cmath>
 #include <functional>
 #include <src/Modulo2System.h>
+#include <src/construct/filter/BloomPrefilter.h>
 #include <src/solve/Solve.h>
 #include <src/utils/ProgressBar.h>
 #include <src/utils/Timer.h>
@@ -121,36 +121,11 @@ CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
 
   std::vector<std::string> filtered_keys = keys;
   std::vector<T> filtered_values = values;
-  BloomFilterPtr bloom_filter = nullptr;
-  std::optional<T> most_common_value = std::nullopt;
 
+  PreFilterPtr<T> filter = nullptr;
   if (use_bloom_filter) {
-    auto [highest_frequency, computed_most_common_value] =
-        highestFrequency(values);
-    float highest_normalized_frequency = static_cast<float>(highest_frequency) /
-                                         static_cast<float>(values.size());
-
-    float error_rate = calculateErrorRate(
-        /* alpha= */ highest_normalized_frequency, /* delta= */ DELTA);
-
-    if (error_rate < 0.5 && error_rate != 0) {
-      if (verbose) {
-        std::cout << "Applying bloom pre-filtering...";
-      }
-      auto bloom_prefiltering_output = bloomPrefiltering(
-          keys, values,
-          /* highest_frequency= */ highest_frequency,
-          /* error_rate= */ error_rate,
-          /* most_common_value= */ computed_most_common_value);
-      filtered_keys = std::move(std::get<0>(bloom_prefiltering_output));
-      filtered_values = std::move(std::get<1>(bloom_prefiltering_output));
-      bloom_filter = std::get<2>(bloom_prefiltering_output);
-      most_common_value = std::get<3>(bloom_prefiltering_output);
-      if (verbose) {
-        std::cout << " finished in " << timer.seconds() << " seconds."
-                  << std::endl;
-      }
-    }
+    filter = BloomPrefilter<T>::make();
+    filter->apply(filtered_keys, filtered_values, DELTA, verbose);
   }
 
   if (verbose) {
@@ -208,8 +183,7 @@ CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
   }
 
   return Csf<T>::make(solutions_and_seeds, huffman.code_length_counts,
-                      huffman.ordered_symbols, hash_store.seed, bloom_filter,
-                      most_common_value);
+                      huffman.ordered_symbols, hash_store.seed, filter);
 }
 
 } // namespace caramel
