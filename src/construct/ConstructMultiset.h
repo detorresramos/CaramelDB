@@ -5,6 +5,18 @@
 
 namespace caramel {
 
+// We can calculate the bucketed hash store once here and use it for every csf
+// The bloom filter stuff is by column, if we determine that a column needs a
+// filter, We have to apply the filtering and build a custom bucketed hash
+// store for that column We can build a separate codedict for each column and
+// store it in every csf Or optionally we can build one big codedict and share
+// it across the multisetcsf In the case where we share it, we can save it
+// once in the multisetcsf but we have to figure out a nice way to do that
+// because right now its required in every csf
+//
+// Lastly, we should think about supporting generic filters and what the logic
+// would be for that
+
 template <typename T>
 MultisetCsfPtr<T>
 constructMultisetCsf(const std::vector<std::string> &keys,

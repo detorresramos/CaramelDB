@@ -153,7 +153,9 @@ def test_bloom_filter(most_common_frequency):
     no_bloom_size = os.path.getsize(no_bloom_filename)
 
     if most_common_frequency < 0.79 or most_common_frequency == 1.0:
-        assert bloom_size == no_bloom_size
+        # the small difference of 50 bytes is because we still make and save the
+        # empty object despite not using it
+        assert bloom_size - 50 == no_bloom_size
     else:
         assert bloom_size < no_bloom_size
 
