@@ -37,7 +37,7 @@ public:
   Csf(const std::vector<SubsystemSolutionSeedPair> &solutions_and_seeds,
       const std::vector<uint32_t> &code_length_counts,
       const std::vector<T> &ordered_symbols, uint32_t hash_store_seed,
-      const PreFilterPtr<T> filter)
+      const PreFilterPtr<T> &filter)
       : _solutions_and_seeds(solutions_and_seeds),
         _code_length_counts(code_length_counts),
         _ordered_symbols(ordered_symbols), _hash_store_seed(hash_store_seed),
@@ -47,17 +47,14 @@ public:
   make(const std::vector<SubsystemSolutionSeedPair> &solutions_and_seeds,
        const std::vector<uint32_t> &code_length_counts,
        const std::vector<T> &ordered_symbols, uint32_t hash_store_seed,
-       const PreFilterPtr<T> filter) {
+       const PreFilterPtr<T> &filter) {
     return std::make_shared<Csf<T>>(solutions_and_seeds, code_length_counts,
                                     ordered_symbols, hash_store_seed, filter);
   }
 
   T query(const std::string &key) const {
-    if (_filter) {
-      std::optional<T> val = _filter->contains(key);
-      if (val.has_value()) {
-        return val.value();
-      }
+    if (_filter && !_filter->contains(key)) {
+      return *_filter->getMostCommonValue();
     }
 
     __uint128_t signature = hashKey(key, _hash_store_seed);

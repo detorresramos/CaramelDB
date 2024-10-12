@@ -14,7 +14,9 @@ public:
   virtual void apply(std::vector<std::string> &keys, std::vector<T> &values,
                      float delta, bool verbose) = 0;
 
-  virtual std::optional<T> contains(const std::string &key) = 0;
+  virtual bool contains(const std::string &key) = 0;
+
+  virtual std::optional<T> getMostCommonValue() const = 0;
 
   virtual ~PreFilter() = default;
 

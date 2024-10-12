@@ -40,7 +40,7 @@ public:
     float error_rate = calculateErrorRate(
         /* alpha= */ highest_normalized_frequency, /* delta= */ delta);
 
-    if (error_rate > 0.5 || error_rate == 0) {
+    if (error_rate >= 0.5 || error_rate == 0) {
       return;
     }
 
@@ -80,11 +80,11 @@ public:
     }
   }
 
-  std::optional<T> contains(const std::string &key) {
-    if (_bloom_filter && !_bloom_filter->contains(key)) {
-      return *_most_common_value;
+  bool contains(const std::string &key) {
+    if (_bloom_filter) {
+      return _bloom_filter->contains(key);
     }
-    return std::nullopt;
+    return true;
   }
 
   BloomFilterPtr getBloomFilter() const { return _bloom_filter; }
