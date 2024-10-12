@@ -3,6 +3,7 @@
 #include "BloomFilter.h"
 #include "PreFilter.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <optional>
 #include <src/utils/Timer.h>
@@ -12,17 +13,17 @@
 
 namespace caramel {
 
-template <typename T> class BloomPrefilter;
+template <typename T> class BloomPreFilter;
 template <typename T>
-using BloomPrefilterPtr = std::shared_ptr<BloomPrefilter<T>>;
+using BloomPreFilterPtr = std::shared_ptr<BloomPreFilter<T>>;
 
-template <typename T> class BloomPrefilter final : public PreFilter<T> {
+template <typename T> class BloomPreFilter final : public PreFilter<T> {
 public:
-  BloomPrefilter<T>()
+  BloomPreFilter<T>()
       : _bloom_filter(nullptr), _most_common_value(std::nullopt) {}
 
-  static BloomPrefilterPtr<T> make() {
-    return std::make_shared<BloomPrefilter<T>>();
+  static BloomPreFilterPtr<T> make() {
+    return std::make_shared<BloomPreFilter<T>>();
   }
 
   void apply(std::vector<std::string> &keys, std::vector<T> &values,
@@ -125,32 +126,24 @@ private:
 
 } // namespace caramel
 
-CEREAL_REGISTER_TYPE(caramel::BloomPrefilter<uint32_t>)
+CEREAL_REGISTER_TYPE(caramel::BloomPreFilter<uint32_t>)
 CEREAL_REGISTER_POLYMORPHIC_RELATION(caramel::PreFilter<uint32_t>,
-                                     caramel::BloomPrefilter<uint32_t>)
+                                     caramel::BloomPreFilter<uint32_t>)
 
-template void caramel::BloomPrefilter<uint32_t>::serialize(
-    cereal::PortableBinaryInputArchive &);
-template void caramel::BloomPrefilter<uint32_t>::serialize(
-    cereal::PortableBinaryOutputArchive &);
-
-template void
-caramel::BloomPrefilter<uint32_t>::serialize(cereal::BinaryInputArchive &);
-template void
-caramel::BloomPrefilter<uint32_t>::serialize(cereal::BinaryOutputArchive &);
-
-CEREAL_REGISTER_TYPE(caramel::BloomPrefilter<uint64_t>)
+CEREAL_REGISTER_TYPE(caramel::BloomPreFilter<uint64_t>)
 CEREAL_REGISTER_POLYMORPHIC_RELATION(caramel::PreFilter<uint64_t>,
-                                     caramel::BloomPrefilter<uint64_t>)
+                                     caramel::BloomPreFilter<uint64_t>)
 
-template void caramel::BloomPrefilter<uint64_t>::serialize(
-    cereal::PortableBinaryInputArchive &);
-template void caramel::BloomPrefilter<uint64_t>::serialize(
-    cereal::PortableBinaryOutputArchive &);
+using arr10 = std::array<char, 10>;
+CEREAL_REGISTER_TYPE(caramel::BloomPreFilter<arr10>)
+CEREAL_REGISTER_POLYMORPHIC_RELATION(caramel::PreFilter<arr10>,
+                                     caramel::BloomPreFilter<arr10>)
 
-template void
-caramel::BloomPrefilter<uint64_t>::serialize(cereal::BinaryInputArchive &);
-template void
-caramel::BloomPrefilter<uint64_t>::serialize(cereal::BinaryOutputArchive &);
+CEREAL_REGISTER_TYPE(caramel::BloomPreFilter<std::string>)
+CEREAL_REGISTER_POLYMORPHIC_RELATION(caramel::PreFilter<std::string>,
+                                     caramel::BloomPreFilter<std::string>)
 
-
+using arr12 = std::array<char, 12>;
+CEREAL_REGISTER_TYPE(caramel::BloomPreFilter<std::array<char, 12>>)
+CEREAL_REGISTER_POLYMORPHIC_RELATION(caramel::PreFilter<arr12>,
+                                     caramel::BloomPreFilter<arr12>)

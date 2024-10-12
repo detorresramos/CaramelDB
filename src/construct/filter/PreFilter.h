@@ -16,9 +16,13 @@ public:
 
   virtual std::optional<T> contains(const std::string &key) = 0;
 
+  virtual ~PreFilter() = default;
+
 private:
   friend class cereal::access;
-  template <typename Archive> void serialize(Archive &archive);
+  template <typename Archive> void serialize(Archive &archive) {
+    (void)archive;
+  }
 };
 
 template <typename T> using PreFilterPtr = std::shared_ptr<PreFilter<T>>;

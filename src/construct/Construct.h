@@ -8,7 +8,7 @@
 #include <cmath>
 #include <functional>
 #include <src/Modulo2System.h>
-#include <src/construct/filter/BloomPrefilter.h>
+#include <src/construct/filter/BloomPreFilter.h>
 #include <src/solve/Solve.h>
 #include <src/utils/ProgressBar.h>
 #include <src/utils/Timer.h>
@@ -124,7 +124,7 @@ CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
 
   PreFilterPtr<T> filter = nullptr;
   if (use_bloom_filter) {
-    filter = BloomPrefilter<T>::make();
+    filter = BloomPreFilter<T>::make();
     filter->apply(filtered_keys, filtered_values, DELTA, verbose);
   }
 
