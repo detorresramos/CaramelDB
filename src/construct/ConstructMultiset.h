@@ -5,30 +5,63 @@
 
 namespace caramel {
 
-// We can calculate the bucketed hash store once here and use it for every csf
-// The bloom filter stuff is by column, if we determine that a column needs a
-// filter, We have to apply the filtering and build a custom bucketed hash
-// store for that column We can build a separate codedict for each column and
-// store it in every csf Or optionally we can build one big codedict and share
-// it across the multisetcsf In the case where we share it, we can save it
-// once in the multisetcsf but we have to figure out a nice way to do that
-// because right now its required in every csf
-//
-// Lastly, we should think about supporting generic filters and what the logic
-// would be for that
-
 template <typename T>
 MultisetCsfPtr<T>
 constructMultisetCsf(const std::vector<std::string> &keys,
                      const std::vector<std::vector<T>> &values,
                      bool use_bloom_filter = true, bool verbose = true) {
-  size_t num_csfs = values.size();
+  // TODO(david) shared codedict option, store it once in multisetcsf
+  // TODO(david) don't recompute the bucketedhashstore every time if not needed
+  size_t num_columns = values.size();
 
-  std::vector<CsfPtr<T>> csfs(num_csfs);
+  std::vector<CsfPtr<T>> csfs(num_columns);
 
-  // TODO(david) can/should we put a pragma here?
-  for (size_t i = 0; i < num_csfs; i++) {
-    csfs[i] = constructCsf<T>(keys, values[i], use_bloom_filter, verbose);
+  // Adding a pragma here was slightly faster in some cases and slower in
+  // others. It seemed to be dependent on the number of columns and the
+  // size/distribution of the dataset. However, even in the cases it was faster
+  // it wasn't by much, < 10%, in which case its probably not super worthwhile
+  // to figure out the optimal condition for adding parallelism.
+  for (size_t i = 0; i < num_columns; i++) {
+    std::vector<std::string> filtered_keys = keys;
+    std::vector<T> filtered_values = values[i];
+
+    PreFilterPtr<T> filter = nullptr;
+    if (use_bloom_filter) {
+      filter = BloomPreFilter<T>::make();
+      filter->apply(filtered_keys, filtered_values, DELTA, verbose);
+    }
+
+    HuffmanOutput<T> huffman = cannonicalHuffman<T>(filtered_values);
+
+    BucketedHashStore<T> hash_store =
+        partitionToBuckets<T>(filtered_keys, filtered_values);
+
+    std::exception_ptr exception = nullptr;
+    std::vector<SubsystemSolutionSeedPair> solutions_and_seeds(
+        hash_store.num_buckets);
+
+#pragma omp parallel for default(none)                                         \
+    shared(hash_store, huffman, solutions_and_seeds, exception, DELTA)
+    for (uint32_t i = 0; i < hash_store.num_buckets; i++) {
+      if (exception) {
+        continue;
+      }
+      try {
+        solutions_and_seeds[i] = constructAndSolveSubsystem<T>(
+            hash_store.key_buckets[i], hash_store.value_buckets[i],
+            huffman.codedict, huffman.max_codelength, DELTA);
+      } catch (std::exception &e) {
+#pragma omp critical
+        { exception = std::current_exception(); }
+      }
+    }
+
+    if (exception) {
+      std::rethrow_exception(exception);
+    }
+
+    csfs[i] = Csf<T>::make(solutions_and_seeds, huffman.code_length_counts,
+                           huffman.ordered_symbols, hash_store.seed, filter);
   }
 
   return std::make_shared<MultisetCsf<T>>(csfs);
