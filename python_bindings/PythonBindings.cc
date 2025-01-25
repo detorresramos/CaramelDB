@@ -4,6 +4,7 @@
 #include <src/construct/Csf.h>
 #include <src/construct/EntropyPermutation.h>
 #include <src/construct/MultisetCsf.h>
+#include <src/construct/filter/FilterConfig.h>
 
 // Pybind11 library
 #include <pybind11/cast.h>
@@ -22,16 +23,31 @@ void bindBloomFilter(py::module &module) {
       .def("contains", &BloomFilter::contains, py::arg("key"));
 }
 
+void bindPreFilterConfig(py::module &module) {
+  py::class_<PreFilterConfig, std::shared_ptr<PreFilterConfig>>( // NOLINT
+      module, "PreFilterConfig");
+
+  py::class_<BloomPreFilterConfig, PreFilterConfig,
+             std::shared_ptr<BloomPreFilterConfig>>(module,
+                                                    "BloomFilterConfig")
+      .def(py::init<>());
+
+  py::class_<XORPreFilterConfig, PreFilterConfig,
+             std::shared_ptr<XORPreFilterConfig>>(module, "XORFilterConfig")
+      .def(py::init<>());
+}
+
 template <typename T>
 void bindCsf(py::module &module, const char *name, const uint32_t type_id) {
   py::class_<Csf<T>, std::shared_ptr<Csf<T>>>(module, name)
       .def(py::init([](const std::vector<std::string> &keys,
-                       const std::vector<T> &values, bool use_bloom_filter,
+                       const std::vector<T> &values,
+                       std::shared_ptr<PreFilterConfig> filter_config,
                        bool verbose) {
-             return constructCsf<T>(keys, values, use_bloom_filter, verbose);
+             return constructCsf<T>(keys, values, filter_config, verbose);
            }),
            py::arg("keys"), py::arg("values"),
-           py::arg("use_bloom_filter") = true, py::arg("verbose") = true)
+           py::arg("prefilter") = nullptr, py::arg("verbose") = true)
       .def("query", &Csf<T>::query, py::arg("key"))
       // Call save / load through a lambda to avoid user visibility of type_id.
       .def(
@@ -55,12 +71,13 @@ void bindMultisetCsf(py::module &module, const char *name,
   py::class_<MultisetCsf<T>, std::shared_ptr<MultisetCsf<T>>>(module, name)
       .def(py::init([](const std::vector<std::string> &keys,
                        const std::vector<std::vector<T>> &values,
-                       bool use_bloom_filter, bool verbose) {
-             return constructMultisetCsf<T>(keys, values, use_bloom_filter,
+                       std::shared_ptr<PreFilterConfig> filter_config,
+                       bool verbose) {
+             return constructMultisetCsf<T>(keys, values, filter_config,
                                             verbose);
            }),
            py::arg("keys"), py::arg("values"),
-           py::arg("use_bloom_filter") = true, py::arg("verbose") = true)
+           py::arg("prefilter") = nullptr, py::arg("verbose") = true)
       .def("query", &MultisetCsf<T>::query, py::arg("key"),
            py::arg("parallel") = true)
       // Call save / load through a lambda to avoid user visibility of
@@ -97,6 +114,7 @@ template <typename T> void bindPermutation(py::module &m, const char *name) {
 
 PYBIND11_MODULE(_caramel, module) { // NOLINT
   bindBloomFilter(module);
+  bindPreFilterConfig(module);
 
   bindCsf<uint32_t>(module, "CSFUint32", 1);
   bindCsf<uint64_t>(module, "CSFUint64", 2);

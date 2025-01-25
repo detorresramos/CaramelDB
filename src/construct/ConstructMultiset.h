@@ -9,7 +9,8 @@ template <typename T>
 MultisetCsfPtr<T>
 constructMultisetCsf(const std::vector<std::string> &keys,
                      const std::vector<std::vector<T>> &values,
-                     bool use_bloom_filter = true, bool verbose = true) {
+                     PreFilterConfigPtr filter_config = nullptr,
+                     bool verbose = true) {
   // TODO(david) shared codedict option, store it once in multisetcsf
   // TODO(david) don't recompute the bucketedhashstore every time if not needed
   size_t num_columns = values.size();
@@ -26,7 +27,7 @@ constructMultisetCsf(const std::vector<std::string> &keys,
     std::vector<T> filtered_values = values[i];
 
     PreFilterPtr<T> filter = nullptr;
-    if (use_bloom_filter) {
+    if (filter_config) {
       filter = BloomPreFilter<T>::make();
       filter->apply(filtered_keys, filtered_values, DELTA, verbose);
     }
