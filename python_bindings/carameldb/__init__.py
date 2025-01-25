@@ -40,7 +40,7 @@ CLASS_LIST = [
 def Caramel(
     keys,
     values,
-    use_bloom_filter=True,
+    prefilter=None,
     permute=False,
     max_to_infer=None,
     verbose=True,
@@ -51,9 +51,11 @@ def Caramel(
     Arguments:
         keys: List of hashable keys.
         values: List of values to use in the CSF.
+        prefilter: The type of prefilter to use.
+        permute: If true, permutes rows of matrix inputs to minimize entropy.
         max_to_infer: If provided, only the first "max_to_infer" values
             will be examinied when inferring the correct CSF backend.
-        permute: If true, permutes rows of matrix inputs to minimize entropy.
+        verbose: Enable verbose logging
 
     Returns:
         A CSF containing the desired key-value mapping.
@@ -93,11 +95,11 @@ def Caramel(
         csf = CSFClass(
             keys,
             values,
-            use_bloom_filter=use_bloom_filter,
+            prefilter=prefilter,
             verbose=verbose,
         )
     else:
-        csf = CSFClass(keys, values, use_bloom_filter=use_bloom_filter, verbose=verbose)
+        csf = CSFClass(keys, values, prefilter=prefilter, verbose=verbose)
     csf = _wrap_backend(csf)
     return csf
 

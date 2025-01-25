@@ -3,6 +3,7 @@ import os
 import carameldb
 import numpy as np
 import pytest
+from carameldb.filters import BloomFilterConfig, XORFilterConfig
 
 pytestmark = [pytest.mark.unit]
 
@@ -32,8 +33,8 @@ def assert_build_save_load_correct(keys, values, CSFClass, wrap_fn=None):
     os.remove(filename)
 
 
-def assert_simple_api_correct(keys, values, bloom_filter=True):
-    csf = carameldb.Caramel(keys, values, use_bloom_filter=bloom_filter)
+def assert_simple_api_correct(keys, values, prefilter=None):
+    csf = carameldb.Caramel(keys, values, prefilter=prefilter)
     assert_all_correct(keys, values, csf)
     filename = "temp.csf"
     csf.save(filename)
@@ -142,12 +143,12 @@ def test_bloom_filter(most_common_frequency):
         i for i in range(other_elements)
     ]
 
-    csf_bloom = carameldb.Caramel(keys, values, use_bloom_filter=True)
+    csf_bloom = carameldb.Caramel(keys, values, prefilter=BloomFilterConfig())
     bloom_filename = "bloom.csf"
     csf_bloom.save(bloom_filename)
     bloom_size = os.path.getsize(bloom_filename)
 
-    csf_no_bloom = carameldb.Caramel(keys, values, use_bloom_filter=False)
+    csf_no_bloom = carameldb.Caramel(keys, values, prefilter=None)
     no_bloom_filename = "no_bloom.csf"
     csf_no_bloom.save(no_bloom_filename)
     no_bloom_size = os.path.getsize(no_bloom_filename)
@@ -174,7 +175,7 @@ def test_uint32_vs_64_values():
 def test_all_same_with_and_without_bloom(bloom_filter):
     keys = gen_str_keys(1000)
     values = np.array([5 for i in range(len(keys))])
-    assert_simple_api_correct(keys, values, bloom_filter=bloom_filter)
+    assert_simple_api_correct(keys, values, prefilter=BloomFilterConfig())
 
 
 def test_unsolvable():

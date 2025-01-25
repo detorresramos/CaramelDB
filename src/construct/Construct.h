@@ -8,7 +8,7 @@
 #include <cmath>
 #include <functional>
 #include <src/Modulo2System.h>
-#include <src/construct/filter/BloomPreFilter.h>
+#include <src/construct/filter/FilterFactory.h>
 #include <src/solve/Solve.h>
 #include <src/utils/ProgressBar.h>
 #include <src/utils/Timer.h>
@@ -106,9 +106,9 @@ static const double DELTA = 1.089;
  * Constructs a Csf from the given keys and values.
  */
 template <typename T>
-CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
-                       const std::vector<T> &values,
-                       bool use_bloom_filter = true, bool verbose = true) {
+CsfPtr<T>
+constructCsf(const std::vector<std::string> &keys, const std::vector<T> &values,
+             PreFilterConfigPtr filter_config = nullptr, bool verbose = true) {
   if (values.empty()) {
     throw std::invalid_argument("Values must be non-empty but found length 0.");
   }
@@ -123,8 +123,8 @@ CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
   std::vector<T> filtered_values = values;
 
   PreFilterPtr<T> filter = nullptr;
-  if (use_bloom_filter) {
-    filter = BloomPreFilter<T>::make();
+  if (filter_config) {
+    filter = FilterFactory::makeFilter<T>(filter_config);
     filter->apply(filtered_keys, filtered_values, DELTA, verbose);
   }
 
