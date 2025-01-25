@@ -175,8 +175,10 @@ def test_uint32_vs_64_values():
 def test_all_same_with_and_without_bloom(bloom_filter):
     keys = gen_str_keys(1000)
     values = np.array([5 for i in range(len(keys))])
-    assert_simple_api_correct(keys, values, prefilter=BloomFilterConfig())
-
+    if bloom_filter:
+        assert_simple_api_correct(keys, values, prefilter=BloomFilterConfig())
+    else:
+        assert_simple_api_correct(keys, values, prefilter=None)
 
 def test_unsolvable():
     keys = ["1", "2", "3", "4", "4"]
