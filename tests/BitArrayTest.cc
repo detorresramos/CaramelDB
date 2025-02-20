@@ -118,15 +118,15 @@ TEST(BitArrayTest, TestScalarProduct) {
   bitarray2->setBit(3);
   bitarray2->setBit(4);
 
-  uint32_t product = BitArray::scalarProduct(bitarray1, bitarray2);
+  uint32_t product = BitArray::scalarProduct(*bitarray1, *bitarray2);
   ASSERT_EQ(product, 1);
 
   bitarray2->setBit(5);
-  product = BitArray::scalarProduct(bitarray1, bitarray2);
+  product = BitArray::scalarProduct(*bitarray1, *bitarray2);
   ASSERT_EQ(product, 1);
 
   bitarray1->setBit(5);
-  product = BitArray::scalarProduct(bitarray1, bitarray2);
+  product = BitArray::scalarProduct(*bitarray1, *bitarray2);
   ASSERT_EQ(product, 0);
 }
 
@@ -139,20 +139,20 @@ TEST(BitArrayTest, TestToString) {
 }
 
 TEST(BitArrayTest, BitArrayFromNumber) {
-  ASSERT_EQ(BitArray::fromNumber(/* number = */ 0, /* length = */ 2)->str(),
+  ASSERT_EQ(BitArray::fromNumber(/* number = */ 0, /* length = */ 2).str(),
             "00");
-  ASSERT_EQ(BitArray::fromNumber(/* number = */ 1, /* length = */ 2)->str(),
+  ASSERT_EQ(BitArray::fromNumber(/* number = */ 1, /* length = */ 2).str(),
             "01");
-  ASSERT_EQ(BitArray::fromNumber(/* number = */ 2, /* length = */ 2)->str(),
+  ASSERT_EQ(BitArray::fromNumber(/* number = */ 2, /* length = */ 2).str(),
             "10");
-  ASSERT_EQ(BitArray::fromNumber(/* number = */ 3, /* length = */ 2)->str(),
+  ASSERT_EQ(BitArray::fromNumber(/* number = */ 3, /* length = */ 2).str(),
             "11");
-  ASSERT_EQ(BitArray::fromNumber(/* number = */ 4, /* length = */ 3)->str(),
+  ASSERT_EQ(BitArray::fromNumber(/* number = */ 4, /* length = */ 3).str(),
             "100");
-  ASSERT_EQ(BitArray::fromNumber(/* number = */ 4, /* length = */ 4)->str(),
+  ASSERT_EQ(BitArray::fromNumber(/* number = */ 4, /* length = */ 4).str(),
             "0100");
 
-  ASSERT_THROW(BitArray::fromNumber(/* number = */ 4, /* length = */ 2)->str(),
+  ASSERT_THROW(BitArray::fromNumber(/* number = */ 4, /* length = */ 2).str(),
                std::invalid_argument);
 }
 

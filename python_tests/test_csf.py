@@ -3,8 +3,7 @@ import os
 import carameldb
 import numpy as np
 import pytest
-
-pytestmark = [pytest.mark.unit]
+from carameldb.filters import BloomFilterConfig, XORFilterConfig
 
 gen_str_keys = lambda n: [f"key{i}" for i in range(n)]
 gen_byte_keys = lambda n: [f"key{i}".encode("utf-8") for i in range(n)]
@@ -32,8 +31,8 @@ def assert_build_save_load_correct(keys, values, CSFClass, wrap_fn=None):
     os.remove(filename)
 
 
-def assert_simple_api_correct(keys, values, bloom_filter=True):
-    csf = carameldb.Caramel(keys, values, use_bloom_filter=bloom_filter)
+def assert_simple_api_correct(keys, values, prefilter=None):
+    csf = carameldb.Caramel(keys, values, prefilter=prefilter)
     assert_all_correct(keys, values, csf)
     filename = "temp.csf"
     csf.save(filename)
@@ -142,18 +141,20 @@ def test_bloom_filter(most_common_frequency):
         i for i in range(other_elements)
     ]
 
-    csf_bloom = carameldb.Caramel(keys, values, use_bloom_filter=True)
+    csf_bloom = carameldb.Caramel(keys, values, prefilter=BloomFilterConfig())
     bloom_filename = "bloom.csf"
     csf_bloom.save(bloom_filename)
     bloom_size = os.path.getsize(bloom_filename)
 
-    csf_no_bloom = carameldb.Caramel(keys, values, use_bloom_filter=False)
+    csf_no_bloom = carameldb.Caramel(keys, values, prefilter=None)
     no_bloom_filename = "no_bloom.csf"
     csf_no_bloom.save(no_bloom_filename)
     no_bloom_size = os.path.getsize(no_bloom_filename)
 
     if most_common_frequency < 0.79 or most_common_frequency == 1.0:
-        assert bloom_size == no_bloom_size
+        # the small difference of 50 bytes is because we still make and save the
+        # empty object despite not using it
+        assert bloom_size - 50 == no_bloom_size
     else:
         assert bloom_size < no_bloom_size
 
@@ -162,7 +163,6 @@ def test_bloom_filter(most_common_frequency):
 
 
 def test_uint32_vs_64_values():
-    keys = gen_str_keys(1000)
     uint32_t_values = np.array([1, 2, 3], dtype=np.uint32)
     assert carameldb._infer_backend(uint32_t_values) == carameldb.CSFUint32
     uint64_t_values = np.array([1, 2, 3], dtype=np.uint64)
@@ -173,4 +173,18 @@ def test_uint32_vs_64_values():
 def test_all_same_with_and_without_bloom(bloom_filter):
     keys = gen_str_keys(1000)
     values = np.array([5 for i in range(len(keys))])
-    assert_simple_api_correct(keys, values, bloom_filter=bloom_filter)
+    if bloom_filter:
+        assert_simple_api_correct(keys, values, prefilter=BloomFilterConfig())
+    else:
+        assert_simple_api_correct(keys, values, prefilter=None)
+
+
+def test_unsolvable():
+    keys = ["1", "2", "3", "4", "4"]
+    values = [1, 2, 3, 4, 5]
+
+    with pytest.raises(
+        RuntimeError,
+        match="Detected a key collision under 128-bit hash. Likely due to a duplicate key.",
+    ):
+        carameldb.Caramel(keys, values)

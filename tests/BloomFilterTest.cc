@@ -1,7 +1,7 @@
 #include "TestUtils.h"
 #include <gtest/gtest.h>
 #include <random>
-#include <src/construct/BloomFilter.h>
+#include <src/construct/filter/BloomFilter.h>
 
 namespace caramel::tests {
 

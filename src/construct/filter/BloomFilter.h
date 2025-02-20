@@ -1,11 +1,11 @@
 #pragma once
 
-#include "SpookyHash.h"
 #include <cereal/access.hpp>
 #include <cereal/archives/binary.hpp>
 #include <cmath>
 #include <memory>
 #include <src/BitArray.h>
+#include <src/construct/SpookyHash.h>
 #include <vector>
 
 namespace caramel {

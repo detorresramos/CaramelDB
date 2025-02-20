@@ -26,12 +26,13 @@ public:
 
   BitArray(const BitArray &other);
 
+  BitArray(uint64_t *backing_array, uint64_t num_bits, uint64_t num_blocks);
+
+  static BitArray fromNumber(uint64_t int_value, uint32_t length);
+
   static std::shared_ptr<BitArray> make(uint32_t num_bits) {
     return std::make_shared<BitArray>(num_bits);
   }
-
-  static std::shared_ptr<BitArray> fromNumber(uint64_t int_value,
-                                              uint32_t length);
 
   inline uint32_t numBits() const { return _num_bits; }
 
@@ -62,7 +63,7 @@ public:
 
   // true if any bits are 1 and false otherwise
   bool any() const {
-    return !std::all_of(_backing_array.begin(), _backing_array.end(),
+    return !std::all_of(_backing_array, _backing_array + _num_blocks,
                         [](uint64_t block) { return block == 0; });
   }
 
@@ -70,13 +71,13 @@ public:
 
   // set all bits to 0
   void clearAll() {
-    std::fill(_backing_array.begin(), _backing_array.end(), 0);
+    std::fill(_backing_array, _backing_array + _num_blocks, 0);
   }
 
   uint32_t numSetBits() const;
 
-  static bool scalarProduct(const BitArrayPtr &bitarray1,
-                            const BitArrayPtr &bitarray2);
+  static bool scalarProduct(const BitArray &bitarray1,
+                            const BitArray &bitarray2);
 
   inline uint64_t getuint64(uint32_t pos, uint32_t width) const {
     if (pos + width > _num_bits) {
@@ -98,7 +99,12 @@ public:
 
   std::string str() const;
 
-  std::vector<uint64_t> backingArray() const { return _backing_array; }
+  std::vector<uint64_t> backingArray() const {
+    std::vector<uint64_t> vector(_backing_array, _backing_array + _num_blocks);
+    return vector;
+  }
+
+  ~BitArray() noexcept;
 
 private:
   // Private constructor for cereal
@@ -107,13 +113,14 @@ private:
   void copyFrom(const BitArray &other);
 
   friend class cereal::access;
-  template <class Archive> void serialize(Archive &archive);
+  template <class Archive> void save(Archive &archive) const;
+
+  template <class Archive> void load(Archive &archive);
 
   uint32_t _num_bits;
   uint32_t _num_blocks;
-
-  // Use a vector since cereal doesn't allow serialization of pointers
-  std::vector<uint64_t> _backing_array;
+  bool _owns_data;
+  uint64_t *_backing_array;
 };
 
 } // namespace caramel

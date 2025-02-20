@@ -14,12 +14,10 @@ gaussianElimination(const DenseSystemPtr &dense_system,
     for (int bot_index = top_index + 1; bot_index < num_equations;
          bot_index++) {
       uint64_t top_eq_id = relevant_equation_ids[top_index];
-      auto &[top_eq, top_const, top_first_var] =
-          dense_system->getEquation(top_eq_id);
+      uint64_t top_first_var = dense_system->getFirstVar(top_eq_id);
 
       uint64_t bot_eq_id = relevant_equation_ids[bot_index];
-      auto &[bot_eq, bot_const, bot_first_var] =
-          dense_system->getEquation(bot_eq_id);
+      uint64_t bot_first_var = dense_system->getFirstVar(bot_eq_id);
 
       if (top_first_var == bot_first_var) {
         // Since both virst vars are equal we'd like to eliminate one of them
@@ -50,9 +48,10 @@ gaussianElimination(const DenseSystemPtr &dense_system,
       continue;
     }
 
-    auto &[equation, constant, first_var] =
-        dense_system->getEquation(equation_id);
-    if (constant ^ BitArray::scalarProduct(equation, solution)) {
+    BitArray equation = dense_system->getEquation(equation_id);
+    uint64_t &constant = dense_system->getConstant(equation_id);
+    uint64_t first_var = dense_system->getFirstVar(equation_id);
+    if (constant ^ BitArray::scalarProduct(equation, *solution)) {
       solution->setBit(first_var);
     }
   }

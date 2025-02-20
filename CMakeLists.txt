@@ -34,37 +34,7 @@ message("\tC++ compiler: ${CMAKE_CXX_COMPILER}")
 message("\tC compiler: ${CMAKE_C_COMPILER}")
 message("====================================")
 
-# Add OpenMP
 find_package(OpenMP)
-
-if(NOT OpenMP_FOUND)
-    message("OpenMP Not Found. Building the Package using LLVM's OpenMP.")
-    set(LLVM_OPENMP_VERSION "13.0.1")
-    set(LLVM_OPENMP_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/openmp")
-
-    if(NOT EXISTS ${LLVM_OPENMP_SOURCE_DIR})
-        message("Downloading openmp-${LLVM_OPENMP_VERSION} into ${LLVM_OPENMP_SOURCE_DIR}")
-        set(LLVM_OPENMP_DOWNLOAD_URL "https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_OPENMP_VERSION}/openmp-${LLVM_OPENMP_VERSION}.src.tar.xz")
-
-        file(
-            DOWNLOAD
-            ${LLVM_OPENMP_DOWNLOAD_URL}
-            "${CMAKE_CURRENT_BINARY_DIR}/openmp-${LLVM_OPENMP_VERSION}.tar.bz2"
-        )
-        file(ARCHIVE_EXTRACT INPUT
-            "${CMAKE_CURRENT_BINARY_DIR}/openmp-${LLVM_OPENMP_VERSION}.tar.bz2"
-            DESTINATION ${CMAKE_CURRENT_BINARY_DIR}
-        )
-        file(RENAME
-            "${CMAKE_CURRENT_BINARY_DIR}/openmp-${LLVM_OPENMP_VERSION}.src"
-            "${LLVM_OPENMP_SOURCE_DIR}"
-        )
-    endif()
-
-    set(OPENMP_STANDALONE_BUILD ON)
-    add_subdirectory(${LLVM_OPENMP_SOURCE_DIR} EXCLUDE_FROM_ALL)
-    add_library(OpenMP::OpenMP_CXX ALIAS omp)
-endif(NOT OpenMP_FOUND)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
@@ -79,10 +49,21 @@ set(CARAMEL_COMPILE_OPTIONS
     $<$<CONFIG:Debug>:-Og>
     $<$<CONFIG:Debug>:-g>
     $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
+    $<$<CONFIG:DebugWithAsan>:-Og>
+    $<$<CONFIG:DebugWithAsan>:-g>
+    $<$<CONFIG:DebugWithAsan>:-fno-omit-frame-pointer>
     $<$<CONFIG:Release>:-DNDEBUG>
     $<$<CONFIG:Release>:-Ofast>
     $<$<CONFIG:Release>:-funroll-loops>
-    $<$<CONFIG:Release>:-ftree-vectorize>)
+    $<$<CONFIG:Release>:-ftree-vectorize>
+    $<$<CONFIG:RelWithDebInfo>:-DNDEBUG>
+    $<$<CONFIG:RelWithDebInfo>:-Ofast>
+    $<$<CONFIG:RelWithDebInfo>:-funroll-loops>
+    $<$<CONFIG:RelWithDebInfo>:-ftree-vectorize>
+    $<$<CONFIG:RelWithDebInfo>:-g>
+    $<$<CONFIG:RelWithDebInfo>:-fno-omit-frame-pointer>)
+
+set(CARAMEL_ASAN_COMPILE_OPTIONS $<$<CONFIG:DebugWithAsan>:-fsanitize=address>)
 
 # PERFORMANCE_COMPARISON is always enabled by default in cereal CMakeLists which
 # requires the boost and we dont want to add the boost dependencies, hence
@@ -110,7 +91,6 @@ set(CARAMEL_SOURCES
     ${PROJECT_SOURCE_DIR}/src/Modulo2System.cc
     ${PROJECT_SOURCE_DIR}/src/BitArray.cc
     ${PROJECT_SOURCE_DIR}/src/construct/Codec.cc
-    ${PROJECT_SOURCE_DIR}/src/construct/BucketedHashStore.cc
     ${PROJECT_SOURCE_DIR}/src/construct/SpookyHash.cc
     ${PROJECT_SOURCE_DIR}/src/solve/GaussianElimination.cc
     ${PROJECT_SOURCE_DIR}/src/solve/HypergraphPeeler.cc
@@ -126,6 +106,14 @@ target_link_libraries(_caramel PUBLIC caramel_lib)
 target_compile_options(caramel_lib PRIVATE ${CARAMEL_COMPILE_OPTIONS})
 target_compile_options(_caramel PRIVATE ${CARAMEL_COMPILE_OPTIONS})
 
+target_compile_options(caramel_lib PUBLIC ${CARAMEL_ASAN_COMPILE_OPTIONS})
+
+target_link_options(caramel_lib PUBLIC ${CARAMEL_ASAN_COMPILE_OPTIONS})
+
+target_compile_options(_caramel PRIVATE ${CARAMEL_ASAN_COMPILE_OPTIONS})
+
+target_link_options(_caramel PRIVATE ${CARAMEL_ASAN_COMPILE_OPTIONS})
+
 message("===================================================")
 message("\tProject Directory = ${PROJECT_SOURCE_DIR}")
 message("\tC++ Compiler = ${CMAKE_CXX_COMPILER}")
@@ -134,3 +122,4 @@ message("\tSource Files = ")
 foreach(SOURCE_FILE IN LISTS CPP_SOURCE)
     message("\t ${SOURCE_FILE}")
 endforeach(SOURCE_FILE IN LISTS CPP_SOURCE)
+
