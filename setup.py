@@ -1,39 +1,62 @@
 import os
-from setuptools import setup, Extension
-from Cython.Build import cythonize
 import sys
+
+from Cython.Build import cythonize
+from setuptools import Extension, setup
 
 
 def get_compile_args():
-    compile_options = [
-        '-std=c++17', '-Wall', '-Wextra', '-Wno-unused-function', '-Wno-psabi', '-pedantic'
+    base_compile_options = [
+        "-std=c++17",
+        "-Wall",
+        "-Wextra",
+        "-Wno-unused-function",
+        "-Wno-psabi",
+        "-pedantic",
+        "-fopenmp",
     ]
 
-    build_mode = 'Release'
-    if '--debug' in sys.argv:
-        build_mode = 'Debug'
-        sys.argv.remove('--debug')
+    valid_modes = {"Debug", "Release", "RelWithDebInfo", "DebugWithAsan"}
+    build_mode = "Release"
+
+    for arg in sys.argv:
+        if arg.startswith("--mode="):
+            mode = arg.split("=")[1]
+            if mode not in valid_modes:
+                sys.exit(
+                    f"Error: Invalid build mode '{mode}'. Valid options are: {', '.join(valid_modes)}"
+                )
+            build_mode = mode
+            sys.argv.remove(arg)
+            break
 
     build_mode_compile_options = {
-        'Debug': [
-            '-Og', '-g', '-fno-omit-frame-pointer'
+        "Debug": ["-Og", "-g", "-fno-omit-frame-pointer"],
+        "DebugWithAsan": ["-Og", "-g", "-fno-omit-frame-pointer", "-fsanitize=address"],
+        "Release": ["-DNDEBUG", "-Ofast", "-funroll-loops", "-ftree-vectorize"],
+        "RelWithDebInfo": [
+            "-DNDEBUG",
+            "-Ofast",
+            "-funroll-loops",
+            "-ftree-vectorize",
+            "-g",
+            "-fno-omit-frame-pointer",
         ],
-        'Release': [
-            '-DNDEBUG', '-Ofast', '-funroll-loops', '-ftree-vectorize'
-        ]
     }
 
-    return compile_options + build_mode_compile_options[build_mode]
+    return base_compile_options + build_mode_compile_options[build_mode]
 
 
 def get_include_dirs():
     return [
-        os.path.join(os.getcwd(), 'deps', 'cereal/include'),
-        os.path.join(os.getcwd(), ''),
-        os.path.join(os.getcwd(), 'src'),
-        os.path.join(os.getcwd(), 'src/construct'),
-        os.path.join(os.getcwd(), 'src/solve'),
+        os.path.join(os.getcwd(), "deps", "cereal/include"),
+        os.path.join(os.getcwd(), ""),
+        os.path.join(os.getcwd(), "src"),
+        os.path.join(os.getcwd(), "src/construct"),
+        # os.path.join(os.getcwd(), "src/construct/filter"),
+        os.path.join(os.getcwd(), "src/solve"),
     ]
+
 
 extensions = [
     Extension(
@@ -41,7 +64,6 @@ extensions = [
         sources=[
             "cython_bindings.pyx",
             "src/construct/SpookyHash.cc",
-            "src/construct/BucketedHashStore.cc",
             "src/construct/Codec.cc",
             "src/solve/GaussianElimination.cc",
             "src/solve/HypergraphPeeler.cc",
@@ -51,7 +73,7 @@ extensions = [
             "src/BitArray.cc",
         ],
         include_dirs=get_include_dirs(),
-        language='c++',
+        language="c++",
         extra_compile_args=get_compile_args(),
     )
 ]
@@ -67,8 +89,8 @@ setup(
     ext_modules=cythonize(
         extensions,
         build_dir="build",  # Specify build directory
-        annotate=True,      # Generate HTML annotation of the source
-        compiler_directives={'language_level': "3"}  # Specify language level
+        annotate=True,  # Generate HTML annotation of the source
+        compiler_directives={"language_level": "3"},  # Specify language level
     ),
     zip_safe=False,
     install_requires=["numpy"],

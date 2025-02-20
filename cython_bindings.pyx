@@ -1,15 +1,35 @@
 # distutils: language = c++
 # distutils: include_dirs = src
 
-from libcpp.string cimport string
-from libcpp.memory cimport shared_ptr
-from libcpp cimport bool
-from libcpp.vector cimport vector
-from libcpp.utility cimport pair
 from libc.stdint cimport uint32_t
+from libcpp cimport bool
+from libcpp.memory cimport shared_ptr
+from libcpp.string cimport string
+from libcpp.utility cimport pair
+from libcpp.vector cimport vector
 
 
-cdef extern from "src/construct/BloomFilter.h" namespace "caramel":
+cdef extern from "src/construct/filter/FilterConfig.h" namespace "caramel":
+    cdef cppclass PreFilterConfig:
+        pass
+    ctypedef shared_ptr[PreFilterConfig] PreFilterConfigPtr
+
+    cdef cppclass BloomPreFilterConfig(PreFilterConfig):
+        BloomPreFilterConfig() except +
+
+cdef class PyPreFilterConfig:
+    cdef PreFilterConfigPtr cpp_prefilter
+
+    def __cinit__(self):
+        self.cpp_prefilter = PreFilterConfigPtr()  # null pointer by default
+
+
+cdef class PyBloomPreFilterConfig(PyPreFilterConfig):
+    def __cinit__(self):
+        self.cpp_prefilter = shared_ptr[PreFilterConfig](new BloomPreFilterConfig())
+
+
+cdef extern from "src/construct/filter/BloomFilter.h" namespace "caramel":
     cdef cppclass BloomFilter:
         BloomFilter(size_t num_elements, float error_rate) except +
         @staticmethod 
@@ -55,7 +75,7 @@ cdef extern from "src/construct/Csf.h" namespace "caramel":
 cdef extern from "src/construct/Construct.h" namespace "caramel":
     shared_ptr[Csf[T]] constructCsf[T](const vector[string] &keys,
                                        const vector[T] &values,
-                                       bool use_bloom_filter,
+                                       PreFilterConfigPtr prefilter,
                                        bool verbose) except +
 
 
@@ -70,7 +90,7 @@ cdef extern from "src/construct/MultisetCsf.h" namespace "caramel":
 cdef extern from "src/construct/ConstructMultiset.h" namespace "caramel":
     shared_ptr[MultisetCsf[T]] constructMultisetCsf[T](const vector[string] &keys,
                                        const vector[vector[T]] &values,
-                                       bool use_bloom_filter,
+                                       PreFilterConfigPtr prefilter,
                                        bool verbose) except +
 
 
@@ -88,9 +108,16 @@ cdef class PyCsfUint32:
     # if we can get that to work we can move this logic to the __cinit__ method
     # and remove the checks for self.cpp_csf
     @staticmethod
-    def construct(vector[string] keys, vector[uint32_t] values, bint use_bloom_filter=True, bint verbose=True):
+    def construct(vector[string] keys, vector[uint32_t] values, prefilter=None, bint verbose=True):
+        cdef PreFilterConfigPtr prefilter_ptr
+        if prefilter is None:
+            prefilter_ptr = PreFilterConfigPtr()
+        elif isinstance(prefilter, PyPreFilterConfig):
+            prefilter_ptr = <PreFilterConfigPtr> prefilter.cpp_prefilter
+        else:
+            raise TypeError("prefilter must be a PyPreFilterConfig or None")
         cdef PyCsfUint32 obj = PyCsfUint32()
-        obj.cpp_csf = constructCsf(keys, values, use_bloom_filter, verbose)
+        obj.cpp_csf = constructCsf(keys, values, prefilter_ptr, verbose)
         return obj
 
     def query(self, key):
@@ -114,9 +141,16 @@ cdef class PyMultisetCsfUint32:
     cdef shared_ptr[MultisetCsf[uint32_t]] cpp_csf
     
     @staticmethod
-    def construct(vector[string] keys, vector[vector[uint32_t]] values, bint use_bloom_filter=True, bint verbose=True):
+    def construct(vector[string] keys, vector[vector[uint32_t]] values, prefilter=None, bint verbose=True):
+        cdef PreFilterConfigPtr prefilter_ptr
+        if prefilter is None:
+            prefilter_ptr = PreFilterConfigPtr()
+        elif isinstance(prefilter, PyPreFilterConfig):
+            prefilter_ptr = <PreFilterConfigPtr> prefilter.cpp_prefilter
+        else:
+            raise TypeError("prefilter must be a PyPreFilterConfig or None")
         cdef PyMultisetCsfUint32 obj = PyMultisetCsfUint32()
-        obj.cpp_csf = constructMultisetCsf(keys, values, use_bloom_filter, verbose)
+        obj.cpp_csf = constructMultisetCsf(keys, values, prefilter_ptr, verbose)
         return obj
 
     def query(self, key, parallelize):
