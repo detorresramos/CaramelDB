@@ -5,8 +5,6 @@ import carameldb
 import numpy as np
 import pytest
 
-pytestmark = [pytest.mark.unit]
-
 
 def test_multiset_csf():
     num_rows = 1000

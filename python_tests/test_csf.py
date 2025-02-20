@@ -5,8 +5,6 @@ import numpy as np
 import pytest
 from carameldb.filters import BloomFilterConfig, XORFilterConfig
 
-pytestmark = [pytest.mark.unit]
-
 gen_str_keys = lambda n: [f"key{i}" for i in range(n)]
 gen_byte_keys = lambda n: [f"key{i}".encode("utf-8") for i in range(n)]
 gen_int_values = lambda n: np.array([i for i in range(n)])
@@ -179,6 +177,7 @@ def test_all_same_with_and_without_bloom(bloom_filter):
         assert_simple_api_correct(keys, values, prefilter=BloomFilterConfig())
     else:
         assert_simple_api_correct(keys, values, prefilter=None)
+
 
 def test_unsolvable():
     keys = ["1", "2", "3", "4", "4"]
