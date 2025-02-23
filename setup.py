@@ -47,6 +47,10 @@ def get_compile_args():
     return base_compile_options + build_mode_compile_options[build_mode]
 
 
+def get_link_args():
+    return ["-fopenmp"]
+
+
 def get_include_dirs():
     return [
         os.path.join(os.getcwd(), "deps", "cereal/include"),
@@ -75,6 +79,7 @@ extensions = [
         include_dirs=get_include_dirs(),
         language="c++",
         extra_compile_args=get_compile_args(),
+        extra_link_args=get_link_args(),
     )
 ]
 
