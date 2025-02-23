@@ -7,7 +7,7 @@ from setuptools import Extension, setup
 
 def get_compile_args():
     base_compile_options = [
-        "-std=c++17",
+        "-std=gnu++17",
         "-Wall",
         "-Wextra",
         "-Wno-unused-function",
