@@ -57,7 +57,7 @@ def get_include_dirs():
         os.path.join(os.getcwd(), ""),
         os.path.join(os.getcwd(), "src"),
         os.path.join(os.getcwd(), "src/construct"),
-        # os.path.join(os.getcwd(), "src/construct/filter"),
+        os.path.join(os.getcwd(), "src/construct/filter"),
         os.path.join(os.getcwd(), "src/solve"),
     ]
 
@@ -74,7 +74,7 @@ extensions = [
             "src/solve/LazyGaussianElimination.cc",
             "src/solve/Solve.cc",
             "src/Modulo2System.cc",
-            "src/BitArray.cc",
+            "src/BitArray.cc",  
         ],
         include_dirs=get_include_dirs(),
         language="c++",
@@ -93,9 +93,9 @@ setup(
     license_files=("LICENSE",),
     ext_modules=cythonize(
         extensions,
-        build_dir="build",  # Specify build directory
-        annotate=True,  # Generate HTML annotation of the source
-        compiler_directives={"language_level": "3"},  # Specify language level
+        build_dir="build",
+        annotate=True,
+        compiler_directives={"language_level": "3"},
     ),
     zip_safe=False,
     install_requires=["numpy"],

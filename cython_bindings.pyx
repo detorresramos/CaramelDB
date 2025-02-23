@@ -29,44 +29,44 @@ cdef class PyBloomPreFilterConfig(PyPreFilterConfig):
         self.cpp_prefilter = shared_ptr[PreFilterConfig](new BloomPreFilterConfig())
 
 
-cdef extern from "src/construct/filter/BloomFilter.h" namespace "caramel":
-    cdef cppclass BloomFilter:
-        BloomFilter(size_t num_elements, float error_rate) except +
-        @staticmethod 
-        shared_ptr[BloomFilter] make(size_t num_elements, double error_rate)
-        void add(const string& key)
-        bool contains(const string& key)
-        size_t size() const
-        size_t numHashes() const
+# cdef extern from "src/construct/filter/BloomFilter.h" namespace "caramel":
+#     cdef cppclass BloomFilter:
+#         BloomFilter(size_t num_elements, float error_rate) except +
+#         @staticmethod 
+#         shared_ptr[BloomFilter] make(size_t num_elements, double error_rate)
+#         void add(const string& key)
+#         bool contains(const string& key)
+#         size_t size() const
+#         size_t numHashes() const
 
-    ctypedef shared_ptr[BloomFilter] BloomFilterPtr
+#     ctypedef shared_ptr[BloomFilter] BloomFilterPtr
 
 
-cdef class PyBloomFilter:
-    cdef BloomFilterPtr cpp_bloom_filter
+# cdef class PyBloomFilter:
+#     cdef BloomFilterPtr cpp_bloom_filter
 
-    def __cinit__(self, size_t num_elements, float error_rate):
-        self.cpp_bloom_filter = BloomFilter.make(num_elements, error_rate)
+#     def __cinit__(self, size_t num_elements, float error_rate):
+#         self.cpp_bloom_filter = BloomFilter.make(num_elements, error_rate)
 
-    def add(self, key):
-        if isinstance(key, str):
-            key = key.encode('utf-8')
-        elif not isinstance(key, bytes):
-            raise TypeError("key must be str or bytes")
-        self.cpp_bloom_filter.get().add(key)
+#     def add(self, key):
+#         if isinstance(key, str):
+#             key = key.encode('utf-8')
+#         elif not isinstance(key, bytes):
+#             raise TypeError("key must be str or bytes")
+#         self.cpp_bloom_filter.get().add(key)
 
-    def contains(self, key):
-        if isinstance(key, str):
-            key = key.encode('utf-8')
-        elif not isinstance(key, bytes):
-            raise TypeError("key must be str or bytes")
-        return self.cpp_bloom_filter.get().contains(key)
+#     def contains(self, key):
+#         if isinstance(key, str):
+#             key = key.encode('utf-8')
+#         elif not isinstance(key, bytes):
+#             raise TypeError("key must be str or bytes")
+#         return self.cpp_bloom_filter.get().contains(key)
 
-    def size(self):
-        return self.cpp_bloom_filter.get().size()
+#     def size(self):
+#         return self.cpp_bloom_filter.get().size()
 
-    def numHashes(self):
-        return self.cpp_bloom_filter.get().numHashes()
+#     def numHashes(self):
+#         return self.cpp_bloom_filter.get().numHashes()
 
 
 cdef extern from "src/construct/Csf.h" namespace "caramel":
@@ -119,7 +119,7 @@ cdef class PyCsfUint32:
     def construct(vector[string] keys, vector[uint32_t] values, prefilter=None, bint verbose=True):
         cdef PreFilterConfigPtr prefilter_ptr
         if prefilter is None:
-            prefilter_ptr = PreFilterConfigPtr()
+            prefilter_ptr = PreFilterConfigPtr() # nullptr by default
         elif isinstance(prefilter, PyPreFilterConfig):
             prefilter_ptr = (<PyPreFilterConfig>prefilter).cpp_prefilter
         else:
