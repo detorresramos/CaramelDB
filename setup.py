@@ -1,5 +1,6 @@
 import os
 import sys
+import numpy as np
 
 from Cython.Build import cythonize
 from setuptools import Extension, setup
@@ -59,6 +60,7 @@ def get_include_dirs():
         os.path.join(os.getcwd(), "src/construct"),
         os.path.join(os.getcwd(), "src/construct/filter"),
         os.path.join(os.getcwd(), "src/solve"),
+        np.get_include(),
     ]
 
 

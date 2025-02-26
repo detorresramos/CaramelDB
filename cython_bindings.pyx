@@ -1,13 +1,15 @@
 # distutils: language = c++
 # distutils: include_dirs = src
 
-from libc.stdint cimport uint32_t
+from libc.stdint cimport uint32_t, uint64_t
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
 from libcpp.string cimport string
 from libcpp.utility cimport pair
 from libcpp.vector cimport vector
-
+import numpy as np
+cimport numpy as np
+np.import_array()
 
 cdef extern from "src/construct/filter/FilterConfig.h" namespace "caramel":
     cdef cppclass PreFilterConfig:
@@ -176,3 +178,57 @@ cdef class PyMultisetCsfUint32:
         cdef PyMultisetCsfUint32 obj = PyMultisetCsfUint32.__new__(PyMultisetCsfUint32)
         obj.cpp_csf = MultisetCsf[uint32_t].load(filename, 0)
         return obj
+
+cdef extern from "src/construct/EntropyPermutation.h" namespace "caramel":
+    cdef cppclass array_char10 "std::array<char, 10>":
+        pass
+    cdef cppclass array_char12 "std::array<char, 12>":
+        pass
+
+ctypedef fused PermutationType:
+    uint32_t
+    uint64_t
+    array_char10
+    array_char12
+
+cdef extern from "src/construct/EntropyPermutation.h" namespace "caramel":
+    void entropyPermutation[PermutationType](PermutationType* M, int num_rows, int num_cols) except +
+
+def permute(np.ndarray array):
+    """
+    Permutes a 2D numpy array in-place using the templated C++ function.
+
+    Supported types:
+      - np.uint32 (for T = uint32_t)
+      - np.uint64 (for T = uint64_t)
+      - Fixed-length strings with itemsize 10 (for T = std::array<char, 10>)
+      - Fixed-length strings with itemsize 12 (for T = std::array<char, 12>)
+    """
+    # Declare all C variables at the start of the function
+    cdef int num_rows
+    cdef int num_cols
+    cdef uint32_t* data_uint32
+    cdef uint64_t* data_uint64
+    cdef array_char10* data_char10
+    cdef array_char12* data_char12
+
+    if array.ndim != 2:
+        raise ValueError("Input must be a 2D numpy array")
+    
+    num_rows = array.shape[0]
+    num_cols = array.shape[1]
+
+    if array.dtype == np.uint32:
+        data_uint32 = <uint32_t*> array.data
+        entropyPermutation[uint32_t](data_uint32, num_rows, num_cols)
+    elif array.dtype == np.uint64:
+        data_uint64 = <uint64_t*> array.data
+        entropyPermutation[uint64_t](data_uint64, num_rows, num_cols)
+    elif array.dtype.kind == 'S' and array.dtype.itemsize == 10:
+        data_char10 = <array_char10*> array.data
+        entropyPermutation[array_char10](data_char10, num_rows, num_cols)
+    elif array.dtype.kind == 'S' and array.dtype.itemsize == 12:
+        data_char12 = <array_char12*> array.data
+        entropyPermutation[array_char12](data_char12, num_rows, num_cols)
+    else:
+        raise TypeError("Unsupported dtype")
