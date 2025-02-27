@@ -83,7 +83,7 @@ You should see a significant amount of CMake build output, (hopefully) ending wi
   Consolidate compiler generated dependencies of target caramel_lib
   [ 95%] Built target caramel_lib
   Consolidate compiler generated dependencies of target _caramel
-  [ 97%] Building CXX object CMakeFiles/_caramel.dir/python_bindings/PythonBindings.cc.o
+  [ 97%] Building CXX object CMakeFiles/_caramel.dir/pybind/PythonBindings.cc.o
   [100%] Linking CXX shared module lib.macosx-12-arm64-cpython-311/caramel/_caramel.cpython-311-darwin.so
   [100%] Built target _caramel
 ... more build output ...
