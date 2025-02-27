@@ -31,44 +31,44 @@ cdef class PyBloomPreFilterConfig(PyPreFilterConfig):
         self.cpp_prefilter = shared_ptr[PreFilterConfig](new BloomPreFilterConfig())
 
 
-# cdef extern from "src/construct/filter/BloomFilter.h" namespace "caramel":
-#     cdef cppclass BloomFilter:
-#         BloomFilter(size_t num_elements, float error_rate) except +
-#         @staticmethod 
-#         shared_ptr[BloomFilter] make(size_t num_elements, double error_rate)
-#         void add(const string& key)
-#         bool contains(const string& key)
-#         size_t size() const
-#         size_t numHashes() const
+cdef extern from "src/construct/filter/BloomFilter.h" namespace "caramel":
+    cdef cppclass BloomFilter:
+        BloomFilter(size_t num_elements, float error_rate) except +
+        @staticmethod 
+        shared_ptr[BloomFilter] make(size_t num_elements, double error_rate)
+        void add(const string& key)
+        bool contains(const string& key)
+        size_t size() const
+        size_t numHashes() const
 
-#     ctypedef shared_ptr[BloomFilter] BloomFilterPtr
+    ctypedef shared_ptr[BloomFilter] BloomFilterPtr
 
 
-# cdef class PyBloomFilter:
-#     cdef BloomFilterPtr cpp_bloom_filter
+cdef class PyBloomFilter:
+    cdef BloomFilterPtr cpp_bloom_filter
 
-#     def __cinit__(self, size_t num_elements, float error_rate):
-#         self.cpp_bloom_filter = BloomFilter.make(num_elements, error_rate)
+    def __cinit__(self, size_t num_elements, float error_rate):
+        self.cpp_bloom_filter = BloomFilter.make(num_elements, error_rate)
 
-#     def add(self, key):
-#         if isinstance(key, str):
-#             key = key.encode('utf-8')
-#         elif not isinstance(key, bytes):
-#             raise TypeError("key must be str or bytes")
-#         self.cpp_bloom_filter.get().add(key)
+    def add(self, key):
+        if isinstance(key, str):
+            key = key.encode('utf-8')
+        elif not isinstance(key, bytes):
+            raise TypeError("key must be str or bytes")
+        self.cpp_bloom_filter.get().add(key)
 
-#     def contains(self, key):
-#         if isinstance(key, str):
-#             key = key.encode('utf-8')
-#         elif not isinstance(key, bytes):
-#             raise TypeError("key must be str or bytes")
-#         return self.cpp_bloom_filter.get().contains(key)
+    def contains(self, key):
+        if isinstance(key, str):
+            key = key.encode('utf-8')
+        elif not isinstance(key, bytes):
+            raise TypeError("key must be str or bytes")
+        return self.cpp_bloom_filter.get().contains(key)
 
-#     def size(self):
-#         return self.cpp_bloom_filter.get().size()
+    def size(self):
+        return self.cpp_bloom_filter.get().size()
 
-#     def numHashes(self):
-#         return self.cpp_bloom_filter.get().numHashes()
+    def numHashes(self):
+        return self.cpp_bloom_filter.get().numHashes()
 
 
 cdef extern from "src/construct/Csf.h" namespace "caramel":
@@ -79,7 +79,7 @@ cdef extern from "src/construct/Csf.h" namespace "caramel":
         T query(const string &key) const
         void save(const string &filename, const uint32_t type_id) const
         @staticmethod
-        shared_ptr[Csf[T]] load(const string &filename, const uint32_t type_id)
+        shared_ptr[Csf[T]] load(const string &filename, const uint32_t type_id) except +
 
 
 cdef extern from "src/construct/Construct.h" namespace "caramel":
@@ -94,7 +94,7 @@ cdef extern from "src/construct/MultisetCsf.h" namespace "caramel":
         vector[T] query(const string &key, bool parallelize) const
         void save(const string &filename, const uint32_t type_id) const
         @staticmethod
-        shared_ptr[MultisetCsf[T]] load(const string &filename, const uint32_t type_id)
+        shared_ptr[MultisetCsf[T]] load(const string &filename, const uint32_t type_id) except +
 
 
 cdef extern from "src/construct/ConstructMultiset.h" namespace "caramel":
@@ -102,12 +102,6 @@ cdef extern from "src/construct/ConstructMultiset.h" namespace "caramel":
                                        const vector[vector[T]] &values,
                                        PreFilterConfigPtr prefilter,
                                        bool verbose) except +
-
-
-# cdef extern from "<array>" namespace "std" nogil:
-#     cdef cppclass char10array "std::array<char, 10>":
-#         char10array() except +
-#         char *data() nogil
 
 
 cdef class PyCsfUint32:
@@ -132,12 +126,12 @@ cdef class PyCsfUint32:
 
     def query(self, key):
         if not self.cpp_csf:
-            raise ValueError("CSF object not built properly, please use the static construct method instead.")
+            raise ValueError("CSF object not built properly, please use the static construct or load methods instead.")
         return self.cpp_csf.get().query(key)
 
     def save(self, filename):
         if not self.cpp_csf:
-            raise ValueError("CSF object not built properly, please use the static construct method instead.")
+            raise ValueError("CSF object not built properly, please use the static construct or load methods instead.")
         self.cpp_csf.get().save(filename, 0)
 
     @staticmethod
@@ -179,7 +173,7 @@ cdef class PyMultisetCsfUint32:
         obj.cpp_csf = MultisetCsf[uint32_t].load(filename, 0)
         return obj
 
-cdef extern from "src/construct/EntropyPermutation.h" namespace "caramel":
+cdef extern from "<array>" namespace "std":
     cdef cppclass array_char10 "std::array<char, 10>":
         pass
     cdef cppclass array_char12 "std::array<char, 12>":
@@ -204,7 +198,6 @@ def permute(np.ndarray array):
       - Fixed-length strings with itemsize 10 (for T = std::array<char, 10>)
       - Fixed-length strings with itemsize 12 (for T = std::array<char, 12>)
     """
-    # Declare all C variables at the start of the function
     cdef int num_rows
     cdef int num_cols
     cdef uint32_t* data_uint32
@@ -232,3 +225,70 @@ def permute(np.ndarray array):
         entropyPermutation[array_char12](data_char12, num_rows, num_cols)
     else:
         raise TypeError("Unsupported dtype")
+
+
+def Caramel(
+    keys,
+    values,
+    prefilter=None,
+    permute=False,
+    max_to_infer=None,
+    verbose=True,
+):
+    """
+    Constructs a Caramel object, automatically inferring the correct CSF backend.
+
+    Arguments:
+        keys: List of hashable keys.
+        values: List of values to use in the CSF.
+        prefilter: The type of prefilter to use.
+        permute: If true, permutes rows of matrix inputs to minimize entropy.
+        max_to_infer: If provided, only the first "max_to_infer" values
+            will be examinied when inferring the correct CSF backend.
+        verbose: Enable verbose logging
+
+    Returns:
+        A CSF containing the desired key-value mapping.
+
+    Raises:
+        ValueError if the keys and values cannot be used to construct a CSF.
+    """
+    if not len(keys):
+        raise ValueError("Keys must be non-empty but found length 0.")
+    if not len(values):
+        raise ValueError("Values must be non-empty but found length 0.")
+    if len(keys) != len(values):
+        raise ValueError("Keys and values must have the same length.")
+    if not isinstance(keys[0], (str, bytes)):
+        raise ValueError(f"Keys must be str or bytes, found {type(keys[0])}")
+
+    try:
+        warnings.filterwarnings("error", category=np.VisibleDeprecationWarning)
+        values = np.array(values)
+    except Exception:
+        raise ValueError(
+            "Error transforming values to numpy array. Make sure all rows are the same length."
+        )
+
+    CSFClass = _infer_backend(values, max_to_infer=max_to_infer)
+    if CSFClass.is_multiset():
+        if permute:
+            values = permute_values(values, csf_class_type=CSFClass)
+
+        try:
+            values = values.T
+        except Exception:
+            raise ValueError(
+                "Error transforming values to column-wise. Make sure all values are the same length."
+            )
+
+        csf = CSFClass(
+            keys,
+            values,
+            prefilter=prefilter,
+            verbose=verbose,
+        )
+    else:
+        csf = CSFClass(keys, values, prefilter=prefilter, verbose=verbose)
+    csf = _wrap_backend(csf)
+    return csf
