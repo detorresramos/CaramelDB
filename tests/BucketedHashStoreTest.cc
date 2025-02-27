@@ -54,14 +54,14 @@ TEST(BucketedHashStoreTest, TestPartitioning) {
   auto keys = manyRandomStrings(size);
   auto values = genRandomVector(size);
 
-  auto [key_buckets, value_buckets, seed] =
+  auto hash_store =
       partitionToBuckets<uint32_t>(keys, values, 20);
 
   for (auto key : keys) {
     __uint128_t signature = hashKey(key, 0);
     uint32_t bucket_id = getBucketID(signature, 6);
-    if (std::find(key_buckets[bucket_id].begin(), key_buckets[bucket_id].end(),
-                  signature) == key_buckets[bucket_id].end()) {
+    if (std::find(hash_store.key_buckets[bucket_id].begin(), hash_store.key_buckets[bucket_id].end(),
+                  signature) == hash_store.key_buckets[bucket_id].end()) {
       throw std::invalid_argument("Key not found in its bucket.");
     }
   }
