@@ -1,9 +1,10 @@
 import os
 import random
 
-import carameldb
 import numpy as np
 import pytest
+
+import carameldb
 
 
 def test_multiset_csf():
