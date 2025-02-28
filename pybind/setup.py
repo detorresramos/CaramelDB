@@ -1,104 +1,124 @@
+import multiprocessing
 import os
+import re
+import subprocess
 import sys
-import numpy as np
+from pathlib import Path
 
-from Cython.Build import cythonize
-from setuptools import Extension, setup
+from setuptools import Extension, find_packages, setup
+from setuptools.command.build_ext import build_ext
 
-
-def get_compile_args():
-    base_compile_options = [
-        "-std=gnu++17",
-        "-Wall",
-        "-Wextra",
-        "-Wno-unused-function",
-        "-Wno-psabi",
-        "-pedantic",
-        "-fopenmp",
-    ]
-
-    valid_modes = {"Debug", "Release", "RelWithDebInfo", "DebugWithAsan"}
-    build_mode = "Release"
-
-    for arg in sys.argv:
-        if arg.startswith("--mode="):
-            mode = arg.split("=")[1]
-            if mode not in valid_modes:
-                sys.exit(
-                    f"Error: Invalid build mode '{mode}'. Valid options are: {', '.join(valid_modes)}"
-                )
-            build_mode = mode
-            sys.argv.remove(arg)
-            break
-
-    build_mode_compile_options = {
-        "Debug": ["-Og", "-g", "-fno-omit-frame-pointer"],
-        "DebugWithAsan": ["-Og", "-g", "-fno-omit-frame-pointer", "-fsanitize=address"],
-        "Release": ["-DNDEBUG", "-Ofast", "-funroll-loops", "-ftree-vectorize"],
-        "RelWithDebInfo": [
-            "-DNDEBUG",
-            "-Ofast",
-            "-funroll-loops",
-            "-ftree-vectorize",
-            "-g",
-            "-fno-omit-frame-pointer",
-        ],
-    }
-
-    return base_compile_options + build_mode_compile_options[build_mode]
+# Convert distutils Windows platform specifiers to CMake -A arguments
+PLAT_TO_CMAKE = {
+    "win32": "Win32",
+    "win-amd64": "x64",
+    "win-arm32": "ARM",
+    "win-arm64": "ARM64",
+}
 
 
-def get_link_args():
-    return ["-fopenmp"]
+# A CMakeExtension needs a sourcedir instead of a file list.
+# The name must be the _single_ output extension from the CMake build.
+# If you need multiple extensions, see scikit-build.
+class CMakeExtension(Extension):
+    def __init__(self, name: str, sourcedir: str = "") -> None:
+        super().__init__(name, sources=[])
+        self.sourcedir = os.fspath(Path(sourcedir).resolve())
 
 
-def get_include_dirs():
-    return [
-        os.path.join(os.getcwd(), "deps", "cereal/include"),
-        os.path.join(os.getcwd(), ""),
-        os.path.join(os.getcwd(), "src"),
-        os.path.join(os.getcwd(), "src/construct"),
-        os.path.join(os.getcwd(), "src/construct/filter"),
-        os.path.join(os.getcwd(), "src/solve"),
-        np.get_include(),
-    ]
+class CMakeBuild(build_ext):
+    def build_extension(self, ext: CMakeExtension) -> None:
+        extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
 
+        # required for auto-detection & inclusion of auxiliary "native" libs
+        if not extdir.endswith(os.path.sep):
+            extdir += os.path.sep
 
-extensions = [
-    Extension(
-        name="carameldb",
-        sources=[
-            "cython_bindings.pyx",
-            "src/construct/SpookyHash.cc",
-            "src/construct/Codec.cc",
-            "src/solve/GaussianElimination.cc",
-            "src/solve/HypergraphPeeler.cc",
-            "src/solve/LazyGaussianElimination.cc",
-            "src/solve/Solve.cc",
-            "src/Modulo2System.cc",
-            "src/BitArray.cc",  
-        ],
-        include_dirs=get_include_dirs(),
-        language="c++",
-        extra_compile_args=get_compile_args(),
-        extra_link_args=get_link_args(),
-    )
-]
+        # Using this requires trailing slash for auto-detection & inclusion of
+        # auxiliary "native" libs
+
+        debug = int(os.environ.get("DEBUG", 0)) if self.debug is None else self.debug
+        cfg = "Debug" if debug else "Release"
+
+        # CMake lets you override the generator - we need to check this.
+        # Can be set with Conda-Build, for example.
+        cmake_generator = os.environ.get("CMAKE_GENERATOR", "")
+
+        # Set Python_EXECUTABLE instead if you use PYBIND11_FINDPYTHON
+        # EXAMPLE_VERSION_INFO shows you how to pass a value into the C++ code
+        # from Python.
+        cmake_args = [
+            f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={extdir}{os.sep}",
+            f"-DPYTHON_EXECUTABLE={sys.executable}",
+            f"-DCMAKE_BUILD_TYPE={cfg}",  # not used on MSVC, but no harm
+        ]
+        build_args = ["-t", "_caramel"]
+        # Adding CMake arguments set as environment variable
+        # (needed e.g. to build for ARM OSx on conda-forge)
+        if "CMAKE_ARGS" in os.environ:
+            cmake_args += [item for item in os.environ["CMAKE_ARGS"].split(" ") if item]
+
+        if self.compiler.compiler_type != "msvc":
+            # Using Ninja-build since it a) is available as a wheel and b)
+            # multithreads automatically. MSVC would require all variables be
+            # exported for Ninja to pick it up, which is a little tricky to do.
+            # Users can override the generator with CMAKE_GENERATOR in CMake
+            # 3.15+.
+            if not cmake_generator or cmake_generator == "Ninja":
+                try:
+                    import ninja  # noqa: F401
+
+                    cmake_args += ["-GNinja"]
+                except ImportError:
+                    pass
+        else:
+            # Single config generators are handled "normally"
+            single_config = any(x in cmake_generator for x in {"NMake", "Ninja"})
+
+            # CMake allows an arch-in-generator style for backward compatibility
+            contains_arch = any(x in cmake_generator for x in {"ARM", "Win64"})
+
+            # Specify the arch if using MSVC generator, but only if it doesn't
+            # contain a backward-compatibility arch spec already in the
+            # generator name.
+            if not single_config and not contains_arch:
+                cmake_args += ["-A", PLAT_TO_CMAKE[self.plat_name]]
+
+            # Multi-config generators have a different way to specify configs
+            if not single_config:
+                cmake_args += [
+                    f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{cfg.upper()}={extdir}"
+                ]
+                build_args += ["--config", cfg]
+
+        if sys.platform.startswith("darwin"):
+            # Cross-compile support for macOS - respect ARCHFLAGS if set
+            archs = re.findall(r"-arch (\S+)", os.environ.get("ARCHFLAGS", ""))
+            if archs:
+                cmake_args += ["-DCMAKE_OSX_ARCHITECTURES={}".format(";".join(archs))]
+
+        jobs = multiprocessing.cpu_count() * 2
+        build_args += [f"-j{jobs}"]
+
+        build_dir = "build/"
+        if not os.path.exists(build_dir):
+            os.makedirs(build_dir)
+
+        subprocess.check_call(["cmake", ext.sourcedir] + cmake_args, cwd=build_dir)
+        subprocess.check_call(["cmake", "--build", "."] + build_args, cwd=build_dir)
+
 
 setup(
     name="carameldb",
     version="0.0.1",
+    packages=find_packages(),
     author="Ben Coleman, Vihan Lakshman, David Torres, Chen Luo",
     author_email="detorresramos1@gmail.com",
     description="A Succinct Read-Only Lookup Table via Compressed Static Functions",
     long_description="",
-    license_files=("LICENSE",),
-    ext_modules=cythonize(
-        extensions,
-        build_dir="build",
-        annotate=True,
-        compiler_directives={"language_level": "3"},
-    ),
+    license_files=("../LICENSE",),
+    ext_modules=[CMakeExtension("carameldb._caramel", sourcedir="..")],
+    cmdclass={"build_ext": CMakeBuild},
     zip_safe=False,
     install_requires=["numpy"],
     extras_require={"test": ["pytest>=6.0"]},

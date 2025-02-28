@@ -7,8 +7,11 @@ from libcpp.memory cimport shared_ptr
 from libcpp.string cimport string
 from libcpp.utility cimport pair
 from libcpp.vector cimport vector
+
 import numpy as np
+
 cimport numpy as np
+
 np.import_array()
 
 cdef extern from "src/construct/filter/FilterConfig.h" namespace "caramel":
