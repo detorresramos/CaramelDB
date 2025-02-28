@@ -81,7 +81,7 @@ def test_permutation():
     values = np.array(
         [[0, 1, 2, 3, 4, 5, 6, 0], [1, 0, 0, 1, 0, 1, 2, 2]], dtype=np.uint32
     )
-    carameldb.permute_uint32(values)
+    carameldb.permute(values)
 
     assert values[0][0] == 2
     assert values[1][0] == 2
@@ -93,7 +93,7 @@ def test_permutation():
         ],
         dtype="|S10",
     )
-    carameldb.permute_char10(values)
+    carameldb.permute_values(values)
 
     assert values[0][0] == str(2).ljust(10).encode()
     assert values[1][0] == str(2).ljust(10).encode()

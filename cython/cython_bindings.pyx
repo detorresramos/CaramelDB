@@ -159,7 +159,7 @@ ctypedef fused PermutationType:
 cdef extern from "src/construct/EntropyPermutation.h" namespace "caramel":
     void entropyPermutation[PermutationType](PermutationType* M, int num_rows, int num_cols) except +
 
-def permute(np.ndarray array):
+def permute_values(np.ndarray array):
     """
     Permutes a 2D numpy array in-place using the templated C++ function.
 
