@@ -15,3 +15,9 @@ brew install cmake
 brew install libomp
 
 pip3 install pytest
+
+git submodule update --init --recursive
+
+# link libomp ?
+
+pip3 install numpy

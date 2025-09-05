@@ -73,7 +73,6 @@ def Caramel(
         raise ValueError(f"Keys must be str or bytes, found {type(keys[0])}")
 
     try:
-        warnings.filterwarnings("error", category=np.VisibleDeprecationWarning)
         values = np.array(values)
     except Exception:
         raise ValueError(
