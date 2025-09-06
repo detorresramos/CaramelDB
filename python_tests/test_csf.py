@@ -86,31 +86,26 @@ def test_csf_load_incorrect_type_fails():
 
 
 def test_auto_infer_char10():
-    keys = gen_byte_keys(1000)
     values = gen_charX_values(1000, 10)
     assert carameldb._infer_backend(values) == carameldb.CSFChar10
 
 
 def test_auto_infer_char12():
-    keys = gen_byte_keys(1000)
     values = gen_charX_values(1000, 12)
     assert carameldb._infer_backend(values) == carameldb.CSFChar12
 
 
 def test_auto_infer_string():
-    keys = gen_str_keys(1000)
     values = gen_str_values(1000)
     assert carameldb._infer_backend(values) == carameldb.CSFString
 
 
 def test_auto_infer_bytes():
-    keys = gen_str_keys(1000)
     values = np.array([f"V{i}".encode("utf-8") for i in range(1000)])
     assert carameldb._infer_backend(values) == carameldb.CSFString
 
 
 def test_auto_infer_int():
-    keys = gen_str_keys(1000)
     values = gen_int_values(1000)
     assert carameldb._infer_backend(values) == carameldb.CSFUint32
 

@@ -4,9 +4,7 @@
 #include "Codec.h"
 #include "ConstructUtils.h"
 #include "Csf.h"
-#include <array>
 #include <cmath>
-#include <functional>
 #include <src/Modulo2System.h>
 #include <src/construct/filter/FilterFactory.h>
 #include <src/solve/Solve.h>
