@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.4...3.18)
+cmake_minimum_required(VERSION 3.5)
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
@@ -34,6 +34,17 @@ message("\tC++ compiler: ${CMAKE_CXX_COMPILER}")
 message("\tC compiler: ${CMAKE_C_COMPILER}")
 message("====================================")
 
+if(CMAKE_C_COMPILER_ID MATCHES "Clang")
+    set(OpenMP_C_FLAGS "-Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include")
+    set(OpenMP_C_LIB_NAMES "omp")
+    set(OpenMP_omp_LIBRARY "/opt/homebrew/opt/libomp/lib/libomp.dylib")
+endif()
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    set(OpenMP_CXX_FLAGS "-Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include")
+    set(OpenMP_CXX_LIB_NAMES "omp")
+    set(OpenMP_omp_LIBRARY "/opt/homebrew/opt/libomp/lib/libomp.dylib")
+endif()
+
 find_package(OpenMP)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -53,11 +64,13 @@ set(CARAMEL_COMPILE_OPTIONS
     $<$<CONFIG:DebugWithAsan>:-g>
     $<$<CONFIG:DebugWithAsan>:-fno-omit-frame-pointer>
     $<$<CONFIG:Release>:-DNDEBUG>
-    $<$<CONFIG:Release>:-Ofast>
+    $<$<CONFIG:Release>:-O3>
+    $<$<CONFIG:Release>:-ffast-math>
     $<$<CONFIG:Release>:-funroll-loops>
     $<$<CONFIG:Release>:-ftree-vectorize>
     $<$<CONFIG:RelWithDebInfo>:-DNDEBUG>
-    $<$<CONFIG:RelWithDebInfo>:-Ofast>
+    $<$<CONFIG:RelWithDebInfo>:-O3>
+    $<$<CONFIG:RelWithDebInfo>:-ffast-math>
     $<$<CONFIG:RelWithDebInfo>:-funroll-loops>
     $<$<CONFIG:RelWithDebInfo>:-ftree-vectorize>
     $<$<CONFIG:RelWithDebInfo>:-g>
