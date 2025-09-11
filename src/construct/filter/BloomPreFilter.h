@@ -49,7 +49,7 @@ public:
     }
 
     size_t bf_size = num_items - highest_frequency;
-    _bloom_filter = BloomFilter::make(bf_size, error_rate);
+    _bloom_filter = BloomFilter::makeAutotuned(bf_size, error_rate);
 
     // add all keys to bf that do not correspond to the most common element
     for (size_t i = 0; i < num_items; i++) {

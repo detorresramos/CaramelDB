@@ -2,9 +2,8 @@ import argparse
 import os
 import time
 
-import numpy as np
-
 import carameldb
+import numpy as np
 
 
 class dotdict(dict):

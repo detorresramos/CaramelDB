@@ -1,8 +1,3 @@
-import glob
-import os
-import warnings
-from pathlib import Path
-
 import numpy as np
 
 from ._caramel import (

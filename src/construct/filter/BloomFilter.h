@@ -12,26 +12,42 @@ namespace caramel {
 
 class BloomFilter {
 public:
-  BloomFilter(size_t num_elements, float error_rate) {
+  static BloomFilter autotuned(size_t num_elements, double error_rate) {
+    BloomFilter filter;
+    
     size_t size =
         std::ceil(log2(std::exp(1)) * log2(std::exp(1)) *
                   log2(1.0 / error_rate) * static_cast<float>(num_elements));
 
-    _bitarray = BitArray::make(size);
+    filter._bitarray = BitArray::make(size);
 
-    _num_hashes = std::ceil((static_cast<float>(size) * log(2)) /
-                            (static_cast<float>(num_elements)));
+    filter._num_hashes = std::ceil((static_cast<float>(size) * log(2)) /
+                                   (static_cast<float>(num_elements)));
+    
+    return filter;
   }
 
-  static std::shared_ptr<BloomFilter> make(size_t num_elements,
+  static BloomFilter fixed(size_t bitarray_size, size_t num_hashes) {
+    BloomFilter filter;
+    filter._bitarray = BitArray::make(bitarray_size);
+    filter._num_hashes = num_hashes;
+    return filter;
+  }
+
+  static std::shared_ptr<BloomFilter> makeAutotuned(size_t num_elements,
                                            double error_rate) {
-    return std::make_shared<BloomFilter>(num_elements, error_rate);
+    return std::make_shared<BloomFilter>(autotuned(num_elements, error_rate));
+  }
+
+  static std::shared_ptr<BloomFilter> makeFixed(size_t bitarray_size,
+                                                    size_t num_hashes) {
+    return std::make_shared<BloomFilter>(fixed(bitarray_size, num_hashes));
   }
 
   void add(const std::string &key) {
     std::vector<uint64_t> hash_values = getHashValues(key);
     for (uint64_t hash : hash_values) {
-      _bitarray->setBit(hash % _bitarray->numBits());
+      _bitarray->setBit(hash);
     }
   }
 

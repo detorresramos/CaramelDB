@@ -1,9 +1,8 @@
 import os
 
+import carameldb
 import numpy as np
 import pytest
-
-import carameldb
 from carameldb.filters import BloomFilterConfig, XORFilterConfig
 
 gen_str_keys = lambda n: [f"key{i}" for i in range(n)]
