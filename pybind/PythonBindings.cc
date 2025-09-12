@@ -35,7 +35,8 @@ void bindPreFilterConfig(py::module &module) {
   py::class_<BloomPreFilterConfig, PreFilterConfig,
              std::shared_ptr<BloomPreFilterConfig>>(module,
                                                     "BloomFilterConfig")
-      .def(py::init<>());
+      .def(py::init<std::optional<float>>(), py::arg("error_rate") = std::nullopt)
+      .def_readwrite("error_rate", &BloomPreFilterConfig::error_rate);
 
   py::class_<XORPreFilterConfig, PreFilterConfig,
              std::shared_ptr<XORPreFilterConfig>>(module, "XORFilterConfig")

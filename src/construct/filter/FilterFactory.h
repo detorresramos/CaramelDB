@@ -10,7 +10,7 @@ template <typename T>
 PreFilterPtr<T> makeFilter(std::shared_ptr<PreFilterConfig> filter_config) {
   if (auto specific_config =
           std::dynamic_pointer_cast<BloomPreFilterConfig>(filter_config)) {
-    return BloomPreFilter<T>::make();
+    return BloomPreFilter<T>::make(specific_config->error_rate);
   }
 
 //   if (auto specific_config =
