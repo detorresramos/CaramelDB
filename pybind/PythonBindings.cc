@@ -5,6 +5,8 @@
 #include <src/construct/EntropyPermutation.h>
 #include <src/construct/MultisetCsf.h>
 #include <src/construct/filter/FilterConfig.h>
+#include <src/construct/filter/PreFilter.h>
+#include <src/construct/filter/BloomPreFilter.h>
 
 // Pybind11 library
 #include <pybind11/cast.h>
@@ -26,6 +28,23 @@ void bindBloomFilter(py::module &module) {
       .def("size", &BloomFilter::size)
       .def("num_hashes", &BloomFilter::numHashes)
       .def("contains", &BloomFilter::contains, py::arg("key"));
+}
+
+template <typename T>
+void bindPreFilter(py::module &module, const char *name) {
+  // Bind the base PreFilter class as non-constructible (abstract)
+  py::class_<PreFilter<T>, PreFilterPtr<T>>(module, name);
+}
+
+template <typename T>
+void bindBloomPreFilter(py::module &module, const char *bloom_name) {
+  // Bind BloomPreFilter as a derived class
+  py::class_<BloomPreFilter<T>, PreFilter<T>, BloomPreFilterPtr<T>>(module, bloom_name)
+      .def("save", &BloomPreFilter<T>::save, py::arg("filename"))
+      .def_static("load", &BloomPreFilter<T>::load, py::arg("filename"))
+      .def("get_bloom_filter", &BloomPreFilter<T>::getBloomFilter,
+           py::return_value_policy::reference)
+      .def("get_most_common_value", &BloomPreFilter<T>::getMostCommonValue);
 }
 
 void bindPreFilterConfig(py::module &module) {
@@ -55,6 +74,7 @@ void bindCsf(py::module &module, const char *name, const uint32_t type_id) {
            py::arg("keys"), py::arg("values"),
            py::arg("prefilter") = nullptr, py::arg("verbose") = true)
       .def("query", &Csf<T>::query, py::arg("key"))
+      .def("get_filter", &Csf<T>::getFilter, py::return_value_policy::reference)
       // Call save / load through a lambda to avoid user visibility of type_id.
       .def(
           "save",
@@ -121,6 +141,20 @@ template <typename T> void bindPermutation(py::module &m, const char *name) {
 PYBIND11_MODULE(_caramel, module) { // NOLINT
   bindBloomFilter(module);
   bindPreFilterConfig(module);
+
+  // Bind PreFilter base classes first
+  bindPreFilter<uint32_t>(module, "PreFilterUint32");
+  bindPreFilter<uint64_t>(module, "PreFilterUint64");
+  bindPreFilter<std::array<char, 10>>(module, "PreFilterChar10");
+  bindPreFilter<std::array<char, 12>>(module, "PreFilterChar12");
+  bindPreFilter<std::string>(module, "PreFilterString");
+  
+  // Then bind BloomPreFilter classes (which are the concrete implementations)
+  bindBloomPreFilter<uint32_t>(module, "BloomPreFilterUint32");
+  bindBloomPreFilter<uint64_t>(module, "BloomPreFilterUint64");
+  bindBloomPreFilter<std::array<char, 10>>(module, "BloomPreFilterChar10");
+  bindBloomPreFilter<std::array<char, 12>>(module, "BloomPreFilterChar12");
+  bindBloomPreFilter<std::string>(module, "BloomPreFilterString");
 
   bindCsf<uint32_t>(module, "CSFUint32", 1);
   bindCsf<uint64_t>(module, "CSFUint64", 2);

@@ -6,6 +6,7 @@
 #include <array>
 #include <cmath>
 #include <optional>
+#include <src/utils/SafeFileIO.h>
 #include <src/utils/Timer.h>
 #include <string>
 #include <unordered_map>
@@ -102,6 +103,20 @@ public:
   BloomFilterPtr getBloomFilter() const { return _bloom_filter; }
 
   std::optional<T> getMostCommonValue() const { return _most_common_value; }
+
+  void save(const std::string &filename) const {
+    auto output_stream = SafeFileIO::ofstream(filename, std::ios::binary);
+    cereal::BinaryOutputArchive oarchive(output_stream);
+    oarchive(*this);
+  }
+
+  static BloomPreFilterPtr<T> load(const std::string &filename) {
+    auto input_stream = SafeFileIO::ifstream(filename, std::ios::binary);
+    cereal::BinaryInputArchive iarchive(input_stream);
+    BloomPreFilterPtr<T> filter;
+    iarchive(filter);
+    return filter;
+  }
 
 private:
   std::pair<size_t, T> highestFrequency(const std::vector<T> &values) {

@@ -3,7 +3,8 @@
     "allow": [
       "Bash(bin/python-test.sh:*)",
       "Bash(bin/build.py:*)",
-      "Bash(source:*)"
+      "Bash(source:*)",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []
