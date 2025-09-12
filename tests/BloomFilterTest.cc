@@ -1,4 +1,3 @@
-#include "TestUtils.h"
 #include <gtest/gtest.h>
 #include <random>
 #include <src/construct/filter/BloomFilter.h>
@@ -60,8 +59,7 @@ TEST(BloomFilterTest, TestErrorRate) {
       }
     }
 
-    // TODO(david) can we figure out how to fix the error rate?
-    ASSERT_LE(num_errors, trial_number * error_rate * 1.1);
+    ASSERT_LE(num_errors, trial_number * error_rate);
   }
 }
 
@@ -83,7 +81,7 @@ TEST(BloomFilterTest, VerifyOptimalNumHashes) {
     {7200, 1000, 5},   // k ≈ 7.20 * 0.693 ≈ 4.99
   };
   
-  std::mt19937 rng(std::random_device{}());  // Fixed seed for reproducibility
+  std::mt19937 rng(std::random_device{}());
   
   for (const auto& tc : test_cases) {
     // Calculate the theoretical optimal k

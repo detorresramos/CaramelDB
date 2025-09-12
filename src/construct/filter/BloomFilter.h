@@ -21,7 +21,7 @@ public:
 
     filter._bitarray = BitArray::make(size);
 
-    filter._num_hashes = std::ceil((static_cast<float>(size) * log(2)) /
+    filter._num_hashes = std::round((static_cast<float>(size) * log(2)) /
                                    (static_cast<float>(num_elements)));
     
     return filter;
