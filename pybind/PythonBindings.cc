@@ -32,13 +32,11 @@ void bindBloomFilter(py::module &module) {
 
 template <typename T>
 void bindPreFilter(py::module &module, const char *name) {
-  // Bind the base PreFilter class as non-constructible (abstract)
   py::class_<PreFilter<T>, PreFilterPtr<T>>(module, name);
 }
 
 template <typename T>
 void bindBloomPreFilter(py::module &module, const char *bloom_name) {
-  // Bind BloomPreFilter as a derived class
   py::class_<BloomPreFilter<T>, PreFilter<T>, BloomPreFilterPtr<T>>(module, bloom_name)
       .def("save", &BloomPreFilter<T>::save, py::arg("filename"))
       .def_static("load", &BloomPreFilter<T>::load, py::arg("filename"))
@@ -106,8 +104,7 @@ void bindMultisetCsf(py::module &module, const char *name,
            py::arg("prefilter") = nullptr, py::arg("verbose") = true)
       .def("query", &MultisetCsf<T>::query, py::arg("key"),
            py::arg("parallel") = true)
-      // Call save / load through a lambda to avoid user visibility of
-      // type_id.
+      // Call save / load through a lambda to avoid user visibility of type_id.
       .def(
           "save",
           [type_id](MultisetCsf<T> &self, const std::string &filename) {
@@ -142,14 +139,12 @@ PYBIND11_MODULE(_caramel, module) { // NOLINT
   bindBloomFilter(module);
   bindPreFilterConfig(module);
 
-  // Bind PreFilter base classes first
   bindPreFilter<uint32_t>(module, "PreFilterUint32");
   bindPreFilter<uint64_t>(module, "PreFilterUint64");
   bindPreFilter<std::array<char, 10>>(module, "PreFilterChar10");
   bindPreFilter<std::array<char, 12>>(module, "PreFilterChar12");
   bindPreFilter<std::string>(module, "PreFilterString");
   
-  // Then bind BloomPreFilter classes (which are the concrete implementations)
   bindBloomPreFilter<uint32_t>(module, "BloomPreFilterUint32");
   bindBloomPreFilter<uint64_t>(module, "BloomPreFilterUint64");
   bindBloomPreFilter<std::array<char, 10>>(module, "BloomPreFilterChar10");

@@ -107,12 +107,7 @@ public:
   }
 
   PreFilterPtr<T> getFilter() const {
-    // Only return the filter if it's actually active
-    // (i.e., has a bloom filter or most common value set)
-    if (_filter && _filter->getMostCommonValue().has_value()) {
-      return _filter;
-    }
-    return nullptr;
+    return _filter;
   }
 
 private:
