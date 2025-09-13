@@ -110,14 +110,6 @@ public:
     oarchive(*this);
   }
 
-  static BloomPreFilterPtr<T> load(const std::string &filename) {
-    auto input_stream = SafeFileIO::ifstream(filename, std::ios::binary);
-    cereal::BinaryInputArchive iarchive(input_stream);
-    BloomPreFilterPtr<T> filter;
-    iarchive(filter);
-    return filter;
-  }
-
 private:
   std::pair<size_t, T> highestFrequency(const std::vector<T> &values) {
     std::unordered_map<T, size_t> frequencies;

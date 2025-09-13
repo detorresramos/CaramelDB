@@ -39,7 +39,6 @@ template <typename T>
 void bindBloomPreFilter(py::module &module, const char *bloom_name) {
   py::class_<BloomPreFilter<T>, PreFilter<T>, BloomPreFilterPtr<T>>(module, bloom_name)
       .def("save", &BloomPreFilter<T>::save, py::arg("filename"))
-      .def_static("load", &BloomPreFilter<T>::load, py::arg("filename"))
       .def("get_bloom_filter", &BloomPreFilter<T>::getBloomFilter,
            py::return_value_policy::reference)
       .def("get_most_common_value", &BloomPreFilter<T>::getMostCommonValue);

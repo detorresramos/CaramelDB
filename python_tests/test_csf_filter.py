@@ -56,7 +56,7 @@ def test_bloom_filter_with_custom_error_rate():
 
 def test_get_bloom_filter():
     keys = gen_str_keys(1000)
-    values = np.array([5 for _ in range(len(keys))])
+    values = np.array([5 for _ in range(900)] + [6] * 100)
     csf = carameldb.Caramel(keys, values, prefilter=BloomFilterConfig())
 
     prefilter = csf.get_filter()
@@ -65,13 +65,15 @@ def test_get_bloom_filter():
 
     filename = "prefilter.bin"
     prefilter.save(filename)
-
-    loaded_prefilter = carameldb.BloomPreFilterUint32.load(filename)
-    assert loaded_prefilter != None
-    assert loaded_prefilter.get_most_common_value() == 5
-
+    assert os.path.getsize(filename) > 10 # assert non-degenerate filter
     os.remove(filename)
-    
+
+
+def test_no_bloom_filter_created():
+    keys = gen_str_keys(1000)
+    values = np.array([i for i in range(len(keys))])
+    csf = carameldb.Caramel(keys, values)
+    assert csf.get_filter() is None
 
 
 @pytest.mark.parametrize(
