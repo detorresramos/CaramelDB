@@ -106,6 +106,10 @@ public:
     return deserialize_into;
   }
 
+  PreFilterPtr<T> getFilter() const {
+    return _filter;
+  }
+
 private:
   // Private constructor for cereal
   Csf() {}

@@ -2,6 +2,11 @@ import numpy as np
 
 from ._caramel import (
     BloomFilterConfig,
+    BloomPreFilterChar10,
+    BloomPreFilterChar12,
+    BloomPreFilterString,
+    BloomPreFilterUint32,
+    BloomPreFilterUint64,
     CSFChar10,
     CSFChar12,
     CsfDeserializationException,
@@ -13,6 +18,11 @@ from ._caramel import (
     MultisetCSFString,
     MultisetCSFUint32,
     MultisetCSFUint64,
+    PreFilterChar10,
+    PreFilterChar12,
+    PreFilterString,
+    PreFilterUint32,
+    PreFilterUint64,
     XORFilterConfig,
     permute_char10,
     permute_char12,

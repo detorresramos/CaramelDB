@@ -4,7 +4,9 @@
 #include <src/construct/Csf.h>
 #include <src/construct/EntropyPermutation.h>
 #include <src/construct/MultisetCsf.h>
+#include <src/construct/filter/BloomPreFilter.h>
 #include <src/construct/filter/FilterConfig.h>
+#include <src/construct/filter/PreFilter.h>
 
 // Pybind11 library
 #include <pybind11/cast.h>
@@ -19,13 +21,28 @@ namespace caramel::python {
 void bindBloomFilter(py::module &module) {
   py::class_<BloomFilter, BloomFilterPtr>(module, "BloomFilter")
       .def_static("autotuned", &BloomFilter::makeAutotuned,
-                  py::arg("num_elements"), py::arg("error_rate"))
-      .def_static("fixed", &BloomFilter::makeFixed, 
-                  py::arg("bitarray_size"), py::arg("num_hashes"))
+                  py::arg("num_elements"), py::arg("error_rate"),
+                  py::arg("verbose") = false)
+      .def_static("fixed", &BloomFilter::makeFixed, py::arg("bitarray_size"),
+                  py::arg("num_hashes"))
       .def("add", &BloomFilter::add, py::arg("key"))
       .def("size", &BloomFilter::size)
       .def("num_hashes", &BloomFilter::numHashes)
       .def("contains", &BloomFilter::contains, py::arg("key"));
+}
+
+template <typename T> void bindPreFilter(py::module &module, const char *name) {
+  py::class_<PreFilter<T>, PreFilterPtr<T>>(module, name);
+}
+
+template <typename T>
+void bindBloomPreFilter(py::module &module, const char *bloom_name) {
+  py::class_<BloomPreFilter<T>, PreFilter<T>, BloomPreFilterPtr<T>>(module,
+                                                                    bloom_name)
+      .def("save", &BloomPreFilter<T>::save, py::arg("filename"))
+      .def("get_bloom_filter", &BloomPreFilter<T>::getBloomFilter,
+           py::return_value_policy::reference)
+      .def("get_most_common_value", &BloomPreFilter<T>::getMostCommonValue);
 }
 
 void bindPreFilterConfig(py::module &module) {
@@ -33,9 +50,9 @@ void bindPreFilterConfig(py::module &module) {
       module, "PreFilterConfig");
 
   py::class_<BloomPreFilterConfig, PreFilterConfig,
-             std::shared_ptr<BloomPreFilterConfig>>(module,
-                                                    "BloomFilterConfig")
-      .def(py::init<std::optional<float>>(), py::arg("error_rate") = std::nullopt)
+             std::shared_ptr<BloomPreFilterConfig>>(module, "BloomFilterConfig")
+      .def(py::init<std::optional<float>, std::optional<size_t>>(),
+           py::arg("error_rate") = std::nullopt, py::arg("k") = std::nullopt)
       .def_readwrite("error_rate", &BloomPreFilterConfig::error_rate);
 
   py::class_<XORPreFilterConfig, PreFilterConfig,
@@ -52,9 +69,10 @@ void bindCsf(py::module &module, const char *name, const uint32_t type_id) {
                        bool verbose) {
              return constructCsf<T>(keys, values, filter_config, verbose);
            }),
-           py::arg("keys"), py::arg("values"),
-           py::arg("prefilter") = nullptr, py::arg("verbose") = true)
+           py::arg("keys"), py::arg("values"), py::arg("prefilter") = nullptr,
+           py::arg("verbose") = true)
       .def("query", &Csf<T>::query, py::arg("key"))
+      .def("get_filter", &Csf<T>::getFilter, py::return_value_policy::reference)
       // Call save / load through a lambda to avoid user visibility of type_id.
       .def(
           "save",
@@ -82,12 +100,11 @@ void bindMultisetCsf(py::module &module, const char *name,
              return constructMultisetCsf<T>(keys, values, filter_config,
                                             verbose);
            }),
-           py::arg("keys"), py::arg("values"),
-           py::arg("prefilter") = nullptr, py::arg("verbose") = true)
+           py::arg("keys"), py::arg("values"), py::arg("prefilter") = nullptr,
+           py::arg("verbose") = true)
       .def("query", &MultisetCsf<T>::query, py::arg("key"),
            py::arg("parallel") = true)
-      // Call save / load through a lambda to avoid user visibility of
-      // type_id.
+      // Call save / load through a lambda to avoid user visibility of type_id.
       .def(
           "save",
           [type_id](MultisetCsf<T> &self, const std::string &filename) {
@@ -121,6 +138,18 @@ template <typename T> void bindPermutation(py::module &m, const char *name) {
 PYBIND11_MODULE(_caramel, module) { // NOLINT
   bindBloomFilter(module);
   bindPreFilterConfig(module);
+
+  bindPreFilter<uint32_t>(module, "PreFilterUint32");
+  bindPreFilter<uint64_t>(module, "PreFilterUint64");
+  bindPreFilter<std::array<char, 10>>(module, "PreFilterChar10");
+  bindPreFilter<std::array<char, 12>>(module, "PreFilterChar12");
+  bindPreFilter<std::string>(module, "PreFilterString");
+
+  bindBloomPreFilter<uint32_t>(module, "BloomPreFilterUint32");
+  bindBloomPreFilter<uint64_t>(module, "BloomPreFilterUint64");
+  bindBloomPreFilter<std::array<char, 10>>(module, "BloomPreFilterChar10");
+  bindBloomPreFilter<std::array<char, 12>>(module, "BloomPreFilterChar12");
+  bindBloomPreFilter<std::string>(module, "BloomPreFilterString");
 
   bindCsf<uint32_t>(module, "CSFUint32", 1);
   bindCsf<uint64_t>(module, "CSFUint64", 2);

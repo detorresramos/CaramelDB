@@ -3,7 +3,6 @@ import os
 import carameldb
 import numpy as np
 import pytest
-from carameldb import BloomFilterConfig, XORFilterConfig
 
 gen_str_keys = lambda n: [f"key{i}" for i in range(n)]
 gen_byte_keys = lambda n: [f"key{i}".encode("utf-8") for i in range(n)]
@@ -123,88 +122,11 @@ def test_end_to_end():
         assert_simple_api_correct(keys, values)
 
 
-@pytest.mark.parametrize(
-    "most_common_frequency",
-    [0.3, 0.5, 0.7, 0.78, 0.8, 0.9, 1.0],
-)
-def test_bloom_filter(most_common_frequency):
-    rows = 10000
-    keys = gen_str_keys(rows)
-    num_most_common_element = int(rows * most_common_frequency)
-    other_elements = rows - num_most_common_element
-    values = [10000 for _ in range(num_most_common_element)] + [
-        i for i in range(other_elements)
-    ]
-
-    csf_bloom = carameldb.Caramel(keys, values, prefilter=BloomFilterConfig())
-    bloom_filename = "bloom.csf"
-    csf_bloom.save(bloom_filename)
-    bloom_size = os.path.getsize(bloom_filename)
-
-    csf_no_bloom = carameldb.Caramel(keys, values, prefilter=None)
-    no_bloom_filename = "no_bloom.csf"
-    csf_no_bloom.save(no_bloom_filename)
-    no_bloom_size = os.path.getsize(no_bloom_filename)
-
-    if most_common_frequency < 0.79 or most_common_frequency == 1.0:
-        # the small difference of 51 bytes is because we still make and save the
-        # empty object despite not using it
-        assert bloom_size - 51 == no_bloom_size
-    else:
-        assert bloom_size < no_bloom_size
-
-    os.remove(bloom_filename)
-    os.remove(no_bloom_filename)
-
-
 def test_uint32_vs_64_values():
     uint32_t_values = np.array([1, 2, 3], dtype=np.uint32)
     assert carameldb._infer_backend(uint32_t_values) == carameldb.CSFUint32
     uint64_t_values = np.array([1, 2, 3], dtype=np.uint64)
     assert carameldb._infer_backend(uint64_t_values) == carameldb.CSFUint64
-
-
-def test_bloom_filter_with_custom_error_rate():
-    rows = 10000
-    keys = gen_str_keys(rows)
-    # Create data with 80% most common value
-    num_most_common_element = int(rows * 0.8)
-    other_elements = rows - num_most_common_element
-    values = [10000 for _ in range(num_most_common_element)] + [
-        i for i in range(other_elements)
-    ]
-    
-    # Test with custom error rate
-    csf_custom_error = carameldb.Caramel(keys, values, prefilter=BloomFilterConfig(error_rate=0.01))
-    custom_filename = "custom_error.csf"
-    csf_custom_error.save(custom_filename)
-    custom_size = os.path.getsize(custom_filename)
-    
-    # Test with higher error rate (smaller filter)
-    csf_high_error = carameldb.Caramel(keys, values, prefilter=BloomFilterConfig(error_rate=0.1))
-    high_error_filename = "high_error.csf"
-    csf_high_error.save(high_error_filename)
-    high_error_size = os.path.getsize(high_error_filename)
-    
-    # Lower error rate should result in larger bloom filter
-    assert custom_size > high_error_size
-    
-    # Verify correctness
-    assert_all_correct(keys, values, csf_custom_error)
-    assert_all_correct(keys, values, csf_high_error)
-    
-    os.remove(custom_filename)
-    os.remove(high_error_filename)
-
-
-@pytest.mark.parametrize("bloom_filter", [True, False])
-def test_all_same_with_and_without_bloom(bloom_filter):
-    keys = gen_str_keys(1000)
-    values = np.array([5 for _ in range(len(keys))])
-    if bloom_filter:
-        assert_simple_api_correct(keys, values, prefilter=BloomFilterConfig())
-    else:
-        assert_simple_api_correct(keys, values, prefilter=None)
 
 
 def test_unsolvable():

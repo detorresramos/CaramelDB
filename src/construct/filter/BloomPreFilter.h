@@ -6,6 +6,7 @@
 #include <array>
 #include <cmath>
 #include <optional>
+#include <src/utils/SafeFileIO.h>
 #include <src/utils/Timer.h>
 #include <string>
 #include <unordered_map>
@@ -19,11 +20,15 @@ using BloomPreFilterPtr = std::shared_ptr<BloomPreFilter<T>>;
 
 template <typename T> class BloomPreFilter final : public PreFilter<T> {
 public:
-  BloomPreFilter<T>(std::optional<float> error_rate = std::nullopt)
-      : _bloom_filter(nullptr), _most_common_value(std::nullopt), _error_rate(error_rate) {}
+  BloomPreFilter<T>(std::optional<float> error_rate = std::nullopt,
+                    std::optional<size_t> k = std::nullopt)
+      : _bloom_filter(nullptr), _most_common_value(std::nullopt),
+        _error_rate(error_rate), _k(k) {}
 
-  static BloomPreFilterPtr<T> make(std::optional<float> error_rate = std::nullopt) {
-    return std::make_shared<BloomPreFilter<T>>(error_rate);
+  static BloomPreFilterPtr<T>
+  make(std::optional<float> error_rate = std::nullopt,
+       std::optional<size_t> k = std::nullopt) {
+    return std::make_shared<BloomPreFilter<T>>(error_rate, k);
   }
 
   void apply(std::vector<std::string> &keys, std::vector<T> &values,
@@ -43,7 +48,7 @@ public:
     } else {
       error_rate = calculateErrorRate(
           /* alpha= */ highest_normalized_frequency, /* delta= */ delta);
-      
+
       if (error_rate >= 0.5 || error_rate == 0) {
         return;
       }
@@ -54,13 +59,19 @@ public:
     }
 
     size_t bf_size = num_items - highest_frequency;
-    
+
     // Only create bloom filter if bf_size > 0
     if (bf_size == 0) {
       return;
     }
-    
-    _bloom_filter = BloomFilter::makeAutotuned(bf_size, error_rate);
+
+    if (_k) {
+      _bloom_filter =
+          BloomFilter::makeAutotunedFixedK(bf_size, error_rate, *_k, verbose);
+    } else {
+      _bloom_filter = BloomFilter::makeAutotuned(bf_size, error_rate, verbose);
+    }
+
     _most_common_value = most_common_value;
 
     // add all keys to bf that do not correspond to the most common element
@@ -103,6 +114,12 @@ public:
 
   std::optional<T> getMostCommonValue() const { return _most_common_value; }
 
+  void save(const std::string &filename) const {
+    auto output_stream = SafeFileIO::ofstream(filename, std::ios::binary);
+    cereal::BinaryOutputArchive oarchive(output_stream);
+    oarchive(*this);
+  }
+
 private:
   std::pair<size_t, T> highestFrequency(const std::vector<T> &values) {
     std::unordered_map<T, size_t> frequencies;
@@ -135,6 +152,7 @@ private:
   BloomFilterPtr _bloom_filter;
   std::optional<T> _most_common_value;
   std::optional<float> _error_rate;
+  std::optional<size_t> _k;
 };
 
 } // namespace caramel

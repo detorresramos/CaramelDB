@@ -3,6 +3,7 @@
 #include <cereal/access.hpp>
 #include <cereal/archives/binary.hpp>
 #include <cmath>
+#include <iostream>
 #include <memory>
 #include <src/BitArray.h>
 #include <src/construct/SpookyHash.h>
@@ -12,18 +13,50 @@ namespace caramel {
 
 class BloomFilter {
 public:
-  static BloomFilter autotuned(size_t num_elements, double error_rate) {
+  static BloomFilter autotuned(size_t num_elements, double error_rate,
+                               bool verbose) {
     BloomFilter filter;
-    
+
     size_t size =
         std::ceil(log2(std::exp(1)) * log2(std::exp(1)) *
                   log2(1.0 / error_rate) * static_cast<float>(num_elements));
 
     filter._bitarray = BitArray::make(size);
 
-    filter._num_hashes = std::round((static_cast<float>(size) * log(2)) /
-                                   (static_cast<float>(num_elements)));
-    
+    float optimal_num_hashes = (static_cast<float>(size) * log(2)) /
+                               (static_cast<float>(num_elements));
+
+    filter._num_hashes = std::round(optimal_num_hashes);
+
+    if (verbose) {
+      std::cout << std::endl
+                << "BloomFilter: size=" << size
+                << " bits, optimal_hashes=" << optimal_num_hashes
+                << ", num_hashes=" << filter._num_hashes << std::endl;
+    }
+
+    return filter;
+  }
+
+  static BloomFilter autotunedFixedK(size_t num_elements, double error_rate,
+                                     size_t num_hashes, bool verbose = false) {
+    BloomFilter filter;
+
+    size_t size =
+        std::ceil(log2(std::exp(1)) * log2(std::exp(1)) *
+                  log2(1.0 / error_rate) * static_cast<float>(num_elements));
+
+    filter._bitarray = BitArray::make(size);
+
+    filter._num_hashes = num_hashes;
+
+    if (verbose) {
+      std::cout << std::endl
+                << "BloomFilter: size=" << size
+                << " bits, num_hashes=" << filter._num_hashes << " (fixed)"
+                << std::endl;
+    }
+
     return filter;
   }
 
@@ -34,14 +67,23 @@ public:
     return filter;
   }
 
-  static std::shared_ptr<BloomFilter> makeAutotuned(size_t num_elements,
-                                           double error_rate) {
-    return std::make_shared<BloomFilter>(autotuned(num_elements, error_rate));
+  static std::shared_ptr<BloomFilter>
+  makeAutotuned(size_t num_elements, double error_rate, bool verbose) {
+    return std::make_shared<BloomFilter>(
+        autotuned(num_elements, error_rate, verbose));
   }
 
   static std::shared_ptr<BloomFilter> makeFixed(size_t bitarray_size,
-                                                    size_t num_hashes) {
+                                                size_t num_hashes) {
     return std::make_shared<BloomFilter>(fixed(bitarray_size, num_hashes));
+  }
+
+  static std::shared_ptr<BloomFilter> makeAutotunedFixedK(size_t num_elements,
+                                                          double error_rate,
+                                                          size_t num_hashes,
+                                                          bool verbose) {
+    return std::make_shared<BloomFilter>(
+        autotunedFixedK(num_elements, error_rate, num_hashes, verbose));
   }
 
   void add(const std::string &key) {
