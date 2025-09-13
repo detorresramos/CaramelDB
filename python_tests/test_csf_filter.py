@@ -54,6 +54,27 @@ def test_bloom_filter_with_custom_error_rate():
     os.remove(high_error_filename)
 
 
+def test_filter_custom_k():
+    rows = 10000
+    keys = gen_str_keys(rows)
+    # Create data with 80% most common value
+    num_most_common_element = int(rows * 0.8)
+    other_elements = rows - num_most_common_element
+    values = [10000 for _ in range(num_most_common_element)] + [
+        i for i in range(other_elements)
+    ]
+
+    # Test with custom error rate
+    csf = carameldb.Caramel(
+        keys, values, prefilter=BloomFilterConfig(k=10000)
+    )
+
+    bf = csf.get_filter().get_bloom_filter()
+
+    for i in range(10000):
+        assert bf.contains(str(i))
+
+
 def test_get_bloom_filter():
     keys = gen_str_keys(1000)
     values = np.array([5 for _ in range(900)] + [6] * 100)
@@ -65,7 +86,7 @@ def test_get_bloom_filter():
 
     filename = "prefilter.bin"
     prefilter.save(filename)
-    assert os.path.getsize(filename) > 10 # assert non-degenerate filter
+    assert os.path.getsize(filename) > 10  # assert non-degenerate filter
     os.remove(filename)
 
 

@@ -10,13 +10,14 @@ template <typename T>
 PreFilterPtr<T> makeFilter(std::shared_ptr<PreFilterConfig> filter_config) {
   if (auto specific_config =
           std::dynamic_pointer_cast<BloomPreFilterConfig>(filter_config)) {
-    return BloomPreFilter<T>::make(specific_config->error_rate);
+    return BloomPreFilter<T>::make(specific_config->error_rate,
+                                   specific_config->k);
   }
 
-//   if (auto specific_config =
-//           std::dynamic_pointer_cast<XORPreFilterConfig>(filter_config)) {
-//     return BloomPreFilter<T>::make();
-//   }
+  //   if (auto specific_config =
+  //           std::dynamic_pointer_cast<XORPreFilterConfig>(filter_config)) {
+  //     return BloomPreFilter<T>::make();
+  //   }
 
   throw std::invalid_argument("Unsupported filter configuration type");
 }
