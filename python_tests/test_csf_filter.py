@@ -66,7 +66,7 @@ def test_filter_custom_k():
 
     # Test with custom error rate
     csf = carameldb.Caramel(
-        keys, values, prefilter=BloomFilterConfig(k=10000)
+        keys, values, prefilter=BloomFilterConfig(k=10000), verbose=True
     )
 
     bf = csf.get_filter().get_bloom_filter()

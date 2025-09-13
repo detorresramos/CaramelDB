@@ -67,9 +67,9 @@ public:
 
     if (_k) {
       _bloom_filter =
-          BloomFilter::makeAutotunedFixedK(bf_size, error_rate, *_k);
+          BloomFilter::makeAutotunedFixedK(bf_size, error_rate, *_k, verbose);
     } else {
-      _bloom_filter = BloomFilter::makeAutotuned(bf_size, error_rate);
+      _bloom_filter = BloomFilter::makeAutotuned(bf_size, error_rate, verbose);
     }
 
     _most_common_value = most_common_value;

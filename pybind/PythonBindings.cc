@@ -21,7 +21,8 @@ namespace caramel::python {
 void bindBloomFilter(py::module &module) {
   py::class_<BloomFilter, BloomFilterPtr>(module, "BloomFilter")
       .def_static("autotuned", &BloomFilter::makeAutotuned,
-                  py::arg("num_elements"), py::arg("error_rate"))
+                  py::arg("num_elements"), py::arg("error_rate"),
+                  py::arg("verbose") = false)
       .def_static("fixed", &BloomFilter::makeFixed, py::arg("bitarray_size"),
                   py::arg("num_hashes"))
       .def("add", &BloomFilter::add, py::arg("key"))
