@@ -4,7 +4,7 @@ import tempfile
 import carameldb
 import numpy as np
 import pytest
-from carameldb import BloomFilterConfig, XORFilterConfig
+from carameldb import BloomFilterConfig, XORFilterConfig, BinaryFuseFilterConfig
 from test_csf import assert_all_correct, assert_simple_api_correct, gen_str_keys
 
 
@@ -144,6 +144,55 @@ def test_get_xor_filter():
     assert prefilter.get_most_common_value() == 5
 
     filename = "xor_prefilter.bin"
+    prefilter.save(filename)
+    assert os.path.getsize(filename) > 10  # assert non-degenerate filter
+    os.remove(filename)
+
+
+def test_binary_fuse_filter_with_high_alpha():
+    """Test that BinaryFuseFilter works correctly with high alpha."""
+    rows = 10000
+    keys = gen_str_keys(rows)
+
+    # Create data with very high alpha (95% most common value)
+    num_most_common_element = int(rows * 0.95)
+    other_elements = rows - num_most_common_element
+    values = [10000 for _ in range(num_most_common_element)] + [
+        i for i in range(other_elements)
+    ]
+
+    # Test with Binary Fuse filter
+    csf_bf = carameldb.Caramel(keys, values, prefilter=BinaryFuseFilterConfig(), verbose=True)
+    bf_filename = "binary_fuse.csf"
+    csf_bf.save(bf_filename)
+    bf_size = os.path.getsize(bf_filename)
+
+    # Test without filter
+    csf_no_filter = carameldb.Caramel(keys, values, prefilter=None)
+    no_filter_filename = "no_filter_bf.csf"
+    csf_no_filter.save(no_filter_filename)
+    no_filter_size = os.path.getsize(no_filter_filename)
+
+    print(f"Binary Fuse filter size: {bf_size}, No filter size: {no_filter_size}, Difference: {bf_size - no_filter_size}")
+
+    # Verify correctness
+    assert_all_correct(keys, values, csf_bf)
+    assert_all_correct(keys, values, csf_no_filter)
+
+    os.remove(bf_filename)
+    os.remove(no_filter_filename)
+
+
+def test_get_binary_fuse_filter():
+    keys = gen_str_keys(1000)
+    values = np.array([5 for _ in range(900)] + [6] * 100)
+    csf = carameldb.Caramel(keys, values, prefilter=BinaryFuseFilterConfig())
+
+    prefilter = csf.get_filter()
+    assert prefilter != None
+    assert prefilter.get_most_common_value() == 5
+
+    filename = "binary_fuse_prefilter.bin"
     prefilter.save(filename)
     assert os.path.getsize(filename) > 10  # assert non-degenerate filter
     os.remove(filename)

@@ -24,4 +24,8 @@ struct XORPreFilterConfig : public PreFilterConfig {
   XORPreFilterConfig() = default;
 };
 
+struct BinaryFusePreFilterConfig : public PreFilterConfig {
+  BinaryFusePreFilterConfig() = default;
+};
+
 } // namespace caramel

@@ -6,6 +6,7 @@
 #include <src/construct/MultisetCsf.h>
 #include <src/construct/filter/BloomPreFilter.h>
 #include <src/construct/filter/XORPreFilter.h>
+#include <src/construct/filter/BinaryFusePreFilter.h>
 #include <src/construct/filter/FilterConfig.h>
 #include <src/construct/filter/PreFilter.h>
 
@@ -56,6 +57,16 @@ void bindXORPreFilter(py::module &module, const char *xor_name) {
       .def("get_most_common_value", &XORPreFilter<T>::getMostCommonValue);
 }
 
+template <typename T>
+void bindBinaryFusePreFilter(py::module &module, const char *bf_name) {
+  py::class_<BinaryFusePreFilter<T>, PreFilter<T>, BinaryFusePreFilterPtr<T>>(module,
+                                                                              bf_name)
+      .def("save", &BinaryFusePreFilter<T>::save, py::arg("filename"))
+      .def("get_binary_fuse_filter", &BinaryFusePreFilter<T>::getBinaryFuseFilter,
+           py::return_value_policy::reference)
+      .def("get_most_common_value", &BinaryFusePreFilter<T>::getMostCommonValue);
+}
+
 void bindPreFilterConfig(py::module &module) {
   py::class_<PreFilterConfig, std::shared_ptr<PreFilterConfig>>( // NOLINT
       module, "PreFilterConfig");
@@ -68,6 +79,10 @@ void bindPreFilterConfig(py::module &module) {
 
   py::class_<XORPreFilterConfig, PreFilterConfig,
              std::shared_ptr<XORPreFilterConfig>>(module, "XORFilterConfig")
+      .def(py::init<>());
+
+  py::class_<BinaryFusePreFilterConfig, PreFilterConfig,
+             std::shared_ptr<BinaryFusePreFilterConfig>>(module, "BinaryFuseFilterConfig")
       .def(py::init<>());
 }
 
@@ -167,6 +182,12 @@ PYBIND11_MODULE(_caramel, module) { // NOLINT
   bindXORPreFilter<std::array<char, 10>>(module, "XORPreFilterChar10");
   bindXORPreFilter<std::array<char, 12>>(module, "XORPreFilterChar12");
   bindXORPreFilter<std::string>(module, "XORPreFilterString");
+
+  bindBinaryFusePreFilter<uint32_t>(module, "BinaryFusePreFilterUint32");
+  bindBinaryFusePreFilter<uint64_t>(module, "BinaryFusePreFilterUint64");
+  bindBinaryFusePreFilter<std::array<char, 10>>(module, "BinaryFusePreFilterChar10");
+  bindBinaryFusePreFilter<std::array<char, 12>>(module, "BinaryFusePreFilterChar12");
+  bindBinaryFusePreFilter<std::string>(module, "BinaryFusePreFilterString");
 
   bindCsf<uint32_t>(module, "CSFUint32", 1);
   bindCsf<uint64_t>(module, "CSFUint64", 2);

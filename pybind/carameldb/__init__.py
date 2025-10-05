@@ -1,6 +1,7 @@
 import numpy as np
 
 from ._caramel import (
+    BinaryFuseFilterConfig,
     BloomFilterConfig,
     BloomPreFilterChar10,
     BloomPreFilterChar12,
