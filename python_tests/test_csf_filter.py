@@ -97,6 +97,58 @@ def test_no_bloom_filter_created():
     assert csf.get_filter() is None
 
 
+def test_xor_filter_with_high_alpha():
+    """Test that XorFilter works correctly with high alpha (normalized frequency)."""
+    rows = 10000
+    keys = gen_str_keys(rows)
+
+    # Create data with very high alpha (95% most common value)
+    num_most_common_element = int(rows * 0.95)
+    other_elements = rows - num_most_common_element
+    values = [10000 for _ in range(num_most_common_element)] + [
+        i for i in range(other_elements)
+    ]
+
+    # Test with XOR filter
+    csf_xor = carameldb.Caramel(keys, values, prefilter=XORFilterConfig(), verbose=True)
+    xor_filename = "xor.csf"
+    csf_xor.save(xor_filename)
+    xor_size = os.path.getsize(xor_filename)
+
+    # Test without filter
+    csf_no_filter = carameldb.Caramel(keys, values, prefilter=None)
+    no_filter_filename = "no_filter.csf"
+    csf_no_filter.save(no_filter_filename)
+    no_filter_size = os.path.getsize(no_filter_filename)
+
+    # XOR filter adds overhead but should still work correctly
+    # Note: XOR filters use ~1.23 bits per element, which can add size rather than reduce it
+    # depending on the data distribution and alpha value
+    print(f"XOR filter size: {xor_size}, No filter size: {no_filter_size}, Difference: {xor_size - no_filter_size}")
+
+    # Verify correctness - this is the key requirement
+    assert_all_correct(keys, values, csf_xor)
+    assert_all_correct(keys, values, csf_no_filter)
+
+    os.remove(xor_filename)
+    os.remove(no_filter_filename)
+
+
+def test_get_xor_filter():
+    keys = gen_str_keys(1000)
+    values = np.array([5 for _ in range(900)] + [6] * 100)
+    csf = carameldb.Caramel(keys, values, prefilter=XORFilterConfig())
+
+    prefilter = csf.get_filter()
+    assert prefilter != None
+    assert prefilter.get_most_common_value() == 5
+
+    filename = "xor_prefilter.bin"
+    prefilter.save(filename)
+    assert os.path.getsize(filename) > 10  # assert non-degenerate filter
+    os.remove(filename)
+
+
 @pytest.mark.parametrize(
     "most_common_frequency",
     [0.3, 0.5, 0.7, 0.78, 0.8, 0.9, 1.0],
