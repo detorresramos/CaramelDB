@@ -5,6 +5,7 @@
 #include <src/construct/EntropyPermutation.h>
 #include <src/construct/MultisetCsf.h>
 #include <src/construct/filter/BloomPreFilter.h>
+#include <src/construct/filter/XORPreFilter.h>
 #include <src/construct/filter/FilterConfig.h>
 #include <src/construct/filter/PreFilter.h>
 
@@ -43,6 +44,16 @@ void bindBloomPreFilter(py::module &module, const char *bloom_name) {
       .def("get_bloom_filter", &BloomPreFilter<T>::getBloomFilter,
            py::return_value_policy::reference)
       .def("get_most_common_value", &BloomPreFilter<T>::getMostCommonValue);
+}
+
+template <typename T>
+void bindXORPreFilter(py::module &module, const char *xor_name) {
+  py::class_<XORPreFilter<T>, PreFilter<T>, XORPreFilterPtr<T>>(module,
+                                                                xor_name)
+      .def("save", &XORPreFilter<T>::save, py::arg("filename"))
+      .def("get_xor_filter", &XORPreFilter<T>::getXorFilter,
+           py::return_value_policy::reference)
+      .def("get_most_common_value", &XORPreFilter<T>::getMostCommonValue);
 }
 
 void bindPreFilterConfig(py::module &module) {
@@ -150,6 +161,12 @@ PYBIND11_MODULE(_caramel, module) { // NOLINT
   bindBloomPreFilter<std::array<char, 10>>(module, "BloomPreFilterChar10");
   bindBloomPreFilter<std::array<char, 12>>(module, "BloomPreFilterChar12");
   bindBloomPreFilter<std::string>(module, "BloomPreFilterString");
+
+  bindXORPreFilter<uint32_t>(module, "XORPreFilterUint32");
+  bindXORPreFilter<uint64_t>(module, "XORPreFilterUint64");
+  bindXORPreFilter<std::array<char, 10>>(module, "XORPreFilterChar10");
+  bindXORPreFilter<std::array<char, 12>>(module, "XORPreFilterChar12");
+  bindXORPreFilter<std::string>(module, "XORPreFilterString");
 
   bindCsf<uint32_t>(module, "CSFUint32", 1);
   bindCsf<uint64_t>(module, "CSFUint64", 2);

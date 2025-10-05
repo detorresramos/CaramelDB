@@ -12,7 +12,8 @@ set(CARAMEL_TESTS
     HypergraphPeelerTest
     LazyGaussianEliminationTest
     SolveTest
-    BloomFilterTest)
+    BloomFilterTest
+    XorFilterTest)
 
 foreach(CARAMEL_TEST IN LISTS CARAMEL_TESTS)
     add_executable(${CARAMEL_TEST} ${CARAMEL_TEST}.cc)

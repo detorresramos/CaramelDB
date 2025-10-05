@@ -1,11 +1,14 @@
 #include <gtest/gtest.h>
 #include <random>
+#include <fstream>
+#include <cereal/archives/binary.hpp>
+#include <cereal/types/memory.hpp>
 #include <src/construct/filter/BloomFilter.h>
 
 namespace caramel::tests {
 
 TEST(BloomFilterTest, SimpleAddAndCheck) {
-  auto bf = BloomFilter::makeAutotuned(/* num_elements= */ 100, /* error_rate= */ 0.01);
+  auto bf = BloomFilter::makeAutotuned(/* num_elements= */ 100, /* error_rate= */ 0.01, /* verbose= */ false);
   
   std::vector<std::string> inserted_keys = {
     "apple", "banana", "cherry", "date", "elderberry",
@@ -43,7 +46,7 @@ TEST(BloomFilterTest, TestErrorRate) {
   for (float error_rate : error_rates) {
 
     auto bf = BloomFilter::makeAutotuned(
-        /* num_elements= */ num_elements, /* error_rate= */ error_rate);
+        /* num_elements= */ num_elements, /* error_rate= */ error_rate, /* verbose= */ false);
 
     for (size_t i = 0; i < num_elements; i++) {
       std::string key = "key_" + std::to_string(i);
@@ -149,6 +152,49 @@ TEST(BloomFilterTest, VerifyOptimalNumHashes) {
         << ", k=4:" << k_to_fp_rate[4]
         << ", k=5:" << k_to_fp_rate[5] << ")";
   }
+}
+
+TEST(BloomFilterTest, SaveAndLoad) {
+  std::string test_file = "/tmp/bloom_filter_test.bin";
+
+  // Create and populate a bloom filter
+  auto bf_original = BloomFilter::makeAutotuned(100, 0.01, false);
+
+  std::vector<std::string> test_keys = {
+      "apple", "banana", "cherry", "date", "elderberry",
+      "fig", "grape", "honeydew", "kiwi", "lemon"};
+
+  for (const auto &key : test_keys) {
+    bf_original->add(key);
+  }
+
+  // Save to file
+  {
+    std::ofstream ofs(test_file, std::ios::binary);
+    cereal::BinaryOutputArchive oarchive(ofs);
+    oarchive(*bf_original);
+  }
+
+  // Load from file
+  auto bf_loaded = BloomFilter::makeFixed(1, 1); // Temporary, will be overwritten by deserialize
+  {
+    std::ifstream ifs(test_file, std::ios::binary);
+    cereal::BinaryInputArchive iarchive(ifs);
+    iarchive(*bf_loaded);
+  }
+
+  // Verify loaded filter works correctly
+  for (const auto &key : test_keys) {
+    ASSERT_TRUE(bf_loaded->contains(key))
+        << "Loaded filter should contain key: " << key;
+  }
+
+  // Verify size and num_hashes match
+  ASSERT_EQ(bf_loaded->size(), bf_original->size());
+  ASSERT_EQ(bf_loaded->numHashes(), bf_original->numHashes());
+
+  // Clean up
+  std::remove(test_file.c_str());
 }
 
 } // namespace caramel::tests

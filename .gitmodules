@@ -13,3 +13,6 @@
 [submodule "deps/sse2neon"]
 	path = deps/sse2neon
 	url = https://github.com/DLTcollab/sse2neon
+[submodule "deps/fastfilter_cpp"]
+	path = deps/fastfilter_cpp
+	url = https://github.com/FastFilter/fastfilter_cpp.git
