@@ -15,8 +15,7 @@
 namespace caramel {
 
 template <typename T> class XORPreFilter;
-template <typename T>
-using XORPreFilterPtr = std::shared_ptr<XORPreFilter<T>>;
+template <typename T> using XORPreFilterPtr = std::shared_ptr<XORPreFilter<T>>;
 
 template <typename T> class XORPreFilter final : public PreFilter<T> {
 public:
@@ -49,7 +48,8 @@ public:
     _xor_filter = XorFilter::make(xf_size, verbose);
     _most_common_value = most_common_value;
 
-    // Add all keys to xor filter that do not correspond to the most common element
+    // Add all keys to xor filter that do not correspond to the most common
+    // element
     for (size_t i = 0; i < num_items; i++) {
       if (values[i] != most_common_value) {
         _xor_filter->add(keys[i]);
@@ -127,8 +127,7 @@ private:
 
   friend class cereal::access;
   template <class Archive> void serialize(Archive &ar) {
-    ar(cereal::base_class<PreFilter<T>>(this), _xor_filter,
-       _most_common_value);
+    ar(cereal::base_class<PreFilter<T>>(this), _xor_filter, _most_common_value);
   }
 
   XorFilterPtr _xor_filter;

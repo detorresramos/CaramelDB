@@ -9,8 +9,9 @@ file size.
 import os
 import sys
 import tempfile
+
 import carameldb
-from carameldb import XORFilterConfig, BinaryFuseFilterConfig
+from carameldb import BinaryFuseFilterConfig, XORFilterConfig
 
 
 def gen_str_keys(n):
@@ -43,7 +44,7 @@ def create_csf_with_alpha(n, alpha, filter_config):
     csf = carameldb.Caramel(keys, values, prefilter=filter_config)
 
     # Save to temporary file and measure size
-    with tempfile.NamedTemporaryFile(suffix='.csf', delete=False) as tmp:
+    with tempfile.NamedTemporaryFile(suffix=".csf", delete=False) as tmp:
         tmp_path = tmp.name
 
     try:
@@ -68,11 +69,11 @@ def main():
     alpha = float(sys.argv[3])
 
     # Create filter config based on type
-    if filter_type == 'xor':
+    if filter_type == "xor":
         filter_config = XORFilterConfig()
-    elif filter_type == 'binary_fuse':
+    elif filter_type == "binary_fuse":
         filter_config = BinaryFuseFilterConfig()
-    elif filter_type == 'none':
+    elif filter_type == "none":
         filter_config = None
     else:
         print(f"Unknown filter type: {filter_type}")

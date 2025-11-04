@@ -7,8 +7,9 @@ Tests a range of alpha values and finds where filter becomes beneficial.
 import os
 import sys
 import tempfile
+
 import carameldb
-from carameldb import XORFilterConfig, BinaryFuseFilterConfig, BloomFilterConfig
+from carameldb import BinaryFuseFilterConfig, BloomFilterConfig, XORFilterConfig
 
 
 def gen_str_keys(n):
@@ -32,7 +33,7 @@ def measure_sizes(n, alpha, filter_config):
 
     # Measure with filter
     csf_with = carameldb.Caramel(keys, values, prefilter=filter_config, verbose=False)
-    with tempfile.NamedTemporaryFile(suffix='.csf', delete=False) as tmp:
+    with tempfile.NamedTemporaryFile(suffix=".csf", delete=False) as tmp:
         tmp_path_with = tmp.name
     try:
         csf_with.save(tmp_path_with)
@@ -43,7 +44,7 @@ def measure_sizes(n, alpha, filter_config):
 
     # Measure without filter
     csf_without = carameldb.Caramel(keys, values, prefilter=None, verbose=False)
-    with tempfile.NamedTemporaryFile(suffix='.csf', delete=False) as tmp:
+    with tempfile.NamedTemporaryFile(suffix=".csf", delete=False) as tmp:
         tmp_path_without = tmp.name
     try:
         csf_without.save(tmp_path_without)
@@ -59,11 +60,11 @@ def find_optimal_alpha(filter_type, n):
     """
     Find optimal alpha by scanning from high to low.
     """
-    if filter_type == 'xor':
+    if filter_type == "xor":
         filter_config = XORFilterConfig()
-    elif filter_type == 'binary_fuse':
+    elif filter_type == "binary_fuse":
         filter_config = BinaryFuseFilterConfig()
-    elif filter_type == 'bloom':
+    elif filter_type == "bloom":
         filter_config = BloomFilterConfig()
     else:
         raise ValueError(f"Unknown filter type: {filter_type}")
@@ -80,22 +81,26 @@ def find_optimal_alpha(filter_type, n):
         size_with, size_without, diff = measure_sizes(n, alpha, filter_config)
         winner = "filter" if diff < 0 else "no-filter"
         results.append((alpha, size_with, size_without, diff))
-        print(f"{alpha:>8.2f} {size_with:>12,} {size_without:>12,} {diff:>10,} {winner:>10}")
+        print(
+            f"{alpha:>8.2f} {size_with:>12,} {size_without:>12,} {diff:>10,} {winner:>10}"
+        )
 
     # Find crossover point (where filter stops being beneficial as alpha decreases)
     optimal = None
     for i in range(len(results) - 1):
-        if results[i][3] < 0 and results[i+1][3] > 0:
+        if results[i][3] < 0 and results[i + 1][3] > 0:
             # Filter is beneficial at alphas[i] but not at alphas[i+1]
             # Crossover is between these two values
-            mid_alpha = (alphas[i] + alphas[i+1]) / 2
+            mid_alpha = (alphas[i] + alphas[i + 1]) / 2
             size_with, size_without, diff = measure_sizes(n, mid_alpha, filter_config)
             winner = "filter" if diff < 0 else "no-filter"
-            print(f"{mid_alpha:>8.2f} {size_with:>12,} {size_without:>12,} {diff:>10,} {winner:>10}")
+            print(
+                f"{mid_alpha:>8.2f} {size_with:>12,} {size_without:>12,} {diff:>10,} {winner:>10}"
+            )
 
             if diff < 0:
                 # Filter still beneficial at mid_alpha, crossover is between mid and alphas[i+1]
-                optimal = (mid_alpha + alphas[i+1]) / 2
+                optimal = (mid_alpha + alphas[i + 1]) / 2
             else:
                 # Filter not beneficial at mid_alpha, crossover is between alphas[i] and mid
                 optimal = (alphas[i] + mid_alpha) / 2

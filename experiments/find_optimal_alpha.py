@@ -8,9 +8,10 @@ This script performs a binary search to find the alpha threshold where using a f
 import os
 import sys
 import tempfile
+
 import carameldb
-from carameldb import XORFilterConfig, BinaryFuseFilterConfig
 import numpy as np
+from carameldb import BinaryFuseFilterConfig, XORFilterConfig
 
 
 def gen_str_keys(n):
@@ -39,7 +40,7 @@ def measure_sizes(n, alpha, filter_config):
 
     # Measure with filter
     csf_with = carameldb.Caramel(keys, values, prefilter=filter_config)
-    with tempfile.NamedTemporaryFile(suffix='.csf', delete=False) as tmp:
+    with tempfile.NamedTemporaryFile(suffix=".csf", delete=False) as tmp:
         tmp_path_with = tmp.name
     try:
         csf_with.save(tmp_path_with)
@@ -50,7 +51,7 @@ def measure_sizes(n, alpha, filter_config):
 
     # Measure without filter
     csf_without = carameldb.Caramel(keys, values, prefilter=None)
-    with tempfile.NamedTemporaryFile(suffix='.csf', delete=False) as tmp:
+    with tempfile.NamedTemporaryFile(suffix=".csf", delete=False) as tmp:
         tmp_path_without = tmp.name
     try:
         csf_without.save(tmp_path_without)
@@ -77,9 +78,9 @@ def find_optimal_alpha(filter_type, n, precision=0.01, verbose=True):
     Returns:
         Optimal alpha value
     """
-    if filter_type == 'xor':
+    if filter_type == "xor":
         filter_config = XORFilterConfig()
-    elif filter_type == 'binary_fuse':
+    elif filter_type == "binary_fuse":
         filter_config = BinaryFuseFilterConfig()
     else:
         raise ValueError(f"Unknown filter type: {filter_type}")
@@ -96,7 +97,9 @@ def find_optimal_alpha(filter_type, n, precision=0.01, verbose=True):
         print(f"\n{'='*70}")
         print(f"Finding optimal alpha for {filter_type} filter with N={n}")
         print(f"{'='*70}")
-        print(f"{'Alpha':>8} {'With Filter':>15} {'Without Filter':>15} {'Difference':>12}")
+        print(
+            f"{'Alpha':>8} {'With Filter':>15} {'Without Filter':>15} {'Difference':>12}"
+        )
         print(f"{'-'*70}")
 
     for alpha in alphas_to_test:
@@ -109,7 +112,7 @@ def find_optimal_alpha(filter_type, n, precision=0.01, verbose=True):
     # Find where the sign changes (filter becomes beneficial)
     crossover_idx = None
     for i in range(len(results) - 1):
-        if results[i][3] > 0 and results[i+1][3] < 0:
+        if results[i][3] > 0 and results[i + 1][3] < 0:
             crossover_idx = i
             break
 
@@ -161,7 +164,9 @@ def main():
     if len(sys.argv) < 2:
         print("Usage: python find_optimal_alpha.py <filter_type> [n_values...]")
         print("  filter_type: 'xor' or 'binary_fuse'")
-        print("  n_values: Space-separated list of N values to test (default: 1000 10000 100000 1000000 10000000)")
+        print(
+            "  n_values: Space-separated list of N values to test (default: 1000 10000 100000 1000000 10000000)"
+        )
         sys.exit(1)
 
     filter_type = sys.argv[1].lower()
@@ -176,16 +181,16 @@ def main():
         optimal = find_optimal_alpha(filter_type, n)
         results[n] = optimal
 
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print(f"SUMMARY: Optimal alpha values for {filter_type.upper()} filter")
-    print("="*70)
+    print("=" * 70)
     for n, alpha in results.items():
         n_str = f"{n:,}" if n >= 1000 else str(n)
         if alpha is None:
             print(f"N = {n_str:>12}: Filter never beneficial")
         else:
             print(f"N = {n_str:>12}: α ≥ {alpha:.2f}")
-    print("="*70)
+    print("=" * 70)
 
 
 if __name__ == "__main__":

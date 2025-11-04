@@ -146,8 +146,12 @@ def test_xor_filter_with_high_alpha():
     no_filter_size = os.path.getsize(no_filter_filename)
 
     # With high alpha (95%), XOR filter should reduce size
-    print(f"XOR filter size: {xor_size}, No filter size: {no_filter_size}, Difference: {xor_size - no_filter_size}")
-    assert xor_size < no_filter_size, f"XOR filter should be smaller: {xor_size} >= {no_filter_size}"
+    print(
+        f"XOR filter size: {xor_size}, No filter size: {no_filter_size}, Difference: {xor_size - no_filter_size}"
+    )
+    assert (
+        xor_size < no_filter_size
+    ), f"XOR filter should be smaller: {xor_size} >= {no_filter_size}"
 
     # Verify correctness - this is the key requirement
     assert_all_correct(keys, values, csf_xor)
@@ -198,7 +202,9 @@ def test_binary_fuse_filter_with_high_alpha():
     ]
 
     # Test with Binary Fuse filter
-    csf_bf = carameldb.Caramel(keys, values, prefilter=BinaryFuseFilterConfig(), verbose=True)
+    csf_bf = carameldb.Caramel(
+        keys, values, prefilter=BinaryFuseFilterConfig(), verbose=True
+    )
     bf_filename = "binary_fuse.csf"
     csf_bf.save(bf_filename)
     bf_size = os.path.getsize(bf_filename)
@@ -214,8 +220,12 @@ def test_binary_fuse_filter_with_high_alpha():
     no_filter_size = os.path.getsize(no_filter_filename)
 
     # With high alpha (95%), Binary Fuse filter should reduce size
-    print(f"Binary Fuse filter size: {bf_size}, No filter size: {no_filter_size}, Difference: {bf_size - no_filter_size}")
-    assert bf_size < no_filter_size, f"Binary Fuse filter should be smaller: {bf_size} >= {no_filter_size}"
+    print(
+        f"Binary Fuse filter size: {bf_size}, No filter size: {no_filter_size}, Difference: {bf_size - no_filter_size}"
+    )
+    assert (
+        bf_size < no_filter_size
+    ), f"Binary Fuse filter should be smaller: {bf_size} >= {no_filter_size}"
 
     # Verify correctness
     assert_all_correct(keys, values, csf_bf)
