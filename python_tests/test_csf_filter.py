@@ -4,7 +4,14 @@ import tempfile
 import carameldb
 import numpy as np
 import pytest
-from carameldb import BloomFilterConfig, XORFilterConfig, BinaryFuseFilterConfig
+from carameldb import (
+    BinaryFuseFilterConfig,
+    BinaryFusePreFilterUint32,
+    BloomFilterConfig,
+    BloomPreFilterUint32,
+    XORFilterConfig,
+    XORPreFilterUint32,
+)
 from test_csf import assert_all_correct, assert_simple_api_correct, gen_str_keys
 
 
@@ -84,9 +91,22 @@ def test_get_bloom_filter():
     assert prefilter != None
     assert prefilter.get_most_common_value() == 5
 
+    # Test that the filter contains the non-most-common keys
+    for i in range(900, 1000):
+        assert prefilter.contains(f"key{i}")
+
     filename = "prefilter.bin"
     prefilter.save(filename)
     assert os.path.getsize(filename) > 10  # assert non-degenerate filter
+
+    # Load and verify
+    loaded_filter = BloomPreFilterUint32.load(filename)
+    assert loaded_filter.get_most_common_value() == 5
+
+    # Verify loaded filter contains the same keys
+    for i in range(900, 1000):
+        assert loaded_filter.contains(f"key{i}")
+
     os.remove(filename)
 
 
@@ -115,16 +135,19 @@ def test_xor_filter_with_high_alpha():
     csf_xor.save(xor_filename)
     xor_size = os.path.getsize(xor_filename)
 
+    # Load back and verify save/load works correctly
+    csf_xor_loaded = carameldb.load(xor_filename)
+    assert_all_correct(keys, values, csf_xor_loaded)
+
     # Test without filter
     csf_no_filter = carameldb.Caramel(keys, values, prefilter=None)
     no_filter_filename = "no_filter.csf"
     csf_no_filter.save(no_filter_filename)
     no_filter_size = os.path.getsize(no_filter_filename)
 
-    # XOR filter adds overhead but should still work correctly
-    # Note: XOR filters use ~1.23 bits per element, which can add size rather than reduce it
-    # depending on the data distribution and alpha value
+    # With high alpha (95%), XOR filter should reduce size
     print(f"XOR filter size: {xor_size}, No filter size: {no_filter_size}, Difference: {xor_size - no_filter_size}")
+    assert xor_size < no_filter_size, f"XOR filter should be smaller: {xor_size} >= {no_filter_size}"
 
     # Verify correctness - this is the key requirement
     assert_all_correct(keys, values, csf_xor)
@@ -143,9 +166,22 @@ def test_get_xor_filter():
     assert prefilter != None
     assert prefilter.get_most_common_value() == 5
 
+    # Test that the filter contains the non-most-common keys
+    for i in range(900, 1000):
+        assert prefilter.contains(f"key{i}")
+
     filename = "xor_prefilter.bin"
     prefilter.save(filename)
     assert os.path.getsize(filename) > 10  # assert non-degenerate filter
+
+    # Load and verify
+    loaded_filter = XORPreFilterUint32.load(filename)
+    assert loaded_filter.get_most_common_value() == 5
+
+    # Verify loaded filter contains the same keys
+    for i in range(900, 1000):
+        assert loaded_filter.contains(f"key{i}")
+
     os.remove(filename)
 
 
@@ -167,13 +203,19 @@ def test_binary_fuse_filter_with_high_alpha():
     csf_bf.save(bf_filename)
     bf_size = os.path.getsize(bf_filename)
 
+    # Load back and verify save/load works correctly
+    csf_bf_loaded = carameldb.load(bf_filename)
+    assert_all_correct(keys, values, csf_bf_loaded)
+
     # Test without filter
     csf_no_filter = carameldb.Caramel(keys, values, prefilter=None)
     no_filter_filename = "no_filter_bf.csf"
     csf_no_filter.save(no_filter_filename)
     no_filter_size = os.path.getsize(no_filter_filename)
 
+    # With high alpha (95%), Binary Fuse filter should reduce size
     print(f"Binary Fuse filter size: {bf_size}, No filter size: {no_filter_size}, Difference: {bf_size - no_filter_size}")
+    assert bf_size < no_filter_size, f"Binary Fuse filter should be smaller: {bf_size} >= {no_filter_size}"
 
     # Verify correctness
     assert_all_correct(keys, values, csf_bf)
@@ -192,9 +234,22 @@ def test_get_binary_fuse_filter():
     assert prefilter != None
     assert prefilter.get_most_common_value() == 5
 
+    # Test that the filter contains the non-most-common keys
+    for i in range(900, 1000):
+        assert prefilter.contains(f"key{i}")
+
     filename = "binary_fuse_prefilter.bin"
     prefilter.save(filename)
     assert os.path.getsize(filename) > 10  # assert non-degenerate filter
+
+    # Load and verify
+    loaded_filter = BinaryFusePreFilterUint32.load(filename)
+    assert loaded_filter.get_most_common_value() == 5
+
+    # Verify loaded filter contains the same keys
+    for i in range(900, 1000):
+        assert loaded_filter.contains(f"key{i}")
+
     os.remove(filename)
 
 

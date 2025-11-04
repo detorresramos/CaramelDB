@@ -50,6 +50,14 @@ public:
       return;
     }
 
+    if (_num_elements <= 10) {
+      throw std::invalid_argument(
+          "BinaryFuseFilter requires more than 10 elements. Got " +
+          std::to_string(_num_elements) +
+          " elements. Binary fuse filter construction is probabilistic and "
+          "fails with very small key counts.");
+    }
+
     _binary_fuse_filter =
         std::make_unique<xorbinaryfusefilter_lowmem4wise::XorBinaryFuseFilter<
             uint64_t, uint8_t, BinaryFuseHasher>>(_keys.size());

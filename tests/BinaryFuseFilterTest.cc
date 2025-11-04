@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 #include <fstream>
+#include <sstream>
+#include <unistd.h>
 #include <cereal/archives/binary.hpp>
 #include <src/construct/filter/BinaryFuseFilter.h>
 
@@ -43,18 +45,24 @@ TEST(BinaryFuseFilterTest, SimpleAddAndCheck) {
 }
 
 TEST(BinaryFuseFilterTest, SaveAndLoad) {
-  std::string test_file = "/tmp/binary_fuse_filter_test.bin";
+  // Use unique temp file to avoid parallel test conflicts
+  std::ostringstream filename;
+  filename << "/tmp/binary_fuse_filter_test_" << getpid() << ".bin";
+  std::string test_file = filename.str();
 
   // Create and populate a binary fuse filter
   auto bf_original = BinaryFuseFilter::make(100);
 
+  // Use same 15 keys as SimpleAddAndCheck to see if key count matters
   std::vector<std::string> test_keys = {
-      "apple", "banana", "cherry", "date", "elderberry",
-      "fig", "grape", "honeydew", "kiwi", "lemon"};
+      "apple",  "banana", "cherry",   "date",   "elderberry",
+      "fig",    "grape",  "honeydew", "kiwi",   "lemon",
+      "mango",  "nectarine", "orange", "papaya", "quince"};
 
   for (const auto &key : test_keys) {
     bf_original->add(key);
   }
+
   bf_original->build();
 
   // Save to file
@@ -65,7 +73,7 @@ TEST(BinaryFuseFilterTest, SaveAndLoad) {
   }
 
   // Load from file
-  auto bf_loaded = BinaryFuseFilter::make(1); // Temporary, will be overwritten by deserialize
+  auto bf_loaded = BinaryFuseFilter::make(1);
   {
     std::ifstream ifs(test_file, std::ios::binary);
     cereal::BinaryInputArchive iarchive(ifs);

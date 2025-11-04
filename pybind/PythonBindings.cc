@@ -42,6 +42,8 @@ void bindBloomPreFilter(py::module &module, const char *bloom_name) {
   py::class_<BloomPreFilter<T>, PreFilter<T>, BloomPreFilterPtr<T>>(module,
                                                                     bloom_name)
       .def("save", &BloomPreFilter<T>::save, py::arg("filename"))
+      .def_static("load", &BloomPreFilter<T>::load, py::arg("filename"))
+      .def("contains", &BloomPreFilter<T>::contains, py::arg("key"))
       .def("get_bloom_filter", &BloomPreFilter<T>::getBloomFilter,
            py::return_value_policy::reference)
       .def("get_most_common_value", &BloomPreFilter<T>::getMostCommonValue);
@@ -52,6 +54,8 @@ void bindXORPreFilter(py::module &module, const char *xor_name) {
   py::class_<XORPreFilter<T>, PreFilter<T>, XORPreFilterPtr<T>>(module,
                                                                 xor_name)
       .def("save", &XORPreFilter<T>::save, py::arg("filename"))
+      .def_static("load", &XORPreFilter<T>::load, py::arg("filename"))
+      .def("contains", &XORPreFilter<T>::contains, py::arg("key"))
       .def("get_xor_filter", &XORPreFilter<T>::getXorFilter,
            py::return_value_policy::reference)
       .def("get_most_common_value", &XORPreFilter<T>::getMostCommonValue);
@@ -62,6 +66,8 @@ void bindBinaryFusePreFilter(py::module &module, const char *bf_name) {
   py::class_<BinaryFusePreFilter<T>, PreFilter<T>, BinaryFusePreFilterPtr<T>>(module,
                                                                               bf_name)
       .def("save", &BinaryFusePreFilter<T>::save, py::arg("filename"))
+      .def_static("load", &BinaryFusePreFilter<T>::load, py::arg("filename"))
+      .def("contains", &BinaryFusePreFilter<T>::contains, py::arg("key"))
       .def("get_binary_fuse_filter", &BinaryFusePreFilter<T>::getBinaryFuseFilter,
            py::return_value_policy::reference)
       .def("get_most_common_value", &BinaryFusePreFilter<T>::getMostCommonValue);

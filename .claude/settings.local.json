@@ -5,7 +5,8 @@
       "Bash(bin/cpp-test.sh:*)",
       "Bash(bin/build.py:*)",
       "Bash(source:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(./BinaryFuseFilterTest:*)"
     ],
     "deny": [],
     "ask": []

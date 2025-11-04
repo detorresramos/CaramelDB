@@ -98,6 +98,14 @@ public:
     oarchive(*this);
   }
 
+  static BinaryFusePreFilterPtr<T> load(const std::string &filename) {
+    auto filter = std::make_shared<BinaryFusePreFilter<T>>();
+    auto input_stream = SafeFileIO::ifstream(filename, std::ios::binary);
+    cereal::BinaryInputArchive iarchive(input_stream);
+    iarchive(*filter);
+    return filter;
+  }
+
 private:
   std::pair<size_t, T> highestFrequency(const std::vector<T> &values) {
     std::unordered_map<T, size_t> frequencies;

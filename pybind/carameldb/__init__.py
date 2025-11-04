@@ -2,6 +2,8 @@ import numpy as np
 
 from ._caramel import (
     BinaryFuseFilterConfig,
+    BinaryFusePreFilterUint32,
+    BinaryFusePreFilterUint64,
     BloomFilterConfig,
     BloomPreFilterChar10,
     BloomPreFilterChar12,
@@ -25,6 +27,8 @@ from ._caramel import (
     PreFilterUint32,
     PreFilterUint64,
     XORFilterConfig,
+    XORPreFilterUint32,
+    XORPreFilterUint64,
     permute_char10,
     permute_char12,
     permute_uint32,
