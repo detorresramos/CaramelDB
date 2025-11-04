@@ -32,13 +32,25 @@ def main():
         type=str,
         help="Specify a target to build (from available cmake targets). If no target is specified it defaults to 'package' which will simply build and install the library with pip.",
     )
+    parser.add_argument(
+        "--clean",
+        action="store_true",
+        help="Remove all build artifacts before building (including pybind/build/, pybind/*.egg-info/, and build/ directories).",
+    )
     args = parser.parse_args()
-
-    # Make sure build directory exists and cd to it
-    os.system('mkdir -p "../build"')
 
     # Change directory to top level.
     os.chdir("..")
+
+    # Clean build artifacts if requested
+    if args.clean:
+        print("Cleaning build artifacts...")
+        os.system("rm -rf build/")
+        os.system("rm -rf pybind/build/")
+        os.system("rm -rf pybind/*.egg-info")
+
+    # Make sure build directory exists
+    os.system('mkdir -p "build"')
 
     if args.target == "package":
         # Set environment variables, and run pip install
