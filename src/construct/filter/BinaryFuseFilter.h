@@ -11,7 +11,8 @@
 
 namespace caramel {
 
-// Custom hasher for binary fuse filter that just returns the key (we pre-hash strings)
+// Custom hasher for binary fuse filter that just returns the key (we pre-hash
+// strings)
 class BinaryFuseHasher {
 public:
   uint64_t seed;
@@ -49,8 +50,9 @@ public:
       return;
     }
 
-    _binary_fuse_filter = std::make_unique<
-        xorbinaryfusefilter_lowmem4wise::XorBinaryFuseFilter<uint64_t, uint8_t, BinaryFuseHasher>>(_keys.size());
+    _binary_fuse_filter =
+        std::make_unique<xorbinaryfusefilter_lowmem4wise::XorBinaryFuseFilter<
+            uint64_t, uint8_t, BinaryFuseHasher>>(_keys.size());
 
     auto status = _binary_fuse_filter->AddAll(_keys.data(), 0, _keys.size());
     if (status != xorbinaryfusefilter_lowmem4wise::Status::Ok) {
@@ -96,11 +98,11 @@ private:
       size_t segmentLength = _binary_fuse_filter->segmentLength;
       size_t segmentLengthMask = _binary_fuse_filter->segmentLengthMask;
 
-      archive(arrayLength, segmentCount, segmentCountLength, segmentLength, segmentLengthMask);
+      archive(arrayLength, segmentCount, segmentCountLength, segmentLength,
+              segmentLengthMask);
 
-      for (size_t i = 0; i < arrayLength; i++) {
-        archive(_binary_fuse_filter->fingerprints[i]);
-      }
+      archive(cereal::binary_data(_binary_fuse_filter->fingerprints,
+                                  arrayLength * sizeof(uint8_t)));
       archive(_binary_fuse_filter->hashIndex);
     }
   }
@@ -109,28 +111,39 @@ private:
     archive(_num_elements, _is_built);
 
     if (_is_built) {
-      size_t arrayLength, segmentCount, segmentCountLength, segmentLength, segmentLengthMask;
-      archive(arrayLength, segmentCount, segmentCountLength, segmentLength, segmentLengthMask);
+      size_t arrayLength, segmentCount, segmentCountLength, segmentLength,
+          segmentLengthMask;
+      archive(arrayLength, segmentCount, segmentCountLength, segmentLength,
+              segmentLengthMask);
 
-      // Reconstruct binary fuse filter with correct size
-      _binary_fuse_filter = std::make_unique<
-          xorbinaryfusefilter_lowmem4wise::XorBinaryFuseFilter<uint64_t, uint8_t, BinaryFuseHasher>>(_num_elements);
+      // Reconstruct binary fuse filter - constructor calculates its own
+      // arrayLength
+      _binary_fuse_filter =
+          std::make_unique<xorbinaryfusefilter_lowmem4wise::XorBinaryFuseFilter<
+              uint64_t, uint8_t, BinaryFuseHasher>>(_num_elements);
 
-      // Restore metadata
+      // Reallocate fingerprints array to match saved size
+      if (_binary_fuse_filter->arrayLength != arrayLength) {
+        delete[] _binary_fuse_filter->fingerprints;
+        _binary_fuse_filter->fingerprints = new uint8_t[arrayLength]();
+      }
+
+      // Restore all metadata fields for correct queries
+      _binary_fuse_filter->size = _num_elements;
+      _binary_fuse_filter->arrayLength = arrayLength;
       _binary_fuse_filter->segmentCount = segmentCount;
       _binary_fuse_filter->segmentCountLength = segmentCountLength;
       _binary_fuse_filter->segmentLength = segmentLength;
       _binary_fuse_filter->segmentLengthMask = segmentLengthMask;
 
-      for (size_t i = 0; i < arrayLength; i++) {
-        archive(_binary_fuse_filter->fingerprints[i]);
-      }
+      archive(cereal::binary_data(_binary_fuse_filter->fingerprints,
+                                  arrayLength * sizeof(uint8_t)));
       archive(_binary_fuse_filter->hashIndex);
     }
-    // _keys is not needed after deserialization since filter is already built
   }
 
-  std::unique_ptr<xorbinaryfusefilter_lowmem4wise::XorBinaryFuseFilter<uint64_t, uint8_t, BinaryFuseHasher>>
+  std::unique_ptr<xorbinaryfusefilter_lowmem4wise::XorBinaryFuseFilter<
+      uint64_t, uint8_t, BinaryFuseHasher>>
       _binary_fuse_filter;
   std::vector<uint64_t> _keys;
   size_t _num_elements;

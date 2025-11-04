@@ -85,11 +85,11 @@ def find_optimal_alpha(filter_type, n, precision=0.01, verbose=True):
         raise ValueError(f"Unknown filter type: {filter_type}")
 
     # Binary search for the crossover point
-    # Start with a wide range
-    left, right = 0.5, 1.0
+    # Start with a narrower range - filters are typically only useful at high alpha
+    left, right = 0.6, 1.0
 
     # First, do a coarse sweep to find the approximate range
-    alphas_to_test = np.arange(0.5, 1.01, 0.1)
+    alphas_to_test = np.arange(0.6, 1.01, 0.05)
     results = []
 
     if verbose:
@@ -121,7 +121,7 @@ def find_optimal_alpha(filter_type, n, precision=0.01, verbose=True):
             return None
         else:
             # Filter is beneficial even at low alpha, narrow search
-            left = 0.5
+            left = 0.6
             right = results[0][0]
     else:
         left = results[crossover_idx][0]

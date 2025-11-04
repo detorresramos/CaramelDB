@@ -92,9 +92,8 @@ private:
       // Serialize the xor filter's fingerprints
       size_t arrayLength = _xor_filter->arrayLength;
       archive(arrayLength);
-      for (size_t i = 0; i < arrayLength; i++) {
-        archive(_xor_filter->fingerprints[i]);
-      }
+      archive(cereal::binary_data(_xor_filter->fingerprints,
+                                  arrayLength * sizeof(uint8_t)));
       archive(_xor_filter->hashIndex);
     }
   }
@@ -111,9 +110,19 @@ private:
       _xor_filter = std::make_unique<
           xorfilter::XorFilter<uint64_t, uint8_t, XorHasher>>(_num_elements);
 
-      for (size_t i = 0; i < arrayLength; i++) {
-        archive(_xor_filter->fingerprints[i]);
+      // Reallocate fingerprints array if size doesn't match
+      if (_xor_filter->arrayLength != arrayLength) {
+        delete[] _xor_filter->fingerprints;
+        _xor_filter->fingerprints = new uint8_t[arrayLength]();
       }
+
+      // Restore all fields to prevent out-of-bounds access
+      _xor_filter->size = _num_elements;
+      _xor_filter->arrayLength = arrayLength;
+      _xor_filter->blockLength = arrayLength / 3;  // CRITICAL: blockLength must match arrayLength
+
+      archive(cereal::binary_data(_xor_filter->fingerprints,
+                                  arrayLength * sizeof(uint8_t)));
       archive(_xor_filter->hashIndex);
     }
     // _keys is not needed after deserialization since filter is already built

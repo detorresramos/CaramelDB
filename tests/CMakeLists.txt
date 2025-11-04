@@ -13,7 +13,9 @@ set(CARAMEL_TESTS
     LazyGaussianEliminationTest
     SolveTest
     BloomFilterTest
-    XorFilterTest)
+    XorFilterTest
+    BinaryFuseFilterTest
+    FilterSizeComparisonTest)
 
 foreach(CARAMEL_TEST IN LISTS CARAMEL_TESTS)
     add_executable(${CARAMEL_TEST} ${CARAMEL_TEST}.cc)

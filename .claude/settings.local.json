@@ -2,6 +2,7 @@
   "permissions": {
     "allow": [
       "Bash(bin/python-test.sh:*)",
+      "Bash(bin/cpp-test.sh:*)",
       "Bash(bin/build.py:*)",
       "Bash(source:*)",
       "Bash(python:*)"
