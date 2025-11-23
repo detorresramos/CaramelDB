@@ -16,47 +16,74 @@ namespace caramel {
 
 template <typename T> class XORPreFilter;
 template <typename T> using XORPreFilterPtr = std::shared_ptr<XORPreFilter<T>>;
-
 template <typename T> class XORPreFilter final : public PreFilter<T> {
 public:
-  XORPreFilter<T>() : _xor_filter(nullptr), _most_common_value(std::nullopt) {}
+  // Allow optional override of error rate, analogous to BloomPreFilter
+  explicit XORPreFilter<T>(std::optional<float> error_rate = std::nullopt)
+      : _xor_filter(nullptr), _most_common_value(std::nullopt),
+        _error_rate(error_rate) {}
 
-  static XORPreFilterPtr<T> make() {
-    return std::make_shared<XORPreFilter<T>>();
+  static XORPreFilterPtr<T>
+  make(std::optional<float> error_rate = std::nullopt) {
+    return std::make_shared<XORPreFilter<T>>(error_rate);
   }
 
   void apply(std::vector<std::string> &keys, std::vector<T> &values,
              float delta, bool verbose) {
-    (void)delta; // XOR filter is always applied for now
     Timer timer;
 
-    size_t num_items = keys.size();
-
-    auto [highest_frequency, most_common_value] = highestFrequency(values);
-
-    if (verbose) {
-      std::cout << "Applying XOR pre-filtering...";
-    }
-
-    size_t xf_size = num_items - highest_frequency;
-
-    // Only create xor filter if xf_size > 0
-    if (xf_size == 0) {
+    const size_t num_items = keys.size();
+    if (num_items == 0) {
       return;
     }
 
-    _xor_filter = XorFilter::make(xf_size, verbose);
+    auto [highest_frequency, most_common_value] = highestFrequency(values);
+    const float alpha =
+        static_cast<float>(highest_frequency) / static_cast<float>(num_items);
+
+    // Decide epsilon (false positive rate) using theory, unless fixed
+    // externally
+    float error_rate;
+    if (_error_rate.has_value()) {
+      error_rate = _error_rate.value();
+    } else {
+      error_rate = calculateErrorRateXor(alpha, delta);
+      // If the "optimal" ε is degenerate, theory says "no prefilter"
+      if (error_rate >= 0.5f || error_rate <= 0.0f) {
+        if (verbose) {
+          std::cout << "Skipping XOR pre-filtering (epsilon=" << error_rate
+                    << ")" << std::endl;
+        }
+        return;
+      }
+    }
+
+    if (verbose) {
+      std::cout << "Applying XOR pre-filtering with target ε≈" << error_rate
+                << "...";
+    }
+
+    const size_t xf_size = num_items - highest_frequency;
+
+    // Only create xor filter if xf_size > 0
+    if (xf_size == 0) {
+      if (verbose) {
+        std::cout << " nothing to filter (xf_size=0)." << std::endl;
+      }
+      return;
+    }
+
+    // Create XOR filter with calculated optimal error rate
+    _xor_filter = XorFilter::make(xf_size, error_rate, verbose);
     _most_common_value = most_common_value;
 
-    // Add all keys to xor filter that do not correspond to the most common
-    // element
+    // Add all minority keys to the XOR filter
     for (size_t i = 0; i < num_items; i++) {
       if (values[i] != most_common_value) {
         _xor_filter->add(keys[i]);
       }
     }
 
-    // Build the xor filter
     _xor_filter->build();
 
     std::vector<std::string> filtered_keys;
@@ -64,11 +91,11 @@ public:
     std::vector<T> filtered_values;
     filtered_values.reserve(num_items);
 
-    // Write all (key, value) pairs that the xor filter claims are in the csf
+    // Keep only (key, value) pairs that the XOR filter claims are in the CSF
     for (size_t i = 0; i < num_items; i++) {
       if (_xor_filter->contains(keys[i])) {
-        filtered_keys.push_back(keys[i]);
-        filtered_values.push_back(values[i]);
+        filtered_keys.push_back(std::move(keys[i]));
+        filtered_values.push_back(std::move(values[i]));
       }
     }
 
@@ -85,6 +112,7 @@ public:
     if (_xor_filter) {
       return _xor_filter->contains(key);
     }
+    // If we never built a filter, behave as "no filter": always forward
     return true;
   }
 
@@ -116,8 +144,8 @@ private:
     size_t highest_freq = 0;
     T most_common_value = values[0];
     for (auto [value, frequency] : frequencies) {
-      highest_freq = std::max(highest_freq, frequency);
-      if (highest_freq == frequency) {
+      if (frequency >= highest_freq) {
+        highest_freq = frequency;
         most_common_value = value;
       }
     }
@@ -125,13 +153,23 @@ private:
     return {highest_freq, most_common_value};
   }
 
+  // XOR filter bit cost: b(ε) ≈ 1.23 log2(1/ε)
+  // A first-order optimization of Δ(ε) with this b(ε) yields the same
+  // closed form as the Bloom prefilter but with 1.23 instead of 1.44.
+  inline float calculateErrorRateXor(float alpha, float delta) {
+    constexpr float c_xor = 1.23f;
+    return (c_xor / (delta * std::log(2.0f))) * ((1.0f - alpha) / alpha);
+  }
+
   friend class cereal::access;
   template <class Archive> void serialize(Archive &ar) {
-    ar(cereal::base_class<PreFilter<T>>(this), _xor_filter, _most_common_value);
+    ar(cereal::base_class<PreFilter<T>>(this), _xor_filter, _most_common_value,
+       _error_rate);
   }
 
   XorFilterPtr _xor_filter;
   std::optional<T> _most_common_value;
+  std::optional<float> _error_rate;
 };
 
 } // namespace caramel

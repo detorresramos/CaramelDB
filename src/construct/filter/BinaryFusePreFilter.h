@@ -20,33 +20,63 @@ using BinaryFusePreFilterPtr = std::shared_ptr<BinaryFusePreFilter<T>>;
 
 template <typename T> class BinaryFusePreFilter final : public PreFilter<T> {
 public:
-  BinaryFusePreFilter<T>() : _binary_fuse_filter(nullptr), _most_common_value(std::nullopt) {}
+  // Allow optional override of error rate
+  explicit BinaryFusePreFilter<T>(std::optional<float> error_rate = std::nullopt)
+      : _binary_fuse_filter(nullptr), _most_common_value(std::nullopt),
+        _error_rate(error_rate) {}
 
-  static BinaryFusePreFilterPtr<T> make() {
-    return std::make_shared<BinaryFusePreFilter<T>>();
+  static BinaryFusePreFilterPtr<T>
+  make(std::optional<float> error_rate = std::nullopt) {
+    return std::make_shared<BinaryFusePreFilter<T>>(error_rate);
   }
 
   void apply(std::vector<std::string> &keys, std::vector<T> &values,
              float delta, bool verbose) {
-    (void)delta; // Binary fuse filter is always applied for now
     Timer timer;
 
-    size_t num_items = keys.size();
-
-    auto [highest_frequency, most_common_value] = highestFrequency(values);
-
-    if (verbose) {
-      std::cout << "Applying binary fuse pre-filtering...";
-    }
-
-    size_t bf_size = num_items - highest_frequency;
-
-    // Only create binary fuse filter if bf_size > 0
-    if (bf_size == 0) {
+    const size_t num_items = keys.size();
+    if (num_items == 0) {
       return;
     }
 
-    _binary_fuse_filter = BinaryFuseFilter::make(bf_size, verbose);
+    auto [highest_frequency, most_common_value] = highestFrequency(values);
+    const float alpha =
+        static_cast<float>(highest_frequency) / static_cast<float>(num_items);
+
+    // Decide epsilon (false positive rate) using theory, unless fixed
+    // externally
+    float error_rate;
+    if (_error_rate.has_value()) {
+      error_rate = _error_rate.value();
+    } else {
+      error_rate = calculateErrorRateBinaryFuse(alpha, delta);
+      // If the "optimal" ε is degenerate, theory says "no prefilter"
+      if (error_rate >= 0.5f || error_rate <= 0.0f) {
+        if (verbose) {
+          std::cout << "Skipping Binary Fuse pre-filtering (epsilon="
+                    << error_rate << ")" << std::endl;
+        }
+        return;
+      }
+    }
+
+    if (verbose) {
+      std::cout << "Applying binary fuse pre-filtering with target ε≈"
+                << error_rate << "...";
+    }
+
+    const size_t bf_size = num_items - highest_frequency;
+
+    // Only create binary fuse filter if bf_size > 0
+    if (bf_size == 0) {
+      if (verbose) {
+        std::cout << " nothing to filter (bf_size=0)." << std::endl;
+      }
+      return;
+    }
+
+    // Create Binary Fuse filter with calculated optimal error rate
+    _binary_fuse_filter = BinaryFuseFilter::make(bf_size, error_rate, verbose);
     _most_common_value = most_common_value;
 
     // Add all keys to binary fuse filter that do not correspond to the most common element
@@ -125,14 +155,23 @@ private:
     return {highest_freq, most_common_value};
   }
 
+  // Binary Fuse filter bit cost: b(ε) ≈ 1.075 * 8 bits (for 4-wise)
+  // Binary Fuse has 1.075x space overhead (better than XOR's 1.23x)
+  // Using the correct overhead constant for optimal error rate calculation.
+  inline float calculateErrorRateBinaryFuse(float alpha, float delta) {
+    constexpr float c_binary_fuse = 1.075f;
+    return (c_binary_fuse / (delta * std::log(2.0f))) * ((1.0f - alpha) / alpha);
+  }
+
   friend class cereal::access;
   template <class Archive> void serialize(Archive &ar) {
     ar(cereal::base_class<PreFilter<T>>(this), _binary_fuse_filter,
-       _most_common_value);
+       _most_common_value, _error_rate);
   }
 
   BinaryFuseFilterPtr _binary_fuse_filter;
   std::optional<T> _most_common_value;
+  std::optional<float> _error_rate;
 };
 
 } // namespace caramel
