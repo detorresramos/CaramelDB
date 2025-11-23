@@ -2,14 +2,11 @@
 
 #include "BloomFilter.h"
 #include "PreFilter.h"
-#include <algorithm>
 #include <array>
 #include <cmath>
 #include <optional>
 #include <src/utils/SafeFileIO.h>
-#include <src/utils/Timer.h>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 namespace caramel {
@@ -29,78 +26,6 @@ public:
   make(std::optional<float> error_rate = std::nullopt,
        std::optional<size_t> k = std::nullopt) {
     return std::make_shared<BloomPreFilter<T>>(error_rate, k);
-  }
-
-  void apply(std::vector<std::string> &keys, std::vector<T> &values,
-             float delta, bool verbose) {
-    Timer timer;
-
-    size_t num_items = keys.size();
-
-    auto [highest_frequency, most_common_value] = highestFrequency(values);
-
-    float highest_normalized_frequency =
-        static_cast<float>(highest_frequency) / static_cast<float>(num_items);
-
-    float error_rate;
-    if (_error_rate.has_value()) {
-      error_rate = _error_rate.value();
-    } else {
-      error_rate = calculateErrorRate(
-          /* alpha= */ highest_normalized_frequency, /* delta= */ delta);
-
-      if (error_rate >= 0.5 || error_rate == 0) {
-        return;
-      }
-    }
-
-    if (verbose) {
-      std::cout << "Applying bloom pre-filtering...";
-    }
-
-    size_t bf_size = num_items - highest_frequency;
-
-    // Only create bloom filter if bf_size > 0
-    if (bf_size == 0) {
-      return;
-    }
-
-    if (_k) {
-      _bloom_filter =
-          BloomFilter::makeAutotunedFixedK(bf_size, error_rate, *_k, verbose);
-    } else {
-      _bloom_filter = BloomFilter::makeAutotuned(bf_size, error_rate, verbose);
-    }
-
-    _most_common_value = most_common_value;
-
-    // add all keys to bf that do not correspond to the most common element
-    for (size_t i = 0; i < num_items; i++) {
-      if (values[i] != most_common_value) {
-        _bloom_filter->add(keys[i]);
-      }
-    }
-
-    std::vector<std::string> filtered_keys;
-    filtered_keys.reserve(num_items);
-    std::vector<T> filtered_values;
-    filtered_values.reserve(num_items);
-
-    // write all (key, value) pairs that the bf claims are in the csf
-    for (size_t i = 0; i < num_items; i++) {
-      if (_bloom_filter->contains(keys[i])) {
-        filtered_keys.push_back(keys[i]);
-        filtered_values.push_back(values[i]);
-      }
-    }
-
-    keys = std::move(filtered_keys);
-    values = std::move(filtered_values);
-
-    if (verbose) {
-      std::cout << " finished in " << timer.seconds() << " seconds."
-                << std::endl;
-    }
   }
 
   bool contains(const std::string &key) {
@@ -128,29 +53,44 @@ public:
     return filter;
   }
 
-private:
-  std::pair<size_t, T> highestFrequency(const std::vector<T> &values) {
-    std::unordered_map<T, size_t> frequencies;
-    for (const T &value : values) {
-      frequencies[value]++;
+protected:
+  float calculateErrorRate(float alpha, float delta) override {
+    if (_error_rate.has_value()) {
+      return _error_rate.value();
+    }
+    return (1.44 / (delta * std::log(2.0f))) * ((1.0f - alpha) / alpha);
+  }
+
+  void createAndPopulateFilter(size_t filter_size, float error_rate,
+                               const std::vector<std::string> &keys,
+                               const std::vector<T> &values,
+                               T most_common_value, bool verbose) override {
+    if (_k) {
+      _bloom_filter = BloomFilter::makeAutotunedFixedK(filter_size, error_rate,
+                                                       *_k, verbose);
+    } else {
+      _bloom_filter =
+          BloomFilter::makeAutotuned(filter_size, error_rate, verbose);
     }
 
-    size_t highest_freq = 0;
-    T most_common_value = values[0];
-    for (auto [value, frequency] : frequencies) {
-      highest_freq = std::max(highest_freq, frequency);
-      if (highest_freq == frequency) {
-        most_common_value = value;
+    _most_common_value = most_common_value;
+
+    // Add all keys to filter that do not correspond to the most common element
+    for (size_t i = 0; i < keys.size(); i++) {
+      if (values[i] != most_common_value) {
+        _bloom_filter->add(keys[i]);
       }
     }
-
-    return {highest_freq, most_common_value};
   }
 
-  inline float calculateErrorRate(float alpha, float delta) {
-    return (1.44 / (delta * log(2))) * ((1 - alpha) / alpha);
+  bool shouldSkipFiltering(float error_rate) const override {
+    if (_error_rate.has_value()) {
+      return false;
+    }
+    return error_rate >= 0.5f || error_rate == 0.0f;
   }
 
+private:
   friend class cereal::access;
   template <class Archive> void serialize(Archive &ar) {
     ar(cereal::base_class<PreFilter<T>>(this), _bloom_filter,

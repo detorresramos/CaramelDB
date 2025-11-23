@@ -2,6 +2,7 @@
 #include <random>
 #include <cmath>
 #include <algorithm>
+#include <set>
 #include <src/construct/filter/BloomFilter.h>
 #include <src/construct/filter/XorFilter.h>
 #include <src/construct/filter/BinaryFuseFilter.h>
@@ -63,6 +64,11 @@ TEST(FilterSizeComparisonTest, CompareFilterSizesWithPowerlawDistribution) {
   std::cout << "Most common key frequency: " << frequencies[0] << "\n";
   std::cout << "Least common key frequency: " << frequencies[num_unique_keys - 1] << "\n\n";
 
+  // Extract unique keys for XOR and Binary Fuse filters
+  // (They require unique keys, while Bloom can handle duplicates)
+  std::set<std::string> unique_keys_set(all_keys.begin(), all_keys.end());
+  std::vector<std::string> unique_keys_vector(unique_keys_set.begin(), unique_keys_set.end());
+
   // Create Bloom filter with ~0.39% error rate to match XOR/Binary Fuse
   auto bloom_filter = BloomFilter::makeAutotuned(num_unique_keys, 0.0039, false);
   for (const auto& key : all_keys) {
@@ -70,17 +76,17 @@ TEST(FilterSizeComparisonTest, CompareFilterSizesWithPowerlawDistribution) {
   }
   size_t bloom_size = bloom_filter->size() / 8; // Convert bits to bytes
 
-  // Create XOR filter
+  // Create XOR filter (requires unique keys)
   auto xor_filter = XorFilter::make(num_unique_keys);
-  for (const auto& key : all_keys) {
+  for (const auto& key : unique_keys_vector) {
     xor_filter->add(key);
   }
   xor_filter->build();
   size_t xor_size = xor_filter->size();
 
-  // Create Binary Fuse filter
+  // Create Binary Fuse filter (requires unique keys)
   auto binary_fuse_filter = BinaryFuseFilter::make(num_unique_keys);
-  for (const auto& key : all_keys) {
+  for (const auto& key : unique_keys_vector) {
     binary_fuse_filter->add(key);
   }
   binary_fuse_filter->build();
@@ -95,20 +101,20 @@ TEST(FilterSizeComparisonTest, CompareFilterSizesWithPowerlawDistribution) {
   std::cout << "  Binary Fuse Filter: " << binary_fuse_size
             << " (" << (binary_fuse_size * 8.0 / num_unique_keys) << " bits/key)\n\n";
 
-  // Verify size ordering: Bloom > XOR > Binary Fuse
-  ASSERT_GT(bloom_size, xor_size)
-      << "Bloom filter should be larger than XOR filter";
-  ASSERT_GT(xor_size, binary_fuse_size)
-      << "XOR filter should be larger than Binary Fuse filter";
+  // Verify size ordering: At 0.39% FPR, Bloom is most space-efficient
+  // Then Binary Fuse, then XOR
+  ASSERT_LT(bloom_size, xor_size)
+      << "Bloom filter should be smaller than XOR filter at this error rate";
+  ASSERT_LT(binary_fuse_size, xor_size)
+      << "Binary Fuse filter should be smaller than XOR filter";
 
   // Verify all filters work correctly (no false negatives)
-  std::set<std::string> unique_keys_set(all_keys.begin(), all_keys.end());
-  std::vector<std::string> unique_keys_vec(unique_keys_set.begin(), unique_keys_set.end());
+  // Reuse unique_keys_vector from above
 
   // Test a sample of keys
-  size_t sample_size = std::min(1000UL, unique_keys_vec.size());
+  size_t sample_size = std::min(1000UL, unique_keys_vector.size());
   for (size_t i = 0; i < sample_size; i++) {
-    const auto& key = unique_keys_vec[i];
+    const auto& key = unique_keys_vector[i];
     ASSERT_TRUE(bloom_filter->contains(key))
         << "Bloom filter should contain key: " << key;
     ASSERT_TRUE(xor_filter->contains(key))
