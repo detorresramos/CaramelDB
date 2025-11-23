@@ -28,6 +28,7 @@ public:
     if (_xor_filter) {
       return _xor_filter->contains(key);
     }
+    // If we never built a filter, behave as "no filter": always forward
     return true;
   }
 
