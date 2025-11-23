@@ -294,6 +294,9 @@ public:
       _fingerprints->set(h0123[found], fp);
     }
 
+    // Sync public hashIndex with private _hash_index for serialization
+    hashIndex = _hash_index;
+
     return BinaryFuseStatus::Ok;
   }
 

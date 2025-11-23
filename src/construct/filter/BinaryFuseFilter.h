@@ -111,7 +111,7 @@ public:
         throw std::runtime_error("Failed to build binary fuse filter");
       }
       _binary_fuse_filter = std::move(filter);
-    } else if (_fingerprint_width == 16) {
+    } else if (_fingerprint_width <= 16) {
       auto filter = std::make_unique<
           xorbinaryfusefilter_lowmem4wise::XorBinaryFuseFilter<
               uint64_t, uint16_t, BinaryFuseHasher>>(_keys.size());
@@ -120,7 +120,7 @@ public:
         throw std::runtime_error("Failed to build binary fuse filter");
       }
       _binary_fuse_filter = std::move(filter);
-    } else if (_fingerprint_width == 32) {
+    } else if (_fingerprint_width <= 32) {
       auto filter = std::make_unique<
           xorbinaryfusefilter_lowmem4wise::XorBinaryFuseFilter<
               uint64_t, uint32_t, BinaryFuseHasher>>(_keys.size());
@@ -218,7 +218,7 @@ private:
                                       arrayLength * sizeof(uint8_t)));
           archive(filter->hashIndex);
         }
-      } else if (_fingerprint_width == 16) {
+      } else if (_fingerprint_width <= 16) {
         auto &filter = std::get<2>(_binary_fuse_filter);
         if (filter) {
           size_t arrayLength = filter->arrayLength;
@@ -233,7 +233,7 @@ private:
                                       arrayLength * sizeof(uint16_t)));
           archive(filter->hashIndex);
         }
-      } else if (_fingerprint_width == 32) {
+      } else if (_fingerprint_width <= 32) {
         auto &filter = std::get<3>(_binary_fuse_filter);
         if (filter) {
           size_t arrayLength = filter->arrayLength;
@@ -302,7 +302,7 @@ private:
                                       arrayLength * sizeof(uint8_t)));
           archive(filter->hashIndex);
           _binary_fuse_filter = std::move(filter);
-        } else if (_fingerprint_width == 16) {
+        } else if (_fingerprint_width <= 16) {
           auto filter = std::make_unique<
               xorbinaryfusefilter_lowmem4wise::XorBinaryFuseFilter<
                   uint64_t, uint16_t, BinaryFuseHasher>>(_num_elements);
@@ -323,7 +323,7 @@ private:
                                       arrayLength * sizeof(uint16_t)));
           archive(filter->hashIndex);
           _binary_fuse_filter = std::move(filter);
-        } else if (_fingerprint_width == 32) {
+        } else if (_fingerprint_width <= 32) {
           auto filter = std::make_unique<
               xorbinaryfusefilter_lowmem4wise::XorBinaryFuseFilter<
                   uint64_t, uint32_t, BinaryFuseHasher>>(_num_elements);

@@ -6,7 +6,8 @@
       "Bash(bin/build.py:*)",
       "Bash(source:*)",
       "Bash(python:*)",
-      "Bash(./BinaryFuseFilterTest:*)"
+      "Bash(./BinaryFuseFilterTest:*)",
+      "Bash(python3:*)"
     ],
     "deny": [],
     "ask": []
