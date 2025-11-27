@@ -88,8 +88,6 @@ add_subdirectory(deps/pybind11 EXCLUDE_FROM_ALL)
 add_subdirectory(deps/googletest EXCLUDE_FROM_ALL)
 
 include_directories(deps)
-include_directories(deps/fastfilter_cpp/src)
-include_directories(deps/fastfilter_cpp/benchmarks)
 
 find_package(Python3 COMPONENTS Interpreter Development)
 

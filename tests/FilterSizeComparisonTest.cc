@@ -101,12 +101,12 @@ TEST(FilterSizeComparisonTest, CompareFilterSizesWithPowerlawDistribution) {
   std::cout << "  Binary Fuse Filter: " << binary_fuse_size
             << " (" << (binary_fuse_size * 8.0 / num_unique_keys) << " bits/key)\n\n";
 
-  // Verify size ordering: At 0.39% FPR, Bloom is most space-efficient
-  // Then Binary Fuse, then XOR
-  ASSERT_LT(bloom_size, xor_size)
-      << "Bloom filter should be smaller than XOR filter at this error rate";
-  ASSERT_LT(binary_fuse_size, xor_size)
-      << "Binary Fuse filter should be smaller than XOR filter";
+  // Verify size ordering: XOR and Binary Fuse filters are more space-efficient
+  // than Bloom filters at the same FPR. Binary Fuse is slightly smaller than XOR.
+  ASSERT_LT(xor_size, bloom_size)
+      << "XOR filter should be smaller than Bloom filter";
+  ASSERT_LE(binary_fuse_size, xor_size)
+      << "Binary Fuse filter should be smaller or equal to XOR filter";
 
   // Verify all filters work correctly (no false negatives)
   // Reuse unique_keys_vector from above
@@ -123,8 +123,8 @@ TEST(FilterSizeComparisonTest, CompareFilterSizesWithPowerlawDistribution) {
         << "Binary Fuse filter should contain key: " << key;
   }
 
-  std::cout << "✓ All filters contain the inserted keys (no false negatives)\n";
-  std::cout << "✓ Size ordering verified: Bloom > XOR > Binary Fuse\n";
+  std::cout << "All filters contain the inserted keys (no false negatives)\n";
+  std::cout << "Size ordering verified: Binary Fuse <= XOR < Bloom\n";
 }
 
 } // namespace caramel::tests

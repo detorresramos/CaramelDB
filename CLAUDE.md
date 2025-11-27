@@ -51,3 +51,17 @@ bin/build.py
 bin/python-format.sh
 ```
 Formats Python code using black and isort.
+
+# CaramelDB Code Style Guide
+
+## Code Comments
+
+Do NOT add superfluous comments to lines like 
+
+// Update _num_elements to reflect actual number of keys added
+_num_elements = _keys.size();
+
+This is useless and doesn't help the reader. Only add comments when:
+* we need to explain WHY something is happening or
+* its unclear what is happening already from the code.
+

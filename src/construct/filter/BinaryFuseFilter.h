@@ -7,22 +7,11 @@
 #include <iostream>
 #include <memory>
 #include <src/construct/SpookyHash.h>
-#include <variant>
 #include <vector>
-#include <xorfilter/4wise_xor_binary_fuse_filter_lowmem.h>
 
 namespace caramel {
 
-// Custom hasher for binary fuse filter that just returns the key (we pre-hash
-// strings)
-class BinaryFuseHasher {
-public:
-  uint64_t seed;
-  BinaryFuseHasher() : seed(0) {}
-  inline uint64_t operator()(uint64_t key) const { return key; }
-};
-
-// Utility functions for fingerprint width calculation (shared with XOR filter)
+// Utility functions for fingerprint width calculation
 namespace BinaryFuseFilterUtils {
 
 // Calculate number of bits needed for given error rate
@@ -85,6 +74,9 @@ public:
       return;
     }
 
+    // Update _num_elements to reflect actual number of keys added
+    _num_elements = _keys.size();
+
     if (_num_elements <= 10) {
       throw std::invalid_argument(
           "BinaryFuseFilter requires more than 10 elements. Got " +
@@ -93,83 +85,28 @@ public:
           "fails with very small key counts.");
     }
 
-    // Create filter with appropriate fingerprint width
-    if (_fingerprint_width < 8) {
-      // Bit-packed filter for sub-byte fingerprints (1-7 bits)
-      auto filter = std::make_unique<BitPackedBinaryFuseFilter>(_keys.size(), _fingerprint_width);
-      auto status = filter->AddAll(_keys.data(), 0, _keys.size());
-      if (status != BinaryFuseStatus::Ok) {
-        throw std::runtime_error("Failed to build bit-packed binary fuse filter");
-      }
-      _binary_fuse_filter = std::move(filter);
-    } else if (_fingerprint_width == 8) {
-      auto filter = std::make_unique<
-          xorbinaryfusefilter_lowmem4wise::XorBinaryFuseFilter<
-              uint64_t, uint8_t, BinaryFuseHasher>>(_keys.size());
-      auto status = filter->AddAll(_keys.data(), 0, _keys.size());
-      if (status != xorbinaryfusefilter_lowmem4wise::Status::Ok) {
-        throw std::runtime_error("Failed to build binary fuse filter");
-      }
-      _binary_fuse_filter = std::move(filter);
-    } else if (_fingerprint_width <= 16) {
-      auto filter = std::make_unique<
-          xorbinaryfusefilter_lowmem4wise::XorBinaryFuseFilter<
-              uint64_t, uint16_t, BinaryFuseHasher>>(_keys.size());
-      auto status = filter->AddAll(_keys.data(), 0, _keys.size());
-      if (status != xorbinaryfusefilter_lowmem4wise::Status::Ok) {
-        throw std::runtime_error("Failed to build binary fuse filter");
-      }
-      _binary_fuse_filter = std::move(filter);
-    } else if (_fingerprint_width <= 32) {
-      auto filter = std::make_unique<
-          xorbinaryfusefilter_lowmem4wise::XorBinaryFuseFilter<
-              uint64_t, uint32_t, BinaryFuseHasher>>(_keys.size());
-      auto status = filter->AddAll(_keys.data(), 0, _keys.size());
-      if (status != xorbinaryfusefilter_lowmem4wise::Status::Ok) {
-        throw std::runtime_error("Failed to build binary fuse filter");
-      }
-      _binary_fuse_filter = std::move(filter);
-    } else {
-      throw std::runtime_error("Unsupported fingerprint width: " +
-                                std::to_string(_fingerprint_width));
+    // Create filter with appropriate fingerprint width (1-32 bits supported)
+    auto filter = std::make_unique<BitPackedBinaryFuseFilter>(_keys.size(), _fingerprint_width);
+    auto status = filter->AddAll(_keys.data(), 0, _keys.size());
+    if (status != BinaryFuseStatus::Ok) {
+      throw std::runtime_error("Failed to build binary fuse filter");
     }
+    _binary_fuse_filter = std::move(filter);
     _is_built = true;
   }
 
   bool contains(const std::string &key) {
-    if (!_is_built) {
+    if (!_is_built || !_binary_fuse_filter) {
       return false;
     }
 
     uint64_t hash = hashString(key);
-    return std::visit(
-        [hash](auto &&filter) -> bool {
-          if (!filter) {
-            return false;
-          }
-
-          using FilterType = std::decay_t<decltype(*filter)>;
-
-          // Handle BitPackedBinaryFuseFilter (uses BinaryFuseStatus)
-          if constexpr (std::is_same_v<FilterType, BitPackedBinaryFuseFilter>) {
-            auto status = filter->Contain(hash);
-            return status == BinaryFuseStatus::Ok;
-          }
-          // Handle standard BinaryFuseFilter (uses xorbinaryfusefilter_lowmem4wise::Status)
-          else {
-            auto status = filter->Contain(hash);
-            return status == xorbinaryfusefilter_lowmem4wise::Status::Ok;
-          }
-        },
-        _binary_fuse_filter);
+    auto status = _binary_fuse_filter->Contain(hash);
+    return status == BinaryFuseStatus::Ok;
   }
 
   size_t size() const {
-    return std::visit(
-        [](auto &&filter) -> size_t {
-          return filter ? filter->SizeInBytes() : 0;
-        },
-        _binary_fuse_filter);
+    return _binary_fuse_filter ? _binary_fuse_filter->SizeInBytes() : 0;
   }
 
   size_t numElements() const { return _num_elements; }
@@ -189,66 +126,19 @@ private:
   template <class Archive> void save(Archive &archive) const {
     archive(_num_elements, _error_rate, _fingerprint_width, _is_built);
 
-    if (_is_built) {
-      if (_fingerprint_width < 8) {
-        // Bit-packed filter (1-7 bits)
-        auto &filter = std::get<0>(_binary_fuse_filter);  // BitPackedBinaryFuseFilter
-        if (filter && filter->fingerprints) {
-          size_t arrayLength = filter->fingerprints->numWords();
-          int bitsPerElement = filter->fingerprints->bitsPerElement();
-          archive(arrayLength, bitsPerElement);
-          archive(cereal::binary_data(filter->fingerprints->data(),
-                                      arrayLength * sizeof(uint64_t)));
-          archive(filter->hashIndex);
-          archive(filter->segmentCount, filter->segmentCountLength,
-                  filter->segmentLength, filter->segmentLengthMask);
-        }
-      } else if (_fingerprint_width == 8) {
-        auto &filter = std::get<1>(_binary_fuse_filter);
-        if (filter) {
-          size_t arrayLength = filter->arrayLength;
-          size_t segmentCount = filter->segmentCount;
-          size_t segmentCountLength = filter->segmentCountLength;
-          size_t segmentLength = filter->segmentLength;
-          size_t segmentLengthMask = filter->segmentLengthMask;
-
-          archive(arrayLength, segmentCount, segmentCountLength, segmentLength,
-                  segmentLengthMask);
-          archive(cereal::binary_data(filter->fingerprints,
-                                      arrayLength * sizeof(uint8_t)));
-          archive(filter->hashIndex);
-        }
-      } else if (_fingerprint_width <= 16) {
-        auto &filter = std::get<2>(_binary_fuse_filter);
-        if (filter) {
-          size_t arrayLength = filter->arrayLength;
-          size_t segmentCount = filter->segmentCount;
-          size_t segmentCountLength = filter->segmentCountLength;
-          size_t segmentLength = filter->segmentLength;
-          size_t segmentLengthMask = filter->segmentLengthMask;
-
-          archive(arrayLength, segmentCount, segmentCountLength, segmentLength,
-                  segmentLengthMask);
-          archive(cereal::binary_data(filter->fingerprints,
-                                      arrayLength * sizeof(uint16_t)));
-          archive(filter->hashIndex);
-        }
-      } else if (_fingerprint_width <= 32) {
-        auto &filter = std::get<3>(_binary_fuse_filter);
-        if (filter) {
-          size_t arrayLength = filter->arrayLength;
-          size_t segmentCount = filter->segmentCount;
-          size_t segmentCountLength = filter->segmentCountLength;
-          size_t segmentLength = filter->segmentLength;
-          size_t segmentLengthMask = filter->segmentLengthMask;
-
-          archive(arrayLength, segmentCount, segmentCountLength, segmentLength,
-                  segmentLengthMask);
-          archive(cereal::binary_data(filter->fingerprints,
-                                      arrayLength * sizeof(uint32_t)));
-          archive(filter->hashIndex);
-        }
-      }
+    if (_is_built && _binary_fuse_filter && _binary_fuse_filter->fingerprints) {
+      size_t numWords = _binary_fuse_filter->fingerprints->numWords();
+      int bitsPerElement = _binary_fuse_filter->fingerprints->bitsPerElement();
+      archive(numWords, bitsPerElement);
+      archive(_binary_fuse_filter->arrayLength,
+              _binary_fuse_filter->segmentCount,
+              _binary_fuse_filter->segmentCountLength,
+              _binary_fuse_filter->segmentLength,
+              _binary_fuse_filter->segmentLengthMask);
+      archive(cereal::binary_data(_binary_fuse_filter->fingerprints->data(),
+                                  numWords * sizeof(uint64_t)));
+      archive(_binary_fuse_filter->hashIndex);
+      archive(_binary_fuse_filter->hasher->seed);
     }
   }
 
@@ -256,112 +146,34 @@ private:
     archive(_num_elements, _error_rate, _fingerprint_width, _is_built);
 
     if (_is_built) {
-      if (_fingerprint_width < 8) {
-        // Bit-packed filter (1-7 bits)
-        size_t arrayLength;
-        int bitsPerElement;
-        archive(arrayLength, bitsPerElement);
+      size_t numWords;
+      int bitsPerElement;
+      archive(numWords, bitsPerElement);
 
-        auto filter = std::make_unique<BitPackedBinaryFuseFilter>(_num_elements, _fingerprint_width);
+      size_t arrayLength, segmentCount, segmentCountLength, segmentLength, segmentLengthMask;
+      archive(arrayLength, segmentCount, segmentCountLength, segmentLength, segmentLengthMask);
 
-        // Load fingerprint data
-        archive(cereal::binary_data(filter->fingerprints->data(),
-                                    arrayLength * sizeof(uint64_t)));
-        archive(filter->hashIndex);
-        archive(filter->segmentCount, filter->segmentCountLength,
-                filter->segmentLength, filter->segmentLengthMask);
+      auto filter = std::make_unique<BitPackedBinaryFuseFilter>(_num_elements, _fingerprint_width);
 
-        filter->size = _num_elements;
-        filter->arrayLength = filter->fingerprints->size();
-        _binary_fuse_filter = std::move(filter);
-      } else {
-        size_t arrayLength, segmentCount, segmentCountLength, segmentLength,
-            segmentLengthMask;
-        archive(arrayLength, segmentCount, segmentCountLength, segmentLength,
-                segmentLengthMask);
+      // Override calculated values with saved values
+      filter->arrayLength = arrayLength;
+      filter->segmentCount = segmentCount;
+      filter->segmentCountLength = segmentCountLength;
+      filter->segmentLength = segmentLength;
+      filter->segmentLengthMask = segmentLengthMask;
 
-        // Reconstruct binary fuse filter with correct fingerprint width
-        if (_fingerprint_width == 8) {
-        auto filter = std::make_unique<
-            xorbinaryfusefilter_lowmem4wise::XorBinaryFuseFilter<
-                uint64_t, uint8_t, BinaryFuseHasher>>(_num_elements);
+      // Load fingerprint data
+      archive(cereal::binary_data(filter->fingerprints->data(),
+                                  numWords * sizeof(uint64_t)));
+      archive(filter->hashIndex);
+      archive(filter->hasher->seed);
 
-        if (filter->arrayLength != arrayLength) {
-          delete[] filter->fingerprints;
-          filter->fingerprints = new uint8_t[arrayLength]();
-        }
-
-        filter->size = _num_elements;
-        filter->arrayLength = arrayLength;
-        filter->segmentCount = segmentCount;
-        filter->segmentCountLength = segmentCountLength;
-        filter->segmentLength = segmentLength;
-        filter->segmentLengthMask = segmentLengthMask;
-
-          archive(cereal::binary_data(filter->fingerprints,
-                                      arrayLength * sizeof(uint8_t)));
-          archive(filter->hashIndex);
-          _binary_fuse_filter = std::move(filter);
-        } else if (_fingerprint_width <= 16) {
-          auto filter = std::make_unique<
-              xorbinaryfusefilter_lowmem4wise::XorBinaryFuseFilter<
-                  uint64_t, uint16_t, BinaryFuseHasher>>(_num_elements);
-
-          if (filter->arrayLength != arrayLength) {
-            delete[] filter->fingerprints;
-            filter->fingerprints = new uint16_t[arrayLength]();
-          }
-
-          filter->size = _num_elements;
-          filter->arrayLength = arrayLength;
-          filter->segmentCount = segmentCount;
-          filter->segmentCountLength = segmentCountLength;
-          filter->segmentLength = segmentLength;
-          filter->segmentLengthMask = segmentLengthMask;
-
-          archive(cereal::binary_data(filter->fingerprints,
-                                      arrayLength * sizeof(uint16_t)));
-          archive(filter->hashIndex);
-          _binary_fuse_filter = std::move(filter);
-        } else if (_fingerprint_width <= 32) {
-          auto filter = std::make_unique<
-              xorbinaryfusefilter_lowmem4wise::XorBinaryFuseFilter<
-                  uint64_t, uint32_t, BinaryFuseHasher>>(_num_elements);
-
-          if (filter->arrayLength != arrayLength) {
-            delete[] filter->fingerprints;
-            filter->fingerprints = new uint32_t[arrayLength]();
-          }
-
-          filter->size = _num_elements;
-          filter->arrayLength = arrayLength;
-          filter->segmentCount = segmentCount;
-          filter->segmentCountLength = segmentCountLength;
-          filter->segmentLength = segmentLength;
-          filter->segmentLengthMask = segmentLengthMask;
-
-          archive(cereal::binary_data(filter->fingerprints,
-                                      arrayLength * sizeof(uint32_t)));
-          archive(filter->hashIndex);
-          _binary_fuse_filter = std::move(filter);
-        }
-      }
+      filter->size = _num_elements;
+      _binary_fuse_filter = std::move(filter);
     }
   }
 
-  using BinaryFuseFilterBitPacked = std::unique_ptr<BitPackedBinaryFuseFilter>;
-  using BinaryFuseFilter8 = std::unique_ptr<
-      xorbinaryfusefilter_lowmem4wise::XorBinaryFuseFilter<
-          uint64_t, uint8_t, BinaryFuseHasher>>;
-  using BinaryFuseFilter16 = std::unique_ptr<
-      xorbinaryfusefilter_lowmem4wise::XorBinaryFuseFilter<
-          uint64_t, uint16_t, BinaryFuseHasher>>;
-  using BinaryFuseFilter32 = std::unique_ptr<
-      xorbinaryfusefilter_lowmem4wise::XorBinaryFuseFilter<
-          uint64_t, uint32_t, BinaryFuseHasher>>;
-
-  std::variant<BinaryFuseFilterBitPacked, BinaryFuseFilter8, BinaryFuseFilter16, BinaryFuseFilter32>
-      _binary_fuse_filter;
+  std::unique_ptr<BitPackedBinaryFuseFilter> _binary_fuse_filter;
   std::vector<uint64_t> _keys;
   size_t _num_elements;
   float _error_rate;

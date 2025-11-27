@@ -7,19 +7,9 @@
 #include <iostream>
 #include <memory>
 #include <src/construct/SpookyHash.h>
-#include <variant>
 #include <vector>
-#include <xorfilter/xorfilter.h>
 
 namespace caramel {
-
-// Custom hasher for xor filter that just returns the key (we pre-hash strings)
-class XorHasher {
-public:
-  uint64_t seed;
-  XorHasher() : seed(0) {}
-  inline uint64_t operator()(uint64_t key) const { return key; }
-};
 
 // Utility functions for fingerprint width calculation
 namespace XorFilterUtils {
@@ -83,84 +73,31 @@ public:
       return;
     }
 
-    // Create filter with appropriate fingerprint width
-    // Use bit-packed filter for 1-7 bits, standard types for 8, 16, 32
-    if (_fingerprint_width < 8) {
-      // Bit-packed filter for sub-byte fingerprints (1-7 bits)
-      auto filter = std::make_unique<BitPackedXorFilter>(_keys.size(), _fingerprint_width);
-      auto status = filter->AddAll(_keys.data(), 0, _keys.size());
-      if (status != XorStatus::Ok) {
-        throw std::runtime_error("Failed to build bit-packed xor filter");
-      }
-      _xor_filter = std::move(filter);
-    } else if (_fingerprint_width == 8) {
-      // Standard 8-bit filter (fastest queries, no bit-packing overhead)
-      auto filter = std::make_unique<
-          xorfilter::XorFilter<uint64_t, uint8_t, XorHasher>>(_keys.size());
-      auto status = filter->AddAll(_keys.data(), 0, _keys.size());
-      if (status != xorfilter::Status::Ok) {
-        throw std::runtime_error("Failed to build xor filter");
-      }
-      _xor_filter = std::move(filter);
-    } else if (_fingerprint_width <= 16) {
-      // Standard 16-bit filter for 9-16 bit fingerprints
-      auto filter = std::make_unique<
-          xorfilter::XorFilter<uint64_t, uint16_t, XorHasher>>(_keys.size());
-      auto status = filter->AddAll(_keys.data(), 0, _keys.size());
-      if (status != xorfilter::Status::Ok) {
-        throw std::runtime_error("Failed to build xor filter");
-      }
-      _xor_filter = std::move(filter);
-    } else if (_fingerprint_width <= 32) {
-      // Standard 32-bit filter for 17-32 bit fingerprints
-      auto filter = std::make_unique<
-          xorfilter::XorFilter<uint64_t, uint32_t, XorHasher>>(_keys.size());
-      auto status = filter->AddAll(_keys.data(), 0, _keys.size());
-      if (status != xorfilter::Status::Ok) {
-        throw std::runtime_error("Failed to build xor filter");
-      }
-      _xor_filter = std::move(filter);
-    } else {
-      throw std::runtime_error("Unsupported fingerprint width: " +
-                                std::to_string(_fingerprint_width));
+    // Update _num_elements to reflect actual number of keys added
+    _num_elements = _keys.size();
+
+    // Create filter with appropriate fingerprint width (1-32 bits supported)
+    auto filter = std::make_unique<BitPackedXorFilter>(_keys.size(), _fingerprint_width);
+    auto status = filter->AddAll(_keys.data(), 0, _keys.size());
+    if (status != XorStatus::Ok) {
+      throw std::runtime_error("Failed to build xor filter");
     }
+    _xor_filter = std::move(filter);
     _is_built = true;
   }
 
   bool contains(const std::string &key) {
-    if (!_is_built) {
+    if (!_is_built || !_xor_filter) {
       return false;
     }
 
     uint64_t hash = hashString(key);
-    return std::visit(
-        [hash](auto &&filter) -> bool {
-          if (!filter) {
-            return false;
-          }
-
-          using FilterType = std::decay_t<decltype(*filter)>;
-
-          // Handle BitPackedXorFilter (uses XorStatus)
-          if constexpr (std::is_same_v<FilterType, BitPackedXorFilter>) {
-            auto status = filter->Contain(hash);
-            return status == XorStatus::Ok;
-          }
-          // Handle standard XorFilter (uses xorfilter::Status)
-          else {
-            auto status = filter->Contain(hash);
-            return status == xorfilter::Status::Ok;
-          }
-        },
-        _xor_filter);
+    auto status = _xor_filter->Contain(hash);
+    return status == XorStatus::Ok;
   }
 
   size_t size() const {
-    return std::visit(
-        [](auto &&filter) -> size_t {
-          return filter ? filter->SizeInBytes() : 0;
-        },
-        _xor_filter);
+    return _xor_filter ? _xor_filter->SizeInBytes() : 0;
   }
 
   size_t numElements() const { return _num_elements; }
@@ -180,46 +117,14 @@ private:
   template <class Archive> void save(Archive &archive) const {
     archive(_num_elements, _error_rate, _fingerprint_width, _is_built);
 
-    if (_is_built) {
-      if (_fingerprint_width < 8) {
-        // Bit-packed filter (1-7 bits)
-        auto &filter = std::get<0>(_xor_filter);  // BitPackedXorFilter
-        if (filter && filter->fingerprints) {
-          size_t arrayLength = filter->fingerprints->numWords();
-          int bitsPerElement = filter->fingerprints->bitsPerElement();
-          archive(arrayLength, bitsPerElement);
-          archive(cereal::binary_data(filter->fingerprints->data(),
-                                      arrayLength * sizeof(uint64_t)));
-          archive(filter->hashIndex);
-        }
-      } else if (_fingerprint_width == 8) {
-        auto &filter = std::get<1>(_xor_filter);  // XorFilter8
-        if (filter) {
-          size_t arrayLength = filter->arrayLength;
-          archive(arrayLength);
-          archive(cereal::binary_data(filter->fingerprints,
-                                      arrayLength * sizeof(uint8_t)));
-          archive(filter->hashIndex);
-        }
-      } else if (_fingerprint_width <= 16) {
-        auto &filter = std::get<2>(_xor_filter);  // XorFilter16
-        if (filter) {
-          size_t arrayLength = filter->arrayLength;
-          archive(arrayLength);
-          archive(cereal::binary_data(filter->fingerprints,
-                                      arrayLength * sizeof(uint16_t)));
-          archive(filter->hashIndex);
-        }
-      } else {
-        auto &filter = std::get<3>(_xor_filter);  // XorFilter32
-        if (filter) {
-          size_t arrayLength = filter->arrayLength;
-          archive(arrayLength);
-          archive(cereal::binary_data(filter->fingerprints,
-                                      arrayLength * sizeof(uint32_t)));
-          archive(filter->hashIndex);
-        }
-      }
+    if (_is_built && _xor_filter && _xor_filter->fingerprints) {
+      size_t numWords = _xor_filter->fingerprints->numWords();
+      int bitsPerElement = _xor_filter->fingerprints->bitsPerElement();
+      archive(numWords, bitsPerElement);
+      archive(_xor_filter->arrayLength, _xor_filter->blockLength);
+      archive(cereal::binary_data(_xor_filter->fingerprints->data(),
+                                  numWords * sizeof(uint64_t)));
+      archive(_xor_filter->hashIndex);
     }
   }
 
@@ -227,93 +132,26 @@ private:
     archive(_num_elements, _error_rate, _fingerprint_width, _is_built);
 
     if (_is_built) {
-      if (_fingerprint_width < 8) {
-        // Bit-packed filter (1-7 bits)
-        size_t arrayLength;
-        int bitsPerElement;
-        archive(arrayLength, bitsPerElement);
+      size_t numWords;
+      int bitsPerElement;
+      archive(numWords, bitsPerElement);
 
-        auto filter = std::make_unique<BitPackedXorFilter>(_num_elements, _fingerprint_width);
+      size_t arrayLength, blockLength;
+      archive(arrayLength, blockLength);
 
-        // Load fingerprint data
-        archive(cereal::binary_data(filter->fingerprints->data(),
-                                    arrayLength * sizeof(uint64_t)));
-        archive(filter->hashIndex);
-        _xor_filter = std::move(filter);
-      } else if (_fingerprint_width == 8) {
-        size_t arrayLength;
-        archive(arrayLength);
+      auto filter = std::make_unique<BitPackedXorFilter>(_num_elements, _fingerprint_width);
+      filter->arrayLength = arrayLength;
+      filter->blockLength = blockLength;
 
-        auto filter = std::make_unique<
-            xorfilter::XorFilter<uint64_t, uint8_t, XorHasher>>(_num_elements);
-
-        if (filter->arrayLength != arrayLength) {
-          delete[] filter->fingerprints;
-          filter->fingerprints = new uint8_t[arrayLength]();
-        }
-
-        filter->size = _num_elements;
-        filter->arrayLength = arrayLength;
-        filter->blockLength = arrayLength / 3;
-
-        archive(cereal::binary_data(filter->fingerprints,
-                                    arrayLength * sizeof(uint8_t)));
-        archive(filter->hashIndex);
-        _xor_filter = std::move(filter);
-      } else if (_fingerprint_width <= 16) {
-        size_t arrayLength;
-        archive(arrayLength);
-
-        auto filter = std::make_unique<
-            xorfilter::XorFilter<uint64_t, uint16_t, XorHasher>>(_num_elements);
-
-        if (filter->arrayLength != arrayLength) {
-          delete[] filter->fingerprints;
-          filter->fingerprints = new uint16_t[arrayLength]();
-        }
-
-        filter->size = _num_elements;
-        filter->arrayLength = arrayLength;
-        filter->blockLength = arrayLength / 3;
-
-        archive(cereal::binary_data(filter->fingerprints,
-                                    arrayLength * sizeof(uint16_t)));
-        archive(filter->hashIndex);
-        _xor_filter = std::move(filter);
-      } else {
-        size_t arrayLength;
-        archive(arrayLength);
-
-        auto filter = std::make_unique<
-            xorfilter::XorFilter<uint64_t, uint32_t, XorHasher>>(_num_elements);
-
-        if (filter->arrayLength != arrayLength) {
-          delete[] filter->fingerprints;
-          filter->fingerprints = new uint32_t[arrayLength]();
-        }
-
-        filter->size = _num_elements;
-        filter->arrayLength = arrayLength;
-        filter->blockLength = arrayLength / 3;
-
-        archive(cereal::binary_data(filter->fingerprints,
-                                    arrayLength * sizeof(uint32_t)));
-        archive(filter->hashIndex);
-        _xor_filter = std::move(filter);
-      }
+      // Load fingerprint data
+      archive(cereal::binary_data(filter->fingerprints->data(),
+                                  numWords * sizeof(uint64_t)));
+      archive(filter->hashIndex);
+      _xor_filter = std::move(filter);
     }
-    // _keys is not needed after deserialization since filter is already built
   }
 
-  using XorFilterBitPacked = std::unique_ptr<BitPackedXorFilter>;
-  using XorFilter8 =
-      std::unique_ptr<xorfilter::XorFilter<uint64_t, uint8_t, XorHasher>>;
-  using XorFilter16 =
-      std::unique_ptr<xorfilter::XorFilter<uint64_t, uint16_t, XorHasher>>;
-  using XorFilter32 =
-      std::unique_ptr<xorfilter::XorFilter<uint64_t, uint32_t, XorHasher>>;
-
-  std::variant<XorFilterBitPacked, XorFilter8, XorFilter16, XorFilter32> _xor_filter;
+  std::unique_ptr<BitPackedXorFilter> _xor_filter;
   std::vector<uint64_t> _keys;
   size_t _num_elements;
   float _error_rate;
