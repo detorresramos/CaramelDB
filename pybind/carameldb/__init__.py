@@ -10,12 +10,16 @@ from ._caramel import (
     BloomPreFilterString,
     BloomPreFilterUint32,
     BloomPreFilterUint64,
+    BucketStats,
     CSFChar10,
     CSFChar12,
     CsfDeserializationException,
+    CsfStats,
     CSFString,
     CSFUint32,
     CSFUint64,
+    FilterStats,
+    HuffmanStats,
     MultisetCSFChar10,
     MultisetCSFChar12,
     MultisetCSFString,
@@ -146,6 +150,10 @@ class CSFQueryWrapper(object):
 
     def query(self, q):
         return self._postprocess_fn(self._csf.query(q))
+
+    def get_stats(self):
+        """Get CSF statistics."""
+        return self._csf.get_stats()
 
     def __getattr__(self, name):
         return getattr(self._csf, name)

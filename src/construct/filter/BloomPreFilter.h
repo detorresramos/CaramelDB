@@ -3,7 +3,6 @@
 #include "BloomFilter.h"
 #include "PreFilter.h"
 #include <array>
-#include <cmath>
 #include <optional>
 #include <src/utils/SafeFileIO.h>
 #include <string>
@@ -17,18 +16,15 @@ using BloomPreFilterPtr = std::shared_ptr<BloomPreFilter<T>>;
 
 template <typename T> class BloomPreFilter final : public PreFilter<T> {
 public:
-  BloomPreFilter<T>(std::optional<float> error_rate = std::nullopt,
-                    std::optional<size_t> k = std::nullopt)
-      : _bloom_filter(nullptr), _most_common_value(std::nullopt),
-        _error_rate(error_rate), _k(k) {}
+  BloomPreFilter<T>(size_t size, size_t num_hashes)
+      : _bloom_filter(nullptr), _most_common_value(std::nullopt), _size(size),
+        _num_hashes(num_hashes) {}
 
-  static BloomPreFilterPtr<T>
-  make(std::optional<float> error_rate = std::nullopt,
-       std::optional<size_t> k = std::nullopt) {
-    return std::make_shared<BloomPreFilter<T>>(error_rate, k);
+  static BloomPreFilterPtr<T> make(size_t size, size_t num_hashes) {
+    return std::make_shared<BloomPreFilter<T>>(size, num_hashes);
   }
 
-  bool contains(const std::string &key) {
+  bool contains(const std::string &key) override {
     if (_bloom_filter) {
       return _bloom_filter->contains(key);
     }
@@ -37,7 +33,9 @@ public:
 
   BloomFilterPtr getBloomFilter() const { return _bloom_filter; }
 
-  std::optional<T> getMostCommonValue() const { return _most_common_value; }
+  std::optional<T> getMostCommonValue() const override {
+    return _most_common_value;
+  }
 
   void save(const std::string &filename) const {
     auto output_stream = SafeFileIO::ofstream(filename, std::ios::binary);
@@ -46,7 +44,7 @@ public:
   }
 
   static BloomPreFilterPtr<T> load(const std::string &filename) {
-    auto filter = std::make_shared<BloomPreFilter<T>>();
+    auto filter = std::make_shared<BloomPreFilter<T>>(1, 1); // Placeholder
     auto input_stream = SafeFileIO::ifstream(filename, std::ios::binary);
     cereal::BinaryInputArchive iarchive(input_stream);
     iarchive(*filter);
@@ -54,26 +52,19 @@ public:
   }
 
 protected:
-  float calculateErrorRate(float alpha, float delta) override {
-    if (_error_rate.has_value()) {
-      return _error_rate.value();
-    }
-    return (1.44 / (delta * std::log(2.0f))) * ((1.0f - alpha) / alpha);
-  }
-
-  void createAndPopulateFilter(size_t filter_size, float error_rate,
+  void createAndPopulateFilter(size_t filter_size,
                                const std::vector<std::string> &keys,
                                const std::vector<T> &values,
                                T most_common_value, bool verbose) override {
-    if (_k) {
-      _bloom_filter = BloomFilter::makeAutotunedFixedK(filter_size, error_rate,
-                                                       *_k, verbose);
-    } else {
-      _bloom_filter =
-          BloomFilter::makeAutotuned(filter_size, error_rate, verbose);
-    }
+    (void)filter_size; // We use user-provided _size instead
+    _bloom_filter = BloomFilter::makeFixed(_size, _num_hashes);
 
     _most_common_value = most_common_value;
+
+    if (verbose) {
+      std::cout << "BloomPreFilter: size=" << _size
+                << ", num_hashes=" << _num_hashes << std::endl;
+    }
 
     // Add all keys to filter that do not correspond to the most common element
     for (size_t i = 0; i < keys.size(); i++) {
@@ -83,24 +74,19 @@ protected:
     }
   }
 
-  bool shouldSkipFiltering(float error_rate) const override {
-    if (_error_rate.has_value()) {
-      return false;
-    }
-    return error_rate >= 0.5f || error_rate == 0.0f;
-  }
-
 private:
+  BloomPreFilter() : _size(0), _num_hashes(0) {} // For cereal
+
   friend class cereal::access;
   template <class Archive> void serialize(Archive &ar) {
     ar(cereal::base_class<PreFilter<T>>(this), _bloom_filter,
-       _most_common_value, _error_rate);
+       _most_common_value, _size, _num_hashes);
   }
 
   BloomFilterPtr _bloom_filter;
   std::optional<T> _most_common_value;
-  std::optional<float> _error_rate;
-  std::optional<size_t> _k;
+  size_t _size;
+  size_t _num_hashes;
 };
 
 } // namespace caramel

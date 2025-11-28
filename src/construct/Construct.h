@@ -126,6 +126,16 @@ constructCsf(const std::vector<std::string> &keys, const std::vector<T> &values,
     filter->apply(filtered_keys, filtered_values, DELTA, verbose);
   }
 
+  // If all keys were filtered out (all values were most common), create empty
+  // CSF. Query will always go through filter and return most common value.
+  if (filtered_keys.empty()) {
+    std::vector<SubsystemSolutionSeedPair> empty_solutions;
+    std::vector<uint32_t> empty_code_length_counts;
+    std::vector<T> empty_ordered_symbols;
+    return Csf<T>::make(empty_solutions, empty_code_length_counts,
+                        empty_ordered_symbols, 0, filter);
+  }
+
   if (verbose) {
     std::cout << "Creating codebook...";
   }

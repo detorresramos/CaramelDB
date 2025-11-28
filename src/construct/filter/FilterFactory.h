@@ -1,29 +1,28 @@
 #pragma once
 
-#include "BloomPreFilter.h"
-#include "XORPreFilter.h"
 #include "BinaryFusePreFilter.h"
+#include "BloomPreFilter.h"
 #include "FilterConfig.h"
 #include "PreFilter.h"
+#include "XORPreFilter.h"
 
 namespace caramel::FilterFactory {
 
 template <typename T>
 PreFilterPtr<T> makeFilter(std::shared_ptr<PreFilterConfig> filter_config) {
-  if (auto specific_config =
+  if (auto cfg =
           std::dynamic_pointer_cast<BloomPreFilterConfig>(filter_config)) {
-    return BloomPreFilter<T>::make(specific_config->error_rate,
-                                   specific_config->k);
+    return BloomPreFilter<T>::make(cfg->size, cfg->num_hashes);
   }
 
-  if (auto specific_config =
+  if (auto cfg =
           std::dynamic_pointer_cast<XORPreFilterConfig>(filter_config)) {
-    return XORPreFilter<T>::make();
+    return XORPreFilter<T>::make(cfg->fingerprint_bits);
   }
 
-  if (auto specific_config =
+  if (auto cfg =
           std::dynamic_pointer_cast<BinaryFusePreFilterConfig>(filter_config)) {
-    return BinaryFusePreFilter<T>::make();
+    return BinaryFusePreFilter<T>::make(cfg->fingerprint_bits);
   }
 
   throw std::invalid_argument("Unsupported filter configuration type");

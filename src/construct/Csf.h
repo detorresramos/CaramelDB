@@ -3,8 +3,10 @@
 #include "BucketedHashStore.h"
 #include "Codec.h"
 #include "ConstructUtils.h"
-#include "Csf.h"
-#include "SpookyHash.h"
+#include "CsfStats.h"
+#include "filter/BinaryFusePreFilter.h"
+#include "filter/BloomPreFilter.h"
+#include "filter/XORPreFilter.h"
 #include <cereal/access.hpp>
 #include <cereal/archives/binary.hpp>
 #include <cereal/types/array.hpp>
@@ -12,6 +14,7 @@
 #include <cereal/types/optional.hpp>
 #include <cereal/types/utility.hpp>
 #include <cereal/types/vector.hpp>
+#include <limits>
 #include <memory>
 #include <src/BitArray.h>
 #include <src/construct/filter/PreFilter.h>
@@ -29,7 +32,7 @@ using SubsystemSolutionSeedPair = std::pair<BitArrayPtr, uint32_t>;
 class CsfDeserializationException : public std::runtime_error {
 public:
   explicit CsfDeserializationException(const std::string &message)
-      : std::runtime_error("Cannot deserialize CSF: " + message){};
+      : std::runtime_error("Cannot deserialize CSF: " + message) {};
 };
 
 template <typename T> class Csf {
@@ -55,6 +58,14 @@ public:
   T query(const std::string &key) const {
     if (_filter && !_filter->contains(key)) {
       return *_filter->getMostCommonValue();
+    }
+
+    // If CSF has no solutions (all values were filtered), return most common
+    if (_solutions_and_seeds.empty()) {
+      if (_filter && _filter->getMostCommonValue()) {
+        return *_filter->getMostCommonValue();
+      }
+      throw std::runtime_error("Cannot query empty CSF without filter");
     }
 
     __uint128_t signature = hashKey(key, _hash_store_seed);
@@ -106,11 +117,131 @@ public:
     return deserialize_into;
   }
 
-  PreFilterPtr<T> getFilter() const {
-    return _filter;
+  PreFilterPtr<T> getFilter() const { return _filter; }
+
+  CsfStats getStats() const {
+    CsfStats stats;
+
+    // Bucket statistics
+    stats.bucket_stats.num_buckets = _solutions_and_seeds.size();
+    stats.bucket_stats.total_solution_bits = 0;
+    stats.bucket_stats.min_solution_bits = std::numeric_limits<size_t>::max();
+    stats.bucket_stats.max_solution_bits = 0;
+
+    for (const auto &[solution, seed] : _solutions_and_seeds) {
+      size_t bits = solution->numBits();
+      stats.bucket_stats.total_solution_bits += bits;
+      stats.bucket_stats.min_solution_bits =
+          std::min(stats.bucket_stats.min_solution_bits, bits);
+      stats.bucket_stats.max_solution_bits =
+          std::max(stats.bucket_stats.max_solution_bits, bits);
+    }
+
+    stats.bucket_stats.avg_solution_bits =
+        stats.bucket_stats.num_buckets > 0
+            ? static_cast<double>(stats.bucket_stats.total_solution_bits) /
+                  stats.bucket_stats.num_buckets
+            : 0;
+    if (stats.bucket_stats.num_buckets == 0)
+      stats.bucket_stats.min_solution_bits = 0;
+
+    // Huffman statistics
+    stats.huffman_stats.num_unique_symbols = _ordered_symbols.size();
+    stats.huffman_stats.max_code_length = _max_codelength;
+    stats.huffman_stats.code_length_distribution = _code_length_counts;
+
+    size_t total_symbols = 0, total_bits = 0;
+    for (size_t len = 1; len < _code_length_counts.size(); len++) {
+      total_symbols += _code_length_counts[len];
+      total_bits += _code_length_counts[len] * len;
+    }
+    stats.huffman_stats.avg_bits_per_symbol =
+        total_symbols > 0 ? static_cast<double>(total_bits) / total_symbols
+                          : 0.0;
+
+    // Solution memory (bits to bytes, rounding up to 64-bit blocks)
+    size_t solution_bytes = 0;
+    for (const auto &[solution, seed] : _solutions_and_seeds) {
+      uint32_t num_blocks = ((solution->numBits() - 1) / 64) + 1;
+      solution_bytes += num_blocks * sizeof(uint64_t);
+    }
+    stats.solution_bytes = static_cast<double>(solution_bytes);
+
+    // Filter statistics
+    stats.filter_bytes = 0;
+    if (_filter) {
+      stats.filter_stats = getFilterStats();
+      if (stats.filter_stats) {
+        stats.filter_bytes =
+            static_cast<double>(stats.filter_stats->size_bytes);
+      }
+    }
+
+    // Metadata bytes
+    size_t metadata_bytes = 0;
+    metadata_bytes += _code_length_counts.size() * sizeof(uint32_t);
+    metadata_bytes += _ordered_symbols.size() * sizeof(T);
+    metadata_bytes += sizeof(_hash_store_seed) + sizeof(_max_codelength);
+    metadata_bytes += _solutions_and_seeds.size() * sizeof(uint32_t); // seeds
+    stats.metadata_bytes = static_cast<double>(metadata_bytes);
+
+    stats.in_memory_bytes = static_cast<size_t>(
+        stats.solution_bytes + stats.filter_bytes + stats.metadata_bytes);
+
+    return stats;
   }
 
 private:
+  std::optional<FilterStats> getFilterStats() const {
+    if (!_filter)
+      return std::nullopt;
+
+    FilterStats fs;
+
+    if (auto bloom = std::dynamic_pointer_cast<BloomPreFilter<T>>(_filter)) {
+      auto bf = bloom->getBloomFilter();
+      fs.type = "bloom";
+      if (bf) {
+        fs.size_bits = bf->size();
+        fs.size_bytes = (bf->size() + 7) / 8;
+        fs.num_hashes = bf->numHashes();
+      } else {
+        fs.size_bytes = 0;
+      }
+      fs.num_elements = 0;
+    } else if (auto xor_pf =
+                   std::dynamic_pointer_cast<XORPreFilter<T>>(_filter)) {
+      auto xf = xor_pf->getXorFilter();
+      fs.type = "xor";
+      if (xf) {
+        fs.size_bytes = xf->size();
+        fs.num_elements = xf->numElements();
+        fs.fingerprint_bits = xf->fingerprintWidth();
+      } else {
+        fs.size_bytes = 0;
+        fs.num_elements = 0;
+      }
+    } else if (auto bf_pf =
+                   std::dynamic_pointer_cast<BinaryFusePreFilter<T>>(_filter)) {
+      auto bff = bf_pf->getBinaryFuseFilter();
+      fs.type = "binary_fuse";
+      if (bff) {
+        fs.size_bytes = bff->size();
+        fs.num_elements = bff->numElements();
+        fs.fingerprint_bits = bff->fingerprintWidth();
+      } else {
+        fs.size_bytes = 0;
+        fs.num_elements = 0;
+      }
+    } else {
+      fs.type = "unknown";
+      fs.size_bytes = 0;
+      fs.num_elements = 0;
+    }
+
+    return fs;
+  }
+
   // Private constructor for cereal
   Csf() {}
 

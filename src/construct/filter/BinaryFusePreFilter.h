@@ -3,7 +3,6 @@
 #include "BinaryFuseFilter.h"
 #include "PreFilter.h"
 #include <array>
-#include <cmath>
 #include <optional>
 #include <src/utils/SafeFileIO.h>
 #include <string>
@@ -17,17 +16,15 @@ using BinaryFusePreFilterPtr = std::shared_ptr<BinaryFusePreFilter<T>>;
 
 template <typename T> class BinaryFusePreFilter final : public PreFilter<T> {
 public:
-  explicit BinaryFusePreFilter<T>(
-      std::optional<float> error_rate = std::nullopt)
+  explicit BinaryFusePreFilter<T>(int fingerprint_bits)
       : _binary_fuse_filter(nullptr), _most_common_value(std::nullopt),
-        _error_rate(error_rate) {}
+        _fingerprint_bits(fingerprint_bits) {}
 
-  static BinaryFusePreFilterPtr<T>
-  make(std::optional<float> error_rate = std::nullopt) {
-    return std::make_shared<BinaryFusePreFilter<T>>(error_rate);
+  static BinaryFusePreFilterPtr<T> make(int fingerprint_bits) {
+    return std::make_shared<BinaryFusePreFilter<T>>(fingerprint_bits);
   }
 
-  bool contains(const std::string &key) {
+  bool contains(const std::string &key) override {
     if (_binary_fuse_filter) {
       return _binary_fuse_filter->contains(key);
     }
@@ -38,7 +35,9 @@ public:
     return _binary_fuse_filter;
   }
 
-  std::optional<T> getMostCommonValue() const { return _most_common_value; }
+  std::optional<T> getMostCommonValue() const override {
+    return _most_common_value;
+  }
 
   void save(const std::string &filename) const {
     auto output_stream = SafeFileIO::ofstream(filename, std::ios::binary);
@@ -47,7 +46,7 @@ public:
   }
 
   static BinaryFusePreFilterPtr<T> load(const std::string &filename) {
-    auto filter = std::make_shared<BinaryFusePreFilter<T>>();
+    auto filter = std::make_shared<BinaryFusePreFilter<T>>(8); // Placeholder
     auto input_stream = SafeFileIO::ifstream(filename, std::ios::binary);
     cereal::BinaryInputArchive iarchive(input_stream);
     iarchive(*filter);
@@ -55,24 +54,12 @@ public:
   }
 
 protected:
-  // Binary Fuse filter bit cost: b(ε) ≈ 1.075 * 8 bits (for 4-wise)
-  // Binary Fuse has 1.075x space overhead (better than XOR's 1.23x)
-  // Using the correct overhead constant for optimal error rate calculation.
-  float calculateErrorRate(float alpha, float delta) override {
-    if (_error_rate.has_value()) {
-      return _error_rate.value();
-    }
-    constexpr float c_binary_fuse = 1.075f;
-    return (c_binary_fuse / (delta * std::log(2.0f))) *
-           ((1.0f - alpha) / alpha);
-  }
-
-  void createAndPopulateFilter(size_t filter_size, float error_rate,
+  void createAndPopulateFilter(size_t filter_size,
                                const std::vector<std::string> &keys,
                                const std::vector<T> &values,
                                T most_common_value, bool verbose) override {
     _binary_fuse_filter =
-        BinaryFuseFilter::make(filter_size, error_rate, verbose);
+        BinaryFuseFilter::makeFixed(filter_size, _fingerprint_bits, verbose);
     _most_common_value = most_common_value;
 
     // Add all keys to filter that do not correspond to the most common element
@@ -86,15 +73,17 @@ protected:
   }
 
 private:
+  BinaryFusePreFilter() : _fingerprint_bits(8) {} // For cereal
+
   friend class cereal::access;
   template <class Archive> void serialize(Archive &ar) {
     ar(cereal::base_class<PreFilter<T>>(this), _binary_fuse_filter,
-       _most_common_value, _error_rate);
+       _most_common_value, _fingerprint_bits);
   }
 
   BinaryFuseFilterPtr _binary_fuse_filter;
   std::optional<T> _most_common_value;
-  std::optional<float> _error_rate;
+  int _fingerprint_bits;
 };
 
 } // namespace caramel

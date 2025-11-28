@@ -64,6 +64,30 @@ public:
         create(num_elements, error_rate, verbose));
   }
 
+  static BinaryFuseFilter createFixed(size_t num_elements, int fingerprint_bits,
+                                       bool verbose = false) {
+    BinaryFuseFilter filter;
+    filter._num_elements = num_elements;
+    filter._fingerprint_width = std::max(1, std::min(32, fingerprint_bits));
+    filter._error_rate = 1.0f / (1ULL << filter._fingerprint_width);
+    filter._keys.reserve(num_elements);
+
+    if (verbose) {
+      std::cout << "BinaryFuseFilter (fixed): num_elements=" << num_elements
+                << ", fingerprint_bits=" << filter._fingerprint_width
+                << " (FPR≈" << filter._error_rate << ")" << std::endl;
+    }
+
+    return filter;
+  }
+
+  static std::shared_ptr<BinaryFuseFilter> makeFixed(size_t num_elements,
+                                                      int fingerprint_bits,
+                                                      bool verbose = false) {
+    return std::make_shared<BinaryFuseFilter>(
+        createFixed(num_elements, fingerprint_bits, verbose));
+  }
+
   void add(const std::string &key) {
     uint64_t hash = hashString(key);
     _keys.push_back(hash);
@@ -110,6 +134,8 @@ public:
   }
 
   size_t numElements() const { return _num_elements; }
+
+  int fingerprintWidth() const { return _fingerprint_width; }
 
 private:
   uint64_t hashString(const std::string &key) const {
