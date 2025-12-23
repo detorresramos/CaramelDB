@@ -2,6 +2,7 @@
 
 #include "Construct.h"
 #include "MultisetCsf.h"
+#include "filter/FilterFactory.h"
 
 namespace caramel {
 
@@ -28,7 +29,7 @@ constructMultisetCsf(const std::vector<std::string> &keys,
 
     PreFilterPtr<T> filter = nullptr;
     if (filter_config) {
-      filter = BloomPreFilter<T>::make();
+      filter = FilterFactory::makeFilter<T>(filter_config);
       filter->apply(filtered_keys, filtered_values, DELTA, verbose);
     }
 
@@ -53,7 +54,9 @@ constructMultisetCsf(const std::vector<std::string> &keys,
             huffman.codedict, huffman.max_codelength, DELTA);
       } catch (std::exception &e) {
 #pragma omp critical
-        { exception = std::current_exception(); }
+        {
+          exception = std::current_exception();
+        }
       }
     }
 

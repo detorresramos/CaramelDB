@@ -3,7 +3,6 @@
 #include "PreFilter.h"
 #include "XorFilter.h"
 #include <array>
-#include <cmath>
 #include <optional>
 #include <src/utils/SafeFileIO.h>
 #include <string>
@@ -15,16 +14,15 @@ template <typename T> class XORPreFilter;
 template <typename T> using XORPreFilterPtr = std::shared_ptr<XORPreFilter<T>>;
 template <typename T> class XORPreFilter final : public PreFilter<T> {
 public:
-  explicit XORPreFilter<T>(std::optional<float> error_rate = std::nullopt)
+  explicit XORPreFilter<T>(int fingerprint_bits)
       : _xor_filter(nullptr), _most_common_value(std::nullopt),
-        _error_rate(error_rate) {}
+        _fingerprint_bits(fingerprint_bits) {}
 
-  static XORPreFilterPtr<T>
-  make(std::optional<float> error_rate = std::nullopt) {
-    return std::make_shared<XORPreFilter<T>>(error_rate);
+  static XORPreFilterPtr<T> make(int fingerprint_bits) {
+    return std::make_shared<XORPreFilter<T>>(fingerprint_bits);
   }
 
-  bool contains(const std::string &key) {
+  bool contains(const std::string &key) override {
     if (_xor_filter) {
       return _xor_filter->contains(key);
     }
@@ -34,7 +32,9 @@ public:
 
   XorFilterPtr getXorFilter() const { return _xor_filter; }
 
-  std::optional<T> getMostCommonValue() const { return _most_common_value; }
+  std::optional<T> getMostCommonValue() const override {
+    return _most_common_value;
+  }
 
   void save(const std::string &filename) const {
     auto output_stream = SafeFileIO::ofstream(filename, std::ios::binary);
@@ -43,7 +43,7 @@ public:
   }
 
   static XORPreFilterPtr<T> load(const std::string &filename) {
-    auto filter = std::make_shared<XORPreFilter<T>>();
+    auto filter = std::make_shared<XORPreFilter<T>>(8); // Placeholder
     auto input_stream = SafeFileIO::ifstream(filename, std::ios::binary);
     cereal::BinaryInputArchive iarchive(input_stream);
     iarchive(*filter);
@@ -51,22 +51,11 @@ public:
   }
 
 protected:
-  // XOR filter bit cost: b(ε) ≈ 1.23 log2(1/ε)
-  // A first-order optimization of Δ(ε) with this b(ε) yields the same
-  // closed form as the Bloom prefilter but with 1.23 instead of 1.44.
-  float calculateErrorRate(float alpha, float delta) override {
-    if (_error_rate.has_value()) {
-      return _error_rate.value();
-    }
-    constexpr float c_xor = 1.23f;
-    return (c_xor / (delta * std::log(2.0f))) * ((1.0f - alpha) / alpha);
-  }
-
-  void createAndPopulateFilter(size_t filter_size, float error_rate,
+  void createAndPopulateFilter(size_t filter_size,
                                const std::vector<std::string> &keys,
                                const std::vector<T> &values,
                                T most_common_value, bool verbose) override {
-    _xor_filter = XorFilter::make(filter_size, error_rate, verbose);
+    _xor_filter = XorFilter::makeFixed(filter_size, _fingerprint_bits, verbose);
     _most_common_value = most_common_value;
 
     // Add all minority keys to the XOR filter
@@ -80,15 +69,17 @@ protected:
   }
 
 private:
+  XORPreFilter() : _fingerprint_bits(8) {} // For cereal
+
   friend class cereal::access;
   template <class Archive> void serialize(Archive &ar) {
     ar(cereal::base_class<PreFilter<T>>(this), _xor_filter, _most_common_value,
-       _error_rate);
+       _fingerprint_bits);
   }
 
   XorFilterPtr _xor_filter;
   std::optional<T> _most_common_value;
-  std::optional<float> _error_rate;
+  int _fingerprint_bits;
 };
 
 } // namespace caramel

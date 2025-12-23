@@ -17,6 +17,7 @@ public:
   virtual void apply(std::vector<std::string> &keys, std::vector<T> &values,
                      float delta, bool verbose) {
     Timer timer;
+    (void)delta; // No longer used for autotuning
 
     const size_t num_items = keys.size();
     if (num_items == 0) {
@@ -24,33 +25,11 @@ public:
     }
 
     auto [highest_frequency, most_common_value] = highestFrequency(values);
-    const float alpha =
-        static_cast<float>(highest_frequency) / static_cast<float>(num_items);
-
-    // Determine error rate (either from override or calculated)
-    float error_rate = calculateErrorRate(alpha, delta);
-
-    // Check if we should skip filtering
-    if (shouldSkipFiltering(error_rate)) {
-      if (verbose) {
-        std::cout << "Skipping pre-filtering (epsilon=" << error_rate << ")"
-                  << std::endl;
-      }
-      return;
-    }
-
     const size_t filter_size = num_items - highest_frequency;
 
-    // Only create filter if filter_size > 0
-    if (filter_size == 0) {
-      if (verbose) {
-        std::cout << " nothing to filter (filter_size=0)." << std::endl;
-      }
-      return;
-    }
-
-    createAndPopulateFilter(filter_size, error_rate, keys, values,
-                            most_common_value, verbose);
+    // Always create filter (user explicitly requested it via config)
+    createAndPopulateFilter(filter_size, keys, values, most_common_value,
+                            verbose);
 
     std::vector<std::string> filtered_keys;
     filtered_keys.reserve(num_items);
@@ -81,16 +60,10 @@ public:
   virtual ~PreFilter() = default;
 
 protected:
-  virtual float calculateErrorRate(float alpha, float delta) = 0;
-
-  virtual void createAndPopulateFilter(size_t filter_size, float error_rate,
+  virtual void createAndPopulateFilter(size_t filter_size,
                                        const std::vector<std::string> &keys,
                                        const std::vector<T> &values,
                                        T most_common_value, bool verbose) = 0;
-
-  virtual bool shouldSkipFiltering(float error_rate) const {
-    return error_rate >= 0.5f || error_rate <= 0.0f;
-  }
 
   std::pair<size_t, T> highestFrequency(const std::vector<T> &values) {
     std::unordered_map<T, size_t> frequencies;

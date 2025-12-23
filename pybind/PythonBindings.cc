@@ -2,13 +2,14 @@
 #include <src/construct/Construct.h>
 #include <src/construct/ConstructMultiset.h>
 #include <src/construct/Csf.h>
+#include <src/construct/CsfStats.h>
 #include <src/construct/EntropyPermutation.h>
 #include <src/construct/MultisetCsf.h>
-#include <src/construct/filter/BloomPreFilter.h>
-#include <src/construct/filter/XORPreFilter.h>
 #include <src/construct/filter/BinaryFusePreFilter.h>
+#include <src/construct/filter/BloomPreFilter.h>
 #include <src/construct/filter/FilterConfig.h>
 #include <src/construct/filter/PreFilter.h>
+#include <src/construct/filter/XORPreFilter.h>
 
 // Pybind11 library
 #include <pybind11/cast.h>
@@ -63,14 +64,16 @@ void bindXORPreFilter(py::module &module, const char *xor_name) {
 
 template <typename T>
 void bindBinaryFusePreFilter(py::module &module, const char *bf_name) {
-  py::class_<BinaryFusePreFilter<T>, PreFilter<T>, BinaryFusePreFilterPtr<T>>(module,
-                                                                              bf_name)
+  py::class_<BinaryFusePreFilter<T>, PreFilter<T>, BinaryFusePreFilterPtr<T>>(
+      module, bf_name)
       .def("save", &BinaryFusePreFilter<T>::save, py::arg("filename"))
       .def_static("load", &BinaryFusePreFilter<T>::load, py::arg("filename"))
       .def("contains", &BinaryFusePreFilter<T>::contains, py::arg("key"))
-      .def("get_binary_fuse_filter", &BinaryFusePreFilter<T>::getBinaryFuseFilter,
+      .def("get_binary_fuse_filter",
+           &BinaryFusePreFilter<T>::getBinaryFuseFilter,
            py::return_value_policy::reference)
-      .def("get_most_common_value", &BinaryFusePreFilter<T>::getMostCommonValue);
+      .def("get_most_common_value",
+           &BinaryFusePreFilter<T>::getMostCommonValue);
 }
 
 void bindPreFilterConfig(py::module &module) {
@@ -79,17 +82,54 @@ void bindPreFilterConfig(py::module &module) {
 
   py::class_<BloomPreFilterConfig, PreFilterConfig,
              std::shared_ptr<BloomPreFilterConfig>>(module, "BloomFilterConfig")
-      .def(py::init<std::optional<float>, std::optional<size_t>>(),
-           py::arg("error_rate") = std::nullopt, py::arg("k") = std::nullopt)
-      .def_readwrite("error_rate", &BloomPreFilterConfig::error_rate);
+      .def(py::init<size_t, size_t>(), py::arg("size"), py::arg("num_hashes"))
+      .def_readwrite("size", &BloomPreFilterConfig::size)
+      .def_readwrite("num_hashes", &BloomPreFilterConfig::num_hashes);
 
   py::class_<XORPreFilterConfig, PreFilterConfig,
              std::shared_ptr<XORPreFilterConfig>>(module, "XORFilterConfig")
-      .def(py::init<>());
+      .def(py::init<int>(), py::arg("fingerprint_bits"))
+      .def_readwrite("fingerprint_bits", &XORPreFilterConfig::fingerprint_bits);
 
   py::class_<BinaryFusePreFilterConfig, PreFilterConfig,
-             std::shared_ptr<BinaryFusePreFilterConfig>>(module, "BinaryFuseFilterConfig")
-      .def(py::init<>());
+             std::shared_ptr<BinaryFusePreFilterConfig>>(
+      module, "BinaryFuseFilterConfig")
+      .def(py::init<int>(), py::arg("fingerprint_bits"))
+      .def_readwrite("fingerprint_bits",
+                     &BinaryFusePreFilterConfig::fingerprint_bits);
+}
+
+void bindCsfStats(py::module &module) {
+  py::class_<FilterStats>(module, "FilterStats")
+      .def_readonly("type", &FilterStats::type)
+      .def_readonly("size_bytes", &FilterStats::size_bytes)
+      .def_readonly("num_elements", &FilterStats::num_elements)
+      .def_readonly("num_hashes", &FilterStats::num_hashes)
+      .def_readonly("size_bits", &FilterStats::size_bits)
+      .def_readonly("fingerprint_bits", &FilterStats::fingerprint_bits);
+
+  py::class_<HuffmanStats>(module, "HuffmanStats")
+      .def_readonly("num_unique_symbols", &HuffmanStats::num_unique_symbols)
+      .def_readonly("max_code_length", &HuffmanStats::max_code_length)
+      .def_readonly("avg_bits_per_symbol", &HuffmanStats::avg_bits_per_symbol)
+      .def_readonly("code_length_distribution",
+                    &HuffmanStats::code_length_distribution);
+
+  py::class_<BucketStats>(module, "BucketStats")
+      .def_readonly("num_buckets", &BucketStats::num_buckets)
+      .def_readonly("total_solution_bits", &BucketStats::total_solution_bits)
+      .def_readonly("avg_solution_bits", &BucketStats::avg_solution_bits)
+      .def_readonly("min_solution_bits", &BucketStats::min_solution_bits)
+      .def_readonly("max_solution_bits", &BucketStats::max_solution_bits);
+
+  py::class_<CsfStats>(module, "CsfStats")
+      .def_readonly("in_memory_bytes", &CsfStats::in_memory_bytes)
+      .def_readonly("bucket_stats", &CsfStats::bucket_stats)
+      .def_readonly("huffman_stats", &CsfStats::huffman_stats)
+      .def_readonly("filter_stats", &CsfStats::filter_stats)
+      .def_readonly("solution_bytes", &CsfStats::solution_bytes)
+      .def_readonly("filter_bytes", &CsfStats::filter_bytes)
+      .def_readonly("metadata_bytes", &CsfStats::metadata_bytes);
 }
 
 template <typename T>
@@ -105,6 +145,7 @@ void bindCsf(py::module &module, const char *name, const uint32_t type_id) {
            py::arg("verbose") = true)
       .def("query", &Csf<T>::query, py::arg("key"))
       .def("get_filter", &Csf<T>::getFilter, py::return_value_policy::reference)
+      .def("get_stats", &Csf<T>::getStats)
       // Call save / load through a lambda to avoid user visibility of type_id.
       .def(
           "save",
@@ -170,6 +211,7 @@ template <typename T> void bindPermutation(py::module &m, const char *name) {
 PYBIND11_MODULE(_caramel, module) { // NOLINT
   bindBloomFilter(module);
   bindPreFilterConfig(module);
+  bindCsfStats(module);
 
   bindPreFilter<uint32_t>(module, "PreFilterUint32");
   bindPreFilter<uint64_t>(module, "PreFilterUint64");
@@ -191,8 +233,10 @@ PYBIND11_MODULE(_caramel, module) { // NOLINT
 
   bindBinaryFusePreFilter<uint32_t>(module, "BinaryFusePreFilterUint32");
   bindBinaryFusePreFilter<uint64_t>(module, "BinaryFusePreFilterUint64");
-  bindBinaryFusePreFilter<std::array<char, 10>>(module, "BinaryFusePreFilterChar10");
-  bindBinaryFusePreFilter<std::array<char, 12>>(module, "BinaryFusePreFilterChar12");
+  bindBinaryFusePreFilter<std::array<char, 10>>(module,
+                                                "BinaryFusePreFilterChar10");
+  bindBinaryFusePreFilter<std::array<char, 12>>(module,
+                                                "BinaryFusePreFilterChar12");
   bindBinaryFusePreFilter<std::string>(module, "BinaryFusePreFilterString");
 
   bindCsf<uint32_t>(module, "CSFUint32", 1);
