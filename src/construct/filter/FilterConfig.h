@@ -12,18 +12,18 @@ struct PreFilterConfig {
 using PreFilterConfigPtr = std::shared_ptr<PreFilterConfig>;
 
 struct BloomPreFilterConfig : public PreFilterConfig {
-  BloomPreFilterConfig(size_t size, size_t num_hashes)
-      : size(size), num_hashes(num_hashes) {
-    if (size == 0) {
-      throw std::invalid_argument("Bloom filter size must be > 0");
+  BloomPreFilterConfig(size_t bits_per_element, size_t num_hashes)
+      : bits_per_element(bits_per_element), num_hashes(num_hashes) {
+    if (bits_per_element == 0) {
+      throw std::invalid_argument("Bloom filter bits_per_element must be > 0");
     }
     if (num_hashes == 0) {
       throw std::invalid_argument("Bloom filter num_hashes must be > 0");
     }
   }
 
-  size_t size;       // Total bitarray size in bits
-  size_t num_hashes; // Number of hash functions
+  size_t bits_per_element;
+  size_t num_hashes;
 };
 
 struct XORPreFilterConfig : public PreFilterConfig {

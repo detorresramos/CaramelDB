@@ -12,7 +12,7 @@ template <typename T>
 PreFilterPtr<T> makeFilter(std::shared_ptr<PreFilterConfig> filter_config) {
   if (auto cfg =
           std::dynamic_pointer_cast<BloomPreFilterConfig>(filter_config)) {
-    return BloomPreFilter<T>::make(cfg->size, cfg->num_hashes);
+    return BloomPreFilter<T>::make(cfg->bits_per_element, cfg->num_hashes);
   }
 
   if (auto cfg =

@@ -82,8 +82,9 @@ void bindPreFilterConfig(py::module &module) {
 
   py::class_<BloomPreFilterConfig, PreFilterConfig,
              std::shared_ptr<BloomPreFilterConfig>>(module, "BloomFilterConfig")
-      .def(py::init<size_t, size_t>(), py::arg("size"), py::arg("num_hashes"))
-      .def_readwrite("size", &BloomPreFilterConfig::size)
+      .def(py::init<size_t, size_t>(), py::arg("bits_per_element"),
+           py::arg("num_hashes"))
+      .def_readwrite("bits_per_element", &BloomPreFilterConfig::bits_per_element)
       .def_readwrite("num_hashes", &BloomPreFilterConfig::num_hashes);
 
   py::class_<XORPreFilterConfig, PreFilterConfig,

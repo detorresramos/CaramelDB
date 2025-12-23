@@ -22,7 +22,7 @@ def test_csf_inference_with_bloom_doesnt_change(bloom_filter):
     if bloom_filter:
         # Use explicit size and num_hashes
         assert_simple_api_correct(
-            keys, values, prefilter=BloomFilterConfig(size=10000, num_hashes=7)
+            keys, values, prefilter=BloomFilterConfig(bits_per_element=10, num_hashes=7)
         )
     else:
         assert_simple_api_correct(keys, values, prefilter=None)
@@ -40,7 +40,7 @@ def test_bloom_filter_with_different_sizes():
 
     # Test with smaller bloom filter
     csf_small = carameldb.Caramel(
-        keys, values, prefilter=BloomFilterConfig(size=1000, num_hashes=3)
+        keys, values, prefilter=BloomFilterConfig(bits_per_element=1, num_hashes=3)
     )
     small_filename = "small.csf"
     csf_small.save(small_filename)
@@ -48,7 +48,7 @@ def test_bloom_filter_with_different_sizes():
 
     # Test with larger bloom filter
     csf_large = carameldb.Caramel(
-        keys, values, prefilter=BloomFilterConfig(size=100000, num_hashes=7)
+        keys, values, prefilter=BloomFilterConfig(bits_per_element=50, num_hashes=7)
     )
     large_filename = "large.csf"
     csf_large.save(large_filename)
@@ -74,9 +74,9 @@ def test_filter_custom_num_hashes():
         i for i in range(other_elements)
     ]
 
-    # Test with custom size and num_hashes
+    # Test with custom bits_per_element and num_hashes
     csf = carameldb.Caramel(
-        keys, values, prefilter=BloomFilterConfig(size=50000, num_hashes=10), verbose=True
+        keys, values, prefilter=BloomFilterConfig(bits_per_element=25, num_hashes=10), verbose=True
     )
 
     bf = csf.get_filter().get_bloom_filter()
@@ -87,7 +87,7 @@ def test_get_bloom_filter():
     keys = gen_str_keys(1000)
     values = np.array([5 for _ in range(900)] + [6] * 100)
     csf = carameldb.Caramel(
-        keys, values, prefilter=BloomFilterConfig(size=10000, num_hashes=7)
+        keys, values, prefilter=BloomFilterConfig(bits_per_element=10, num_hashes=7)
     )
 
     prefilter = csf.get_filter()
@@ -280,7 +280,7 @@ def test_filter_always_created_when_config_provided():
 
     # With new API, filter should always be created
     csf = carameldb.Caramel(
-        keys, values, prefilter=BloomFilterConfig(size=10000, num_hashes=7)
+        keys, values, prefilter=BloomFilterConfig(bits_per_element=10, num_hashes=7)
     )
 
     # Filter should exist (even though all values are the same)

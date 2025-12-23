@@ -36,7 +36,7 @@ def test_csf_stats_with_bloom_filter():
 
     csf = carameldb.Caramel(
         keys, values,
-        prefilter=BloomFilterConfig(size=10000, num_hashes=7),
+        prefilter=BloomFilterConfig(bits_per_element=10, num_hashes=7),
         verbose=False
     )
     stats = csf.get_stats()
@@ -46,7 +46,8 @@ def test_csf_stats_with_bloom_filter():
     assert stats.filter_stats.type == "bloom"
     assert stats.filter_stats.size_bytes > 0
     assert stats.filter_stats.num_hashes == 7
-    assert stats.filter_stats.size_bits == 10000
+    # 199 minority elements * 10 bits = 1990 bits
+    assert stats.filter_stats.size_bits == 1990
 
     # Check memory breakdown
     assert stats.solution_bytes > 0
@@ -139,7 +140,7 @@ def test_csf_stats_memory_breakdown():
 
     csf = carameldb.Caramel(
         keys, values,
-        prefilter=BloomFilterConfig(size=10000, num_hashes=7),
+        prefilter=BloomFilterConfig(bits_per_element=10, num_hashes=7),
         verbose=False
     )
     stats = csf.get_stats()

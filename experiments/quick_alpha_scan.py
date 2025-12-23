@@ -61,11 +61,11 @@ def find_optimal_alpha(filter_type, n):
     Find optimal alpha by scanning from high to low.
     """
     if filter_type == "xor":
-        filter_config = XORFilterConfig()
+        filter_config = XORFilterConfig(fingerprint_bits=8)
     elif filter_type == "binary_fuse":
-        filter_config = BinaryFuseFilterConfig()
+        filter_config = BinaryFuseFilterConfig(fingerprint_bits=8)
     elif filter_type == "bloom":
-        filter_config = BloomFilterConfig()
+        filter_config = BloomFilterConfig(bits_per_element=10, num_hashes=7)
     else:
         raise ValueError(f"Unknown filter type: {filter_type}")
 

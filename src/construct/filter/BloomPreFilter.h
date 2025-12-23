@@ -16,12 +16,12 @@ using BloomPreFilterPtr = std::shared_ptr<BloomPreFilter<T>>;
 
 template <typename T> class BloomPreFilter final : public PreFilter<T> {
 public:
-  BloomPreFilter<T>(size_t size, size_t num_hashes)
-      : _bloom_filter(nullptr), _most_common_value(std::nullopt), _size(size),
-        _num_hashes(num_hashes) {}
+  BloomPreFilter<T>(size_t bits_per_element, size_t num_hashes)
+      : _bloom_filter(nullptr), _most_common_value(std::nullopt),
+        _bits_per_element(bits_per_element), _num_hashes(num_hashes) {}
 
-  static BloomPreFilterPtr<T> make(size_t size, size_t num_hashes) {
-    return std::make_shared<BloomPreFilter<T>>(size, num_hashes);
+  static BloomPreFilterPtr<T> make(size_t bits_per_element, size_t num_hashes) {
+    return std::make_shared<BloomPreFilter<T>>(bits_per_element, num_hashes);
   }
 
   bool contains(const std::string &key) override {
@@ -56,17 +56,26 @@ protected:
                                const std::vector<std::string> &keys,
                                const std::vector<T> &values,
                                T most_common_value, bool verbose) override {
-    (void)filter_size; // We use user-provided _size instead
-    _bloom_filter = BloomFilter::makeFixed(_size, _num_hashes);
-
+    (void)filter_size;
     _most_common_value = most_common_value;
 
+    size_t num_minority = 0;
+    for (size_t i = 0; i < values.size(); i++) {
+      if (values[i] != most_common_value) {
+        num_minority++;
+      }
+    }
+
+    size_t total_bits = std::max(_bits_per_element * num_minority, size_t(1));
+    _bloom_filter = BloomFilter::makeFixed(total_bits, _num_hashes);
+
     if (verbose) {
-      std::cout << "BloomPreFilter: size=" << _size
+      std::cout << "BloomPreFilter: bits_per_element=" << _bits_per_element
+                << ", num_minority=" << num_minority
+                << ", total_bits=" << total_bits
                 << ", num_hashes=" << _num_hashes << std::endl;
     }
 
-    // Add all keys to filter that do not correspond to the most common element
     for (size_t i = 0; i < keys.size(); i++) {
       if (values[i] != most_common_value) {
         _bloom_filter->add(keys[i]);
@@ -75,17 +84,17 @@ protected:
   }
 
 private:
-  BloomPreFilter() : _size(0), _num_hashes(0) {} // For cereal
+  BloomPreFilter() : _bits_per_element(0), _num_hashes(0) {} // For cereal
 
   friend class cereal::access;
   template <class Archive> void serialize(Archive &ar) {
     ar(cereal::base_class<PreFilter<T>>(this), _bloom_filter,
-       _most_common_value, _size, _num_hashes);
+       _most_common_value, _bits_per_element, _num_hashes);
   }
 
   BloomFilterPtr _bloom_filter;
   std::optional<T> _most_common_value;
-  size_t _size;
+  size_t _bits_per_element;
   size_t _num_hashes;
 };
 
