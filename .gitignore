@@ -58,3 +58,7 @@ deps/
 *.perf
 *.data
 *.old
+
+# results
+*.png
+*.json

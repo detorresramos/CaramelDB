@@ -1,0 +1,1 @@
+compute upper bound and lower bound in terms of epsilon. build the actual csfs. see how does the upper vs lower compare. just look at it. fix at 1 hash. maybe its convex or something. 

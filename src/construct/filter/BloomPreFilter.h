@@ -56,7 +56,7 @@ protected:
                                const std::vector<std::string> &keys,
                                const std::vector<T> &values,
                                T most_common_value, bool verbose) override {
-    (void)filter_size; // We use user-provided _size instead
+    (void)filter_size; // Bloom uses user-provided _size instead
     _bloom_filter = BloomFilter::makeFixed(_size, _num_hashes);
 
     _most_common_value = most_common_value;
