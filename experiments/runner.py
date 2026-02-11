@@ -13,11 +13,11 @@ import argparse
 import json
 import os
 import subprocess
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Optional
 
-from data_gen import gen_keys, gen_alpha_values, MINORITY_DISTRIBUTIONS
+from data_gen import MINORITY_DISTRIBUTIONS, gen_alpha_values, gen_keys
 from measure import ExperimentResult, measure_csf
 
 
@@ -25,12 +25,20 @@ from measure import ExperimentResult, measure_csf
 class ExperimentConfig:
     """Configurable hyperparameters for experiments."""
 
-    n_values: list[int] = field(
-        default_factory=lambda: [1_000, 10_000, 100_000]
-    )
+    n_values: list[int] = field(default_factory=lambda: [1_000, 10_000, 100_000])
     alpha_values: list[float] = field(
         default_factory=lambda: [
-            0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 0.99
+            0.50,
+            0.55,
+            0.60,
+            0.65,
+            0.70,
+            0.75,
+            0.80,
+            0.85,
+            0.90,
+            0.95,
+            0.99,
         ]
     )
 
@@ -40,15 +48,11 @@ class ExperimentConfig:
     )
 
     # Bloom
-    bloom_bits_per_element: list[int] = field(
-        default_factory=lambda: [8, 10, 12, 16]
-    )
+    bloom_bits_per_element: list[int] = field(default_factory=lambda: [8, 10, 12, 16])
     bloom_num_hashes: list[int] = field(default_factory=lambda: [3, 5, 7])
 
     # Minority distributions
-    minority_dists: list[str] = field(
-        default_factory=lambda: ["unique"]
-    )
+    minority_dists: list[str] = field(default_factory=lambda: ["unique"])
 
     seed: int = 42
     output_dir: str = "experiments/results"
@@ -94,11 +98,13 @@ def enumerate_filter_configs(config: ExperimentConfig) -> list[dict]:
     # Bloom filters
     for bits_per_elem in config.bloom_bits_per_element:
         for num_hashes in config.bloom_num_hashes:
-            configs.append({
-                "filter_type": "bloom",
-                "bloom_bits_per_element": bits_per_elem,
-                "bloom_num_hashes": num_hashes,
-            })
+            configs.append(
+                {
+                    "filter_type": "bloom",
+                    "bloom_bits_per_element": bits_per_elem,
+                    "bloom_num_hashes": num_hashes,
+                }
+            )
 
     return configs
 
@@ -115,8 +121,12 @@ def run_grid_search(config: ExperimentConfig) -> list[ExperimentResult]:
     """
     results = []
     filter_configs = enumerate_filter_configs(config)
-    total = (len(config.n_values) * len(config.alpha_values) *
-             len(filter_configs) * len(config.minority_dists))
+    total = (
+        len(config.n_values)
+        * len(config.alpha_values)
+        * len(filter_configs)
+        * len(config.minority_dists)
+    )
 
     print(f"Running grid search: {total} configurations")
     print(f"  N values: {config.n_values}")
@@ -131,7 +141,9 @@ def run_grid_search(config: ExperimentConfig) -> list[ExperimentResult]:
             keys = gen_keys(n)
 
             for alpha in config.alpha_values:
-                values = gen_alpha_values(n, alpha, seed=config.seed, minority_dist=minority_dist)
+                values = gen_alpha_values(
+                    n, alpha, seed=config.seed, minority_dist=minority_dist
+                )
 
                 for fc in filter_configs:
                     count += 1
@@ -147,7 +159,9 @@ def run_grid_search(config: ExperimentConfig) -> list[ExperimentResult]:
                     if bloom_bits_per_element:
                         config_str += f"_{bloom_bits_per_element}_{bloom_num_hashes}"
 
-                    dist_str = f"[{minority_dist}]" if len(config.minority_dists) > 1 else ""
+                    dist_str = (
+                        f"[{minority_dist}]" if len(config.minority_dists) > 1 else ""
+                    )
                     print(
                         f"[{count}/{total}] {dist_str}n={n:,}, alpha={alpha:.2f}, {config_str}",
                         end="",
@@ -167,7 +181,9 @@ def run_grid_search(config: ExperimentConfig) -> list[ExperimentResult]:
                             minority_dist=minority_dist,
                         )
                         results.append(result)
-                        print(f" -> {result.total_bytes:,} bytes ({result.bits_per_key:.2f} bpk)")
+                        print(
+                            f" -> {result.total_bytes:,} bytes ({result.bits_per_key:.2f} bpk)"
+                        )
                     except Exception as e:
                         print(f" -> ERROR: {e}")
 
@@ -353,20 +369,38 @@ def main():
 
     # Grid search command
     p_grid = subparsers.add_parser("grid", help="Run full grid search")
-    p_grid.add_argument("-o", "--output", default="experiments/results/grid_search.json")
+    p_grid.add_argument(
+        "-o", "--output", default="experiments/results/grid_search.json"
+    )
     p_grid.add_argument("--n", type=str, help="Comma-separated N values")
     p_grid.add_argument("--alpha", type=str, help="Comma-separated alpha values")
-    p_grid.add_argument("--fingerprint-bits", type=str, help="Comma-separated fingerprint bits")
-    p_grid.add_argument("--bloom-bits-per-element", type=str, help="Comma-separated bloom bits per element")
-    p_grid.add_argument("--bloom-num-hashes", type=str, help="Comma-separated bloom num hashes")
-    p_grid.add_argument("--minority-dist", type=str,
-                        help=f"Comma-separated minority distributions: {','.join(MINORITY_DISTRIBUTIONS)}")
+    p_grid.add_argument(
+        "--fingerprint-bits", type=str, help="Comma-separated fingerprint bits"
+    )
+    p_grid.add_argument(
+        "--bloom-bits-per-element",
+        type=str,
+        help="Comma-separated bloom bits per element",
+    )
+    p_grid.add_argument(
+        "--bloom-num-hashes", type=str, help="Comma-separated bloom num hashes"
+    )
+    p_grid.add_argument(
+        "--minority-dist",
+        type=str,
+        help=f"Comma-separated minority distributions: {','.join(MINORITY_DISTRIBUTIONS)}",
+    )
     p_grid.add_argument("--seed", type=int, default=42)
 
     # Alpha sweep command
     p_sweep = subparsers.add_parser("sweep", help="Run alpha sweep for single config")
     p_sweep.add_argument("--n", type=int, required=True)
-    p_sweep.add_argument("--filter", type=str, required=True, choices=["none", "xor", "binary_fuse", "bloom"])
+    p_sweep.add_argument(
+        "--filter",
+        type=str,
+        required=True,
+        choices=["none", "xor", "binary_fuse", "bloom"],
+    )
     p_sweep.add_argument("--fingerprint-bits", type=int)
     p_sweep.add_argument("--bloom-bits-per-element", type=int)
     p_sweep.add_argument("--bloom-num-hashes", type=int)
@@ -377,7 +411,9 @@ def main():
     # Crossover command
     p_cross = subparsers.add_parser("crossover", help="Find crossover alpha")
     p_cross.add_argument("--n", type=int, required=True)
-    p_cross.add_argument("--filter", type=str, required=True, choices=["xor", "binary_fuse", "bloom"])
+    p_cross.add_argument(
+        "--filter", type=str, required=True, choices=["xor", "binary_fuse", "bloom"]
+    )
     p_cross.add_argument("--fingerprint-bits", type=int)
     p_cross.add_argument("--bloom-bits-per-element", type=int)
     p_cross.add_argument("--bloom-num-hashes", type=int)
@@ -396,7 +432,9 @@ def main():
         if args.fingerprint_bits:
             config.fingerprint_bits_values = parse_list_arg(args.fingerprint_bits, int)
         if args.bloom_bits_per_element:
-            config.bloom_bits_per_element = parse_list_arg(args.bloom_bits_per_element, int)
+            config.bloom_bits_per_element = parse_list_arg(
+                args.bloom_bits_per_element, int
+            )
         if args.bloom_num_hashes:
             config.bloom_num_hashes = parse_list_arg(args.bloom_num_hashes, int)
         if args.minority_dist:
@@ -406,8 +444,22 @@ def main():
         save_results(results, args.output, config)
 
     elif args.command == "sweep":
-        default_alphas = [0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 0.99]
-        alpha_values = parse_list_arg(args.alpha, float) if args.alpha else default_alphas
+        default_alphas = [
+            0.50,
+            0.55,
+            0.60,
+            0.65,
+            0.70,
+            0.75,
+            0.80,
+            0.85,
+            0.90,
+            0.95,
+            0.99,
+        ]
+        alpha_values = (
+            parse_list_arg(args.alpha, float) if args.alpha else default_alphas
+        )
 
         print(f"Running alpha sweep: n={args.n:,}, filter={args.filter}")
         results = run_alpha_sweep(

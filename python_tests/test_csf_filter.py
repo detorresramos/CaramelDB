@@ -76,7 +76,10 @@ def test_filter_custom_num_hashes():
 
     # Test with custom size and num_hashes
     csf = carameldb.Caramel(
-        keys, values, prefilter=BloomFilterConfig(size=50000, num_hashes=10), verbose=True
+        keys,
+        values,
+        prefilter=BloomFilterConfig(size=50000, num_hashes=10),
+        verbose=True,
     )
 
     bf = csf.get_filter().get_bloom_filter()
@@ -169,9 +172,7 @@ def test_xor_filter_with_fingerprint_bits():
 def test_get_xor_filter():
     keys = gen_str_keys(1000)
     values = np.array([5 for _ in range(900)] + [6] * 100)
-    csf = carameldb.Caramel(
-        keys, values, prefilter=XORFilterConfig(fingerprint_bits=8)
-    )
+    csf = carameldb.Caramel(keys, values, prefilter=XORFilterConfig(fingerprint_bits=8))
 
     prefilter = csf.get_filter()
     assert prefilter != None

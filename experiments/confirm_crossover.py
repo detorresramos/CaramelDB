@@ -5,9 +5,9 @@ For each filter type, find the exact alpha where a filter configuration
 first beats the no-filter baseline.
 """
 
-import numpy as np
 import carameldb
-from carameldb import BloomFilterConfig, BinaryFuseFilterConfig, XORFilterConfig
+import numpy as np
+from carameldb import BinaryFuseFilterConfig, BloomFilterConfig, XORFilterConfig
 
 
 def find_crossover(n: int, alpha_range: list[float], filter_type: str) -> dict:
@@ -19,7 +19,7 @@ def find_crossover(n: int, alpha_range: list[float], filter_type: str) -> dict:
     for alpha in alpha_range:
         num_minority = n - int(n * alpha)
 
-        keys = [f'key{i}' for i in range(n)]
+        keys = [f"key{i}" for i in range(n)]
         np.random.seed(42)
         values = np.zeros(n, dtype=np.uint32)
         values[:num_minority] = np.arange(1, num_minority + 1, dtype=np.uint32)
@@ -36,9 +36,10 @@ def find_crossover(n: int, alpha_range: list[float], filter_type: str) -> dict:
         if filter_type == "binary_fuse":
             for bits in [1, 2, 3, 4]:
                 csf = carameldb.Caramel(
-                    keys, values,
+                    keys,
+                    values,
                     prefilter=BinaryFuseFilterConfig(fingerprint_bits=bits),
-                    verbose=False
+                    verbose=False,
                 )
                 size = csf.get_stats().in_memory_bytes
                 if best_size is None or size < best_size:
@@ -48,9 +49,10 @@ def find_crossover(n: int, alpha_range: list[float], filter_type: str) -> dict:
         elif filter_type == "xor":
             for bits in [1, 2, 3, 4]:
                 csf = carameldb.Caramel(
-                    keys, values,
+                    keys,
+                    values,
                     prefilter=XORFilterConfig(fingerprint_bits=bits),
-                    verbose=False
+                    verbose=False,
                 )
                 size = csf.get_stats().in_memory_bytes
                 if best_size is None or size < best_size:
@@ -62,9 +64,10 @@ def find_crossover(n: int, alpha_range: list[float], filter_type: str) -> dict:
                 for nh in [1, 2, 3, 4]:
                     size_bits = max(bpe * num_minority, 64)
                     csf = carameldb.Caramel(
-                        keys, values,
+                        keys,
+                        values,
                         prefilter=BloomFilterConfig(size=size_bits, num_hashes=nh),
-                        verbose=False
+                        verbose=False,
                     )
                     size = csf.get_stats().in_memory_bytes
                     if best_size is None or size < best_size:
@@ -105,7 +108,9 @@ def main():
             print(f"         Config: {result['best_config']}")
             print(f"         Filter size: {result['filter_size']:,} bytes")
             print(f"         No-filter:   {result['no_filter_size']:,} bytes")
-            print(f"         Savings:     {result['savings_bytes']:,} bytes ({result['savings_pct']:.2f}%)")
+            print(
+                f"         Savings:     {result['savings_bytes']:,} bytes ({result['savings_pct']:.2f}%)"
+            )
         else:
             print(f"  No crossover found in range {alpha_range[0]} - {alpha_range[-1]}")
         print()
@@ -115,12 +120,16 @@ def main():
     print("SUMMARY: CROSSOVER POINTS")
     print("=" * 70)
     print()
-    print(f"{'Filter Type':<15} | {'Crossover α':<12} | {'Best Config':<12} | {'Savings':<10}")
+    print(
+        f"{'Filter Type':<15} | {'Crossover α':<12} | {'Best Config':<12} | {'Savings':<10}"
+    )
     print("-" * 55)
     for ft in ["binary_fuse", "xor", "bloom"]:
         r = results[ft]
         if r["crossover_alpha"]:
-            print(f"{ft:<15} | {r['crossover_alpha']:<12} | {r['best_config']:<12} | {r['savings_pct']:.2f}%")
+            print(
+                f"{ft:<15} | {r['crossover_alpha']:<12} | {r['best_config']:<12} | {r['savings_pct']:.2f}%"
+            )
         else:
             print(f"{ft:<15} | {'N/A':<12} | {'N/A':<12} | N/A")
 
@@ -138,7 +147,9 @@ def main():
             print(f"{ft} at α={alpha}:")
             print(f"  No-filter: {r['no_filter_size']:,} bytes")
             print(f"  {r['best_config']}: {r['filter_size']:,} bytes")
-            assert r['filter_size'] < r['no_filter_size'], f"FAILED: filter not smaller!"
+            assert (
+                r["filter_size"] < r["no_filter_size"]
+            ), f"FAILED: filter not smaller!"
             print(f"  ✓ CONFIRMED: {r['filter_size']:,} < {r['no_filter_size']:,}")
             print()
 

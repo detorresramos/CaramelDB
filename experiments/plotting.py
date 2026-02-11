@@ -7,7 +7,6 @@ from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
-
 from measure import ExperimentResult
 
 
@@ -45,7 +44,9 @@ def plot_size_vs_alpha(
         dists = set(r.minority_dist for r in results if r.n == n)
         if dists:
             minority_dist = sorted(dists)[0]
-            filtered = [r for r in results if r.n == n and r.minority_dist == minority_dist]
+            filtered = [
+                r for r in results if r.n == n and r.minority_dist == minority_dist
+            ]
         else:
             filtered = [r for r in results if r.n == n]
 
@@ -118,7 +119,9 @@ def plot_size_vs_alpha_by_filter_type(
         output_path: Optional path to save the plot
         show: Whether to display the plot
     """
-    filtered = [r for r in results if r.n == n and r.filter_type in (filter_type, "none")]
+    filtered = [
+        r for r in results if r.n == n and r.filter_type in (filter_type, "none")
+    ]
 
     # Also get no-filter baseline
     no_filter = [r for r in filtered if r.filter_type == "none"]
@@ -163,7 +166,9 @@ def plot_size_vs_alpha_by_filter_type(
 
     plt.xlabel("Alpha (frequency of most common element)")
     plt.ylabel("Total Size (bytes)")
-    plt.title(f"{filter_type.replace('_', ' ').title()} Filter: Size vs Alpha (N={n:,})")
+    plt.title(
+        f"{filter_type.replace('_', ' ').title()} Filter: Size vs Alpha (N={n:,})"
+    )
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
@@ -200,7 +205,9 @@ def plot_optimal_filter_heatmap(
     optimal = {}
     for n in n_values:
         for alpha in alpha_values:
-            candidates = [r for r in results if r.n == n and abs(r.alpha - alpha) < 0.001]
+            candidates = [
+                r for r in results if r.n == n and abs(r.alpha - alpha) < 0.001
+            ]
             if candidates:
                 best = min(candidates, key=lambda r: r.total_bytes)
                 optimal[(n, alpha)] = best.filter_type
@@ -259,24 +266,27 @@ def plot_fingerprint_bits_tradeoff(
         show: Whether to display the plot
     """
     filtered = [
-        r for r in results
-        if r.n == n and abs(r.alpha - alpha) < 0.001
+        r
+        for r in results
+        if r.n == n
+        and abs(r.alpha - alpha) < 0.001
         and r.filter_type in ("xor", "binary_fuse")
     ]
 
     # Group by filter type
     xor_results = sorted(
         [r for r in filtered if r.filter_type == "xor"],
-        key=lambda r: r.fingerprint_bits
+        key=lambda r: r.fingerprint_bits,
     )
     bf_results = sorted(
         [r for r in filtered if r.filter_type == "binary_fuse"],
-        key=lambda r: r.fingerprint_bits
+        key=lambda r: r.fingerprint_bits,
     )
 
     # Get no-filter baseline
     no_filter = [
-        r for r in results
+        r
+        for r in results
         if r.n == n and abs(r.alpha - alpha) < 0.001 and r.filter_type == "none"
     ]
     baseline = no_filter[0].total_bytes if no_filter else None
@@ -339,10 +349,7 @@ def plot_size_breakdown(
         output_path: Optional path to save the plot
         show: Whether to display the plot
     """
-    filtered = [
-        r for r in results
-        if r.n == n and abs(r.alpha - alpha) < 0.001
-    ]
+    filtered = [r for r in results if r.n == n and abs(r.alpha - alpha) < 0.001]
 
     # Group and sort by total size
     filtered = sorted(filtered, key=lambda r: r.total_bytes)
@@ -367,7 +374,13 @@ def plot_size_breakdown(
     plt.figure(figsize=(14, 6))
     plt.bar(x, solution, width, label="Solution")
     plt.bar(x, filter_b, width, bottom=solution, label="Filter")
-    plt.bar(x, metadata, width, bottom=np.array(solution) + np.array(filter_b), label="Metadata")
+    plt.bar(
+        x,
+        metadata,
+        width,
+        bottom=np.array(solution) + np.array(filter_b),
+        label="Metadata",
+    )
 
     plt.xlabel("Filter Configuration")
     plt.ylabel("Size (bytes)")
@@ -413,8 +426,11 @@ def analyze_crossover_points(results: list[ExperimentResult]) -> dict:
             # Get no-filter baseline for each alpha
             no_filter_by_alpha = {}
             for r in results:
-                if (r.n == n and r.minority_dist == minority_dist
-                        and r.filter_type == "none"):
+                if (
+                    r.n == n
+                    and r.minority_dist == minority_dist
+                    and r.filter_type == "none"
+                ):
                     no_filter_by_alpha[r.alpha] = r.total_bytes
 
             for filter_type in filter_types:
@@ -422,10 +438,14 @@ def analyze_crossover_points(results: list[ExperimentResult]) -> dict:
                 best_by_alpha = {}
                 for alpha in alpha_values:
                     candidates = [
-                        r for r in results
-                        if (r.n == n and r.minority_dist == minority_dist
+                        r
+                        for r in results
+                        if (
+                            r.n == n
+                            and r.minority_dist == minority_dist
                             and r.filter_type == filter_type
-                            and abs(r.alpha - alpha) < 0.001)
+                            and abs(r.alpha - alpha) < 0.001
+                        )
                     ]
                     if candidates:
                         best = min(candidates, key=lambda r: r.total_bytes)
@@ -441,7 +461,10 @@ def analyze_crossover_points(results: list[ExperimentResult]) -> dict:
                 crossover_config = None
                 for alpha in alpha_values:
                     if alpha in best_by_alpha and alpha in no_filter_by_alpha:
-                        if best_by_alpha[alpha]["total_bytes"] < no_filter_by_alpha[alpha]:
+                        if (
+                            best_by_alpha[alpha]["total_bytes"]
+                            < no_filter_by_alpha[alpha]
+                        ):
                             crossover_alpha = alpha
                             crossover_config = best_by_alpha[alpha]
                             break
@@ -457,7 +480,9 @@ def analyze_crossover_points(results: list[ExperimentResult]) -> dict:
                         "no_filter_bytes": no_filter_size,
                         "filter_bytes": filter_size,
                         "savings_bytes": no_filter_size - filter_size,
-                        "savings_percent": round(100 * (no_filter_size - filter_size) / no_filter_size, 1),
+                        "savings_percent": round(
+                            100 * (no_filter_size - filter_size) / no_filter_size, 1
+                        ),
                     }
 
                 analysis[minority_dist][str(n)][filter_type] = {
@@ -495,14 +520,18 @@ def generate_summary_report(
 
         for n in n_values:
             plot_size_vs_alpha(
-                dist_results, n, minority_dist=minority_dist,
+                dist_results,
+                n,
+                minority_dist=minority_dist,
                 output_path=f"{output_dir}/size_vs_alpha_n{n}{dist_suffix}.png",
                 show=show,
             )
 
             for filter_type in ["xor", "binary_fuse"]:
                 plot_size_vs_alpha_by_filter_type(
-                    dist_results, n, filter_type,
+                    dist_results,
+                    n,
+                    filter_type,
                     output_path=f"{output_dir}/{filter_type}_params_n{n}{dist_suffix}.png",
                     show=show,
                 )
@@ -512,20 +541,26 @@ def generate_summary_report(
             for alpha in [0.90, 0.95]:
                 if alpha in alpha_values:
                     plot_fingerprint_bits_tradeoff(
-                        dist_results, n, alpha,
+                        dist_results,
+                        n,
+                        alpha,
                         output_path=f"{output_dir}/fingerprint_tradeoff_n{n}_a{int(alpha*100)}{dist_suffix}.png",
                         show=show,
                     )
 
                     plot_size_breakdown(
-                        dist_results, n, alpha,
+                        dist_results,
+                        n,
+                        alpha,
                         output_path=f"{output_dir}/size_breakdown_n{n}_a{int(alpha*100)}{dist_suffix}.png",
                         show=show,
                     )
 
     # Generate heatmap (use first minority_dist for now)
     if minority_dists:
-        first_dist_results = [r for r in results if r.minority_dist == minority_dists[0]]
+        first_dist_results = [
+            r for r in results if r.minority_dist == minority_dists[0]
+        ]
         plot_optimal_filter_heatmap(
             first_dist_results,
             output_path=f"{output_dir}/optimal_filter_heatmap.png",
@@ -548,8 +583,10 @@ def generate_summary_report(
             summary["optimal_configs"][dist_key][str(n)] = {}
             for alpha in alpha_values:
                 candidates = [
-                    r for r in results
-                    if r.n == n and abs(r.alpha - alpha) < 0.001
+                    r
+                    for r in results
+                    if r.n == n
+                    and abs(r.alpha - alpha) < 0.001
                     and r.minority_dist == minority_dist
                 ]
                 if candidates:
@@ -574,7 +611,9 @@ def generate_summary_report(
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Generate plots from experiment results")
+    parser = argparse.ArgumentParser(
+        description="Generate plots from experiment results"
+    )
     parser.add_argument("input", help="Input JSON file with results")
     parser.add_argument("-o", "--output-dir", default="experiments/results/plots")
     parser.add_argument("--show", action="store_true", help="Display plots")

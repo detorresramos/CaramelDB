@@ -35,9 +35,10 @@ def test_csf_stats_with_bloom_filter():
     values = np.array([0] * 800 + list(range(200)), dtype=np.uint32)
 
     csf = carameldb.Caramel(
-        keys, values,
+        keys,
+        values,
         prefilter=BloomFilterConfig(size=10000, num_hashes=7),
-        verbose=False
+        verbose=False,
     )
     stats = csf.get_stats()
 
@@ -60,9 +61,7 @@ def test_csf_stats_with_xor_filter():
     values = np.array([0] * 800 + list(range(200)), dtype=np.uint32)
 
     csf = carameldb.Caramel(
-        keys, values,
-        prefilter=XORFilterConfig(fingerprint_bits=8),
-        verbose=False
+        keys, values, prefilter=XORFilterConfig(fingerprint_bits=8), verbose=False
     )
     stats = csf.get_stats()
 
@@ -81,9 +80,10 @@ def test_csf_stats_with_binary_fuse_filter():
     values = np.array([0] * 800 + list(range(200)), dtype=np.uint32)
 
     csf = carameldb.Caramel(
-        keys, values,
+        keys,
+        values,
         prefilter=BinaryFuseFilterConfig(fingerprint_bits=12),
-        verbose=False
+        verbose=False,
     )
     stats = csf.get_stats()
 
@@ -101,8 +101,7 @@ def test_csf_stats_huffman_distribution():
     keys = gen_str_keys(1000)
     # Create values with varying frequencies for interesting Huffman codes
     values = np.array(
-        [0] * 500 + [1] * 250 + [2] * 125 + [3] * 62 + [4] * 63,
-        dtype=np.uint32
+        [0] * 500 + [1] * 250 + [2] * 125 + [3] * 62 + [4] * 63, dtype=np.uint32
     )
 
     csf = carameldb.Caramel(keys, values, verbose=False)
@@ -138,12 +137,15 @@ def test_csf_stats_memory_breakdown():
     values = np.array([0] * 800 + list(range(200)), dtype=np.uint32)
 
     csf = carameldb.Caramel(
-        keys, values,
+        keys,
+        values,
         prefilter=BloomFilterConfig(size=10000, num_hashes=7),
-        verbose=False
+        verbose=False,
     )
     stats = csf.get_stats()
 
     # Memory breakdown should approximately equal total
     breakdown_sum = stats.solution_bytes + stats.filter_bytes + stats.metadata_bytes
-    assert abs(stats.in_memory_bytes - breakdown_sum) < 100  # Allow small rounding difference
+    assert (
+        abs(stats.in_memory_bytes - breakdown_sum) < 100
+    )  # Allow small rounding difference

@@ -2,9 +2,15 @@
 
 import numpy as np
 
-
 # Available minority distribution types
-MINORITY_DISTRIBUTIONS = ["unique", "zipfian", "geometric", "uniform_10", "uniform_100", "two_value"]
+MINORITY_DISTRIBUTIONS = [
+    "unique",
+    "zipfian",
+    "geometric",
+    "uniform_10",
+    "uniform_100",
+    "two_value",
+]
 
 
 def gen_keys(n: int, seed: int = None) -> list[str]:
@@ -22,10 +28,7 @@ def gen_keys(n: int, seed: int = None) -> list[str]:
 
 
 def gen_alpha_values(
-    n: int,
-    alpha: float,
-    seed: int = None,
-    minority_dist: str = "unique"
+    n: int, alpha: float, seed: int = None, minority_dist: str = "unique"
 ) -> np.ndarray:
     """
     Generate values with specified alpha (frequency of most common element).

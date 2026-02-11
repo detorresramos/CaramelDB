@@ -1,6 +1,6 @@
 """CSF measurement and stats collection utilities."""
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from typing import Optional
 
 import carameldb
@@ -10,7 +10,6 @@ from carameldb import (
     BloomFilterConfig,
     XORFilterConfig,
 )
-
 from data_gen import count_minority_keys
 
 

@@ -7,7 +7,9 @@
       "Bash(source:*)",
       "Bash(python:*)",
       "Bash(./BinaryFuseFilterTest:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(grep:*)",
+      "Bash(bin/python-format.sh:*)"
     ],
     "deny": [],
     "ask": []

@@ -7,8 +7,8 @@ The Bloom filter trades off:
 - False positives (shrink solution savings, decreases with bits_per_element)
 """
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 def bloom_fpr(bits_per_element: float, num_hashes: int = None) -> float:
@@ -40,8 +40,9 @@ def bloom_fpr(bits_per_element: float, num_hashes: int = None) -> float:
     return fpr
 
 
-def total_cost_per_key(alpha: float, bits_per_element: float,
-                       solution_bits: float, num_hashes: int = None) -> float:
+def total_cost_per_key(
+    alpha: float, bits_per_element: float, solution_bits: float, num_hashes: int = None
+) -> float:
     """
     Calculate total bits per key for CSF with Bloom pre-filter.
 
@@ -89,7 +90,7 @@ def optimal_bits_per_element(alpha: float, solution_bits: float) -> float:
     ratio = (1 - alpha) / (solution_bits * alpha * ln2**2)
 
     if ratio <= 0:
-        return float('inf')  # No filter needed
+        return float("inf")  # No filter needed
     if ratio >= 1:
         return 0  # Filter not beneficial
 
@@ -102,7 +103,9 @@ def optimal_num_hashes(bits_per_element: float) -> float:
     return bits_per_element * np.log(2)
 
 
-def plot_optimal_parameters(solution_bits: float = 8, output_path: str = None, show: bool = True):
+def plot_optimal_parameters(
+    solution_bits: float = 8, output_path: str = None, show: bool = True
+):
     """
     Plot theoretical optimal Bloom parameters vs alpha.
 
@@ -124,22 +127,22 @@ def plot_optimal_parameters(solution_bits: float = 8, output_path: str = None, s
 
     # Plot 1: Optimal bits_per_element (continuous)
     ax = axes[0, 0]
-    ax.plot(alphas, optimal_b, 'b-', linewidth=2, label='Continuous optimal')
-    ax.plot(alphas, discrete_b, 'r--', linewidth=2, label='Discrete (rounded)')
-    ax.set_xlabel('α (frequency of majority value)')
-    ax.set_ylabel('Optimal bits per element')
-    ax.set_title(f'Optimal bits_per_element vs α (solution_bits={solution_bits})')
+    ax.plot(alphas, optimal_b, "b-", linewidth=2, label="Continuous optimal")
+    ax.plot(alphas, discrete_b, "r--", linewidth=2, label="Discrete (rounded)")
+    ax.set_xlabel("α (frequency of majority value)")
+    ax.set_ylabel("Optimal bits per element")
+    ax.set_title(f"Optimal bits_per_element vs α (solution_bits={solution_bits})")
     ax.legend()
     ax.grid(True, alpha=0.3)
     ax.set_xlim(0.5, 1.0)
 
     # Plot 2: Optimal num_hashes (continuous)
     ax = axes[0, 1]
-    ax.plot(alphas, optimal_k, 'g-', linewidth=2, label='Continuous optimal')
-    ax.plot(alphas, discrete_k, 'r--', linewidth=2, label='Discrete (rounded)')
-    ax.set_xlabel('α (frequency of majority value)')
-    ax.set_ylabel('Optimal number of hashes')
-    ax.set_title(f'Optimal num_hashes vs α (k = b × ln(2))')
+    ax.plot(alphas, optimal_k, "g-", linewidth=2, label="Continuous optimal")
+    ax.plot(alphas, discrete_k, "r--", linewidth=2, label="Discrete (rounded)")
+    ax.set_xlabel("α (frequency of majority value)")
+    ax.set_ylabel("Optimal number of hashes")
+    ax.set_title(f"Optimal num_hashes vs α (k = b × ln(2))")
     ax.legend()
     ax.grid(True, alpha=0.3)
     ax.set_xlim(0.5, 1.0)
@@ -151,22 +154,32 @@ def plot_optimal_parameters(solution_bits: float = 8, output_path: str = None, s
 
     filter_costs = [(1 - alpha_example) * b for b in b_range]
     fpr_values = [bloom_fpr(b) for b in b_range]
-    solution_costs = [solution_bits * ((1 - alpha_example) + alpha_example * fpr) for fpr in fpr_values]
+    solution_costs = [
+        solution_bits * ((1 - alpha_example) + alpha_example * fpr)
+        for fpr in fpr_values
+    ]
     total_costs = [f + s for f, s in zip(filter_costs, solution_costs)]
 
-    ax.plot(b_range, filter_costs, 'b-', label='Filter cost', linewidth=2)
-    ax.plot(b_range, solution_costs, 'g-', label='Solution cost', linewidth=2)
-    ax.plot(b_range, total_costs, 'r-', label='Total cost', linewidth=2.5)
+    ax.plot(b_range, filter_costs, "b-", label="Filter cost", linewidth=2)
+    ax.plot(b_range, solution_costs, "g-", label="Solution cost", linewidth=2)
+    ax.plot(b_range, total_costs, "r-", label="Total cost", linewidth=2.5)
 
     # Mark optimal
     opt_b = optimal_bits_per_element(alpha_example, solution_bits)
     opt_total = total_cost_per_key(alpha_example, opt_b, solution_bits)
-    ax.axvline(x=opt_b, color='k', linestyle='--', alpha=0.5)
-    ax.scatter([opt_b], [opt_total], color='red', s=100, zorder=5, label=f'Optimal b={opt_b:.2f}')
+    ax.axvline(x=opt_b, color="k", linestyle="--", alpha=0.5)
+    ax.scatter(
+        [opt_b],
+        [opt_total],
+        color="red",
+        s=100,
+        zorder=5,
+        label=f"Optimal b={opt_b:.2f}",
+    )
 
-    ax.set_xlabel('Bits per element (b)')
-    ax.set_ylabel('Bits per key')
-    ax.set_title(f'Cost breakdown at α={alpha_example}')
+    ax.set_xlabel("Bits per element (b)")
+    ax.set_ylabel("Bits per key")
+    ax.set_title(f"Cost breakdown at α={alpha_example}")
     ax.legend()
     ax.grid(True, alpha=0.3)
 
@@ -177,20 +190,22 @@ def plot_optimal_parameters(solution_bits: float = 8, output_path: str = None, s
 
     for k in [1, 2, 3, 4]:
         fpr_fixed_k = [bloom_fpr(b, k) for b in b_range]
-        ax.semilogy(b_range, fpr_fixed_k, '--', alpha=0.7, label=f'k={k}')
+        ax.semilogy(b_range, fpr_fixed_k, "--", alpha=0.7, label=f"k={k}")
 
-    ax.semilogy(b_range, fpr_optimal_k, 'b-', linewidth=2.5, label='Optimal k = b×ln(2)')
-    ax.set_xlabel('Bits per element (b)')
-    ax.set_ylabel('False Positive Rate (log scale)')
-    ax.set_title('Bloom FPR vs bits_per_element')
+    ax.semilogy(
+        b_range, fpr_optimal_k, "b-", linewidth=2.5, label="Optimal k = b×ln(2)"
+    )
+    ax.set_xlabel("Bits per element (b)")
+    ax.set_ylabel("False Positive Rate (log scale)")
+    ax.set_title("Bloom FPR vs bits_per_element")
     ax.legend()
     ax.grid(True, alpha=0.3)
 
     plt.tight_layout()
 
     if output_path:
-        plt.savefig(output_path, dpi=150, bbox_inches='tight')
-        print(f'Saved: {output_path}')
+        plt.savefig(output_path, dpi=150, bbox_inches="tight")
+        print(f"Saved: {output_path}")
 
     if show:
         plt.show()
@@ -202,7 +217,9 @@ def print_theoretical_values(solution_bits: float = 8):
     """Print theoretical optimal values at key alpha points."""
     print(f"\nTheoretical optimal Bloom parameters (solution_bits={solution_bits})")
     print("=" * 60)
-    print(f"{'Alpha':>8} | {'Opt b':>8} | {'Opt k':>8} | {'FPR':>12} | {'Round b':>8} | {'Round k':>8}")
+    print(
+        f"{'Alpha':>8} | {'Opt b':>8} | {'Opt k':>8} | {'FPR':>12} | {'Round b':>8} | {'Round k':>8}"
+    )
     print("-" * 60)
 
     for alpha in [0.50, 0.60, 0.70, 0.80, 0.85, 0.90, 0.95, 0.98, 0.99]:
@@ -213,7 +230,9 @@ def print_theoretical_values(solution_bits: float = 8):
         round_b = max(1, min(8, round(opt_b)))
         round_k = max(1, min(8, round(opt_k)))
 
-        print(f"{alpha:>8.2f} | {opt_b:>8.2f} | {opt_k:>8.2f} | {fpr:>12.6f} | {round_b:>8d} | {round_k:>8d}")
+        print(
+            f"{alpha:>8.2f} | {opt_b:>8.2f} | {opt_k:>8.2f} | {fpr:>12.6f} | {round_b:>8d} | {round_k:>8d}"
+        )
 
 
 def compare_with_empirical(empirical_alphas, empirical_opt_k, solution_bits=8):
@@ -232,14 +251,19 @@ def compare_with_empirical(empirical_alphas, empirical_opt_k, solution_bits=8):
         theoretical_k.append(opt_k)
 
     plt.figure(figsize=(10, 6))
-    plt.plot(empirical_alphas, empirical_opt_k, 'bo-', label='Empirical', markersize=4)
-    plt.plot(empirical_alphas, theoretical_k, 'r-', label='Theoretical', linewidth=2)
-    plt.plot(empirical_alphas, [round(k) for k in theoretical_k], 'r--',
-             label='Theoretical (rounded)', linewidth=1.5)
+    plt.plot(empirical_alphas, empirical_opt_k, "bo-", label="Empirical", markersize=4)
+    plt.plot(empirical_alphas, theoretical_k, "r-", label="Theoretical", linewidth=2)
+    plt.plot(
+        empirical_alphas,
+        [round(k) for k in theoretical_k],
+        "r--",
+        label="Theoretical (rounded)",
+        linewidth=1.5,
+    )
 
-    plt.xlabel('α (frequency of majority value)')
-    plt.ylabel('Optimal number of hashes (k)')
-    plt.title('Empirical vs Theoretical Optimal num_hashes')
+    plt.xlabel("α (frequency of majority value)")
+    plt.ylabel("Optimal number of hashes (k)")
+    plt.title("Empirical vs Theoretical Optimal num_hashes")
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.show()
@@ -248,12 +272,14 @@ def compare_with_empirical(empirical_alphas, empirical_opt_k, solution_bits=8):
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description='Bloom filter theory analysis')
-    parser.add_argument('--solution-bits', '-c', type=float, default=8,
-                        help='Bits per key in solution')
-    parser.add_argument('--output', '-o', type=str, default=None,
-                        help='Output path for plot')
-    parser.add_argument('--show', action='store_true', help='Show plot')
+    parser = argparse.ArgumentParser(description="Bloom filter theory analysis")
+    parser.add_argument(
+        "--solution-bits", "-c", type=float, default=8, help="Bits per key in solution"
+    )
+    parser.add_argument(
+        "--output", "-o", type=str, default=None, help="Output path for plot"
+    )
+    parser.add_argument("--show", action="store_true", help="Show plot")
 
     args = parser.parse_args()
 
