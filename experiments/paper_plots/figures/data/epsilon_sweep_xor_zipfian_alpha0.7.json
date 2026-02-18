@@ -1,0 +1,42 @@
+{
+  "filter_type": "xor",
+  "distribution": "zipfian",
+  "alpha": 0.7,
+  "N": 100000,
+  "n_over_N": 0.01357,
+  "baseline_bpk": 3.096,
+  "empirical_per_param": [
+    {
+      "fingerprint_bits": 1,
+      "bpk_saved": 0.039360000000000284
+    },
+    {
+      "fingerprint_bits": 2,
+      "bpk_saved": -0.1139199999999998
+    },
+    {
+      "fingerprint_bits": 3,
+      "bpk_saved": -0.2838400000000001
+    },
+    {
+      "fingerprint_bits": 4,
+      "bpk_saved": -0.536
+    },
+    {
+      "fingerprint_bits": 5,
+      "bpk_saved": -0.8323199999999997
+    },
+    {
+      "fingerprint_bits": 6,
+      "bpk_saved": -1.1507199999999997
+    },
+    {
+      "fingerprint_bits": 7,
+      "bpk_saved": -1.4844799999999996
+    },
+    {
+      "fingerprint_bits": 8,
+      "bpk_saved": -1.82944
+    }
+  ]
+}

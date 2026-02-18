@@ -1,0 +1,42 @@
+{
+  "filter_type": "xor",
+  "distribution": "uniform_100",
+  "alpha": 0.7,
+  "N": 100000,
+  "n_over_N": 0.00101,
+  "baseline_bpk": 3.384,
+  "empirical_per_param": [
+    {
+      "fingerprint_bits": 1,
+      "bpk_saved": 0.03583999999999987
+    },
+    {
+      "fingerprint_bits": 2,
+      "bpk_saved": -0.11744000000000021
+    },
+    {
+      "fingerprint_bits": 3,
+      "bpk_saved": -0.2911999999999999
+    },
+    {
+      "fingerprint_bits": 4,
+      "bpk_saved": -0.5411200000000003
+    },
+    {
+      "fingerprint_bits": 5,
+      "bpk_saved": -0.8342399999999999
+    },
+    {
+      "fingerprint_bits": 6,
+      "bpk_saved": -1.1519999999999997
+    },
+    {
+      "fingerprint_bits": 7,
+      "bpk_saved": -1.48896
+    },
+    {
+      "fingerprint_bits": 8,
+      "bpk_saved": -1.8416000000000001
+    }
+  ]
+}
