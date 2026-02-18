@@ -1,0 +1,42 @@
+{
+  "filter_type": "bloom_k1",
+  "distribution": "zipfian",
+  "alpha": 0.9,
+  "N": 100000,
+  "n_over_N": 0.00678,
+  "baseline_bpk": 1.88128,
+  "empirical_per_param": [
+    {
+      "bpe": 1,
+      "bpk_saved": 0.2936000000000001
+    },
+    {
+      "bpe": 2,
+      "bpk_saved": 0.44384
+    },
+    {
+      "bpe": 3,
+      "bpk_saved": 0.45424
+    },
+    {
+      "bpe": 4,
+      "bpk_saved": 0.42208
+    },
+    {
+      "bpe": 5,
+      "bpk_saved": 0.36144
+    },
+    {
+      "bpe": 6,
+      "bpk_saved": 0.2918400000000001
+    },
+    {
+      "bpe": 7,
+      "bpk_saved": 0.21040000000000014
+    },
+    {
+      "bpe": 8,
+      "bpk_saved": 0.1286400000000001
+    }
+  ]
+}
