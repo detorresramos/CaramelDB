@@ -88,17 +88,17 @@ BucketedHashStore<T> construct(const std::vector<std::string> &keys,
 template <typename T>
 BucketedHashStore<T> partitionToBuckets(const std::vector<std::string> &keys,
                                         const std::vector<T> &values,
-                                        uint64_t bucket_size = 1000,
+                                        uint64_t num_buckets,
                                         uint32_t num_attempts = 3) {
   if (keys.size() != values.size()) {
     throw std::invalid_argument("Keys and values must match sizes.");
   }
-  uint32_t size = keys.size();
-  uint32_t num_buckets = 1 + (size / bucket_size); // TODO check this division?
+  uint64_t approximate_bucket_size = keys.size() / num_buckets + 1;
 
   for (uint64_t seed = 0; seed < num_attempts; seed++) {
     try {
-      return construct<T>(keys, values, num_buckets, seed, bucket_size);
+      return construct<T>(keys, values, num_buckets, seed,
+                          approximate_bucket_size);
     } catch (const std::exception &e) {
       if (seed == num_attempts - 1) {
         throw;
