@@ -87,10 +87,6 @@ def load_json(path):
         return json.load(f)
 
 
-# ---------------------------------------------------------------------------
-# Alpha sweep plots
-# ---------------------------------------------------------------------------
-
 def plot_alpha_sweep(data, filter_label, ax=None):
     if ax is None:
         fig, ax = plt.subplots(figsize=(8, 5))
@@ -195,10 +191,6 @@ def plot_alpha_sweep_combined(dist):
     print(f"  Saved: {out}")
 
 
-# ---------------------------------------------------------------------------
-# Epsilon sweep plots
-# ---------------------------------------------------------------------------
-
 def plot_epsilon_sweep(data, filter_label, ax=None):
     if ax is None:
         fig, ax = plt.subplots(figsize=(8, 5))
@@ -214,10 +206,7 @@ def plot_epsilon_sweep(data, filter_label, ax=None):
     # Discrete empirical points
     param_vals = [e[pk] for e in data["empirical_per_param"]]
     bpk_saved = [e["bpk_saved"] for e in data["empirical_per_param"]]
-    eps_discrete = []
-    for p in param_vals:
-        _, eps = compute_params(filter_label, p, n_filter)
-        eps_discrete.append(eps)
+    eps_discrete = [compute_params(filter_label, p, n_filter)[1] for p in param_vals]
 
     # Continuous lower bound curve
     eps_min = min(eps_discrete) * 0.5
@@ -319,10 +308,6 @@ def plot_epsilon_sweep_combined(dist, alpha):
     plt.close(fig)
     print(f"  Saved: {out}")
 
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
 
 def main():
     plt.rcParams.update({

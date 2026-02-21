@@ -31,6 +31,9 @@ CTestTestfile.cmake
 DartConfiguration.tcl
 _deps
 
+# Claude Code local settings
+.claude/settings.local.json
+
 # Mac stuff
 .DS_Store
 

@@ -20,7 +20,6 @@ def test_csf_inference_with_bloom_doesnt_change(bloom_filter):
     keys = gen_str_keys(1000)
     values = np.array([5 for _ in range(len(keys))])
     if bloom_filter:
-        # Use explicit size and num_hashes
         assert_simple_api_correct(
             keys, values, prefilter=BloomFilterConfig(bits_per_element=10, num_hashes=7)
         )

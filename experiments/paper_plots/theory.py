@@ -18,10 +18,6 @@ def binary_fuse_C(n_filter):
     return max(1.075, 0.77 + 0.305 * math.log(600000) / math.log(n_filter))
 
 
-# ---------------------------------------------------------------------------
-# b(epsilon) per filter type
-# ---------------------------------------------------------------------------
-
 def b_eps_xor(eps):
     return XOR_C * math.log2(1 / eps)
 
@@ -40,10 +36,6 @@ def b_eps_bloom(eps, k):
     return -k / math.log(1 - root)
 
 
-# ---------------------------------------------------------------------------
-# Discrete param -> (b_eps, epsilon)
-# ---------------------------------------------------------------------------
-
 def xor_params(fingerprint_bits):
     return XOR_C * fingerprint_bits, 2 ** (-fingerprint_bits)
 
@@ -58,19 +50,11 @@ def bloom_params(bpe, k):
     return bpe, eps
 
 
-# ---------------------------------------------------------------------------
-# Binary entropy
-# ---------------------------------------------------------------------------
-
 def binary_entropy(alpha):
     if alpha <= 0 or alpha >= 1:
         return 0.0
     return -alpha * math.log2(alpha) - (1 - alpha) * math.log2(1 - alpha)
 
-
-# ---------------------------------------------------------------------------
-# Bounds (same formula, different b(epsilon))
-# ---------------------------------------------------------------------------
 
 def lower_bound(alpha, eps, b_eps, n_over_N):
     """L = delta * alpha * (1-eps) - n/N - b(eps) * (1-alpha)"""
@@ -86,10 +70,6 @@ def upper_bound(alpha, eps, b_eps, n_over_N):
     )
 
 
-# ---------------------------------------------------------------------------
-# Optimal epsilon (closed-form for XOR/BF)
-# ---------------------------------------------------------------------------
-
 def optimal_epsilon_xor(alpha):
     """eps* = C*(1-alpha) / (delta*alpha*ln2)"""
     if alpha <= 0 or alpha >= 1:
@@ -104,10 +84,6 @@ def optimal_epsilon_binary_fuse(alpha, n_filter=None):
     C = binary_fuse_C(n_filter)
     return C * (1 - alpha) / (DELTA * alpha * math.log(2))
 
-
-# ---------------------------------------------------------------------------
-# Best discrete params (grid search maximizing lower bound)
-# ---------------------------------------------------------------------------
 
 def best_discrete_xor(alpha, n_over_N, max_bits=8):
     best_lb, best_bits = float("-inf"), None

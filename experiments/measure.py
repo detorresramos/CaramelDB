@@ -10,74 +10,43 @@ from carameldb import (
     BloomFilterConfig,
     XORFilterConfig,
 )
-from data_gen import count_minority_keys
 
 
 @dataclass
 class ExperimentResult:
-    """Result from a single CSF experiment."""
-
-    # Configuration
     n: int
     alpha: float
-    filter_type: str  # 'none', 'xor', 'binary_fuse', 'bloom'
+    filter_type: str
     fingerprint_bits: Optional[int]
     bloom_size: Optional[int]
     bloom_num_hashes: Optional[int]
-    minority_dist: str  # 'unique', 'zipfian', 'uniform_10', 'uniform_100', 'two_value'
+    minority_dist: str
 
-    # Size metrics (bytes)
     total_bytes: int
     solution_bytes: float
     filter_bytes: float
     metadata_bytes: float
-
-    # Derived metrics
     bits_per_key: float
 
-    # Filter stats
     num_filter_elements: Optional[int]
 
-    # Huffman stats
     huffman_num_symbols: int
     huffman_avg_bits: float
 
     def to_dict(self) -> dict:
-        """Convert to dictionary for JSON serialization."""
         return asdict(self)
 
     @classmethod
     def from_dict(cls, d: dict) -> "ExperimentResult":
-        """Create from dictionary."""
         return cls(**d)
 
 
 def create_filter_config(
     filter_type: str,
-    n: int,
-    alpha: float,
     fingerprint_bits: Optional[int] = None,
     bloom_bits_per_element: Optional[int] = None,
     bloom_num_hashes: Optional[int] = None,
 ):
-    """
-    Create filter configuration.
-
-    For Bloom filters, the size is computed as:
-        size = bloom_bits_per_element * num_minority_keys
-    where num_minority_keys = n * (1 - alpha)
-
-    Args:
-        filter_type: 'none', 'xor', 'binary_fuse', or 'bloom'
-        n: Number of keys
-        alpha: Frequency of most common element
-        fingerprint_bits: For XOR/BinaryFuse filters
-        bloom_bits_per_element: Bits per element for Bloom filter
-        bloom_num_hashes: Number of hash functions for Bloom filter
-
-    Returns:
-        Filter config object or None
-    """
     if filter_type == "none":
         return None
     elif filter_type == "xor":
@@ -111,27 +80,8 @@ def measure_csf(
     bloom_num_hashes: Optional[int] = None,
     minority_dist: str = "unique",
 ) -> ExperimentResult:
-    """
-    Build CSF and collect all stats.
-
-    Args:
-        keys: List of string keys
-        values: Array of values
-        filter_type: 'none', 'xor', 'binary_fuse', or 'bloom'
-        n: Number of keys
-        alpha: Target alpha value
-        fingerprint_bits: For XOR/BinaryFuse filters
-        bloom_bits_per_element: Bits per element for Bloom filter
-        bloom_num_hashes: Number of hash functions for Bloom filter
-        minority_dist: Distribution of minority values
-
-    Returns:
-        ExperimentResult with all measurements
-    """
     filter_config = create_filter_config(
         filter_type=filter_type,
-        n=n,
-        alpha=alpha,
         fingerprint_bits=fingerprint_bits,
         bloom_bits_per_element=bloom_bits_per_element,
         bloom_num_hashes=bloom_num_hashes,
@@ -140,7 +90,6 @@ def measure_csf(
     csf = carameldb.Caramel(keys, values, prefilter=filter_config, verbose=False)
     stats = csf.get_stats()
 
-    # Extract filter-specific stats
     num_filter_elements = None
     actual_bloom_size = None
     actual_bloom_num_hashes = None
@@ -174,15 +123,6 @@ def measure_csf(
 
 
 def get_filter_config_str(result: ExperimentResult) -> str:
-    """
-    Get a string representation of the filter configuration.
-
-    Args:
-        result: ExperimentResult
-
-    Returns:
-        String like "none", "xor_8", "binary_fuse_12", "bloom_10_7"
-    """
     if result.filter_type == "none":
         return "none"
     elif result.filter_type in ("xor", "binary_fuse"):

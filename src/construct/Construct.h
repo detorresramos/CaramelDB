@@ -142,13 +142,27 @@ constructCsf(const std::vector<std::string> &keys, const std::vector<T> &values,
 
   HuffmanOutput<T> huffman = cannonicalHuffman<T>(filtered_values);
 
+  double avg_bits_per_key = 0;
+  for (const auto &v : filtered_values) {
+    avg_bits_per_key += huffman.codedict.at(v).numBits();
+  }
+  avg_bits_per_key /= filtered_values.size();
+
+  uint64_t bucket_size =
+      static_cast<uint64_t>(3500.0 / avg_bits_per_key);
+  if (bucket_size > 1000) {
+    bucket_size = 1000;
+  } else if (bucket_size < 100) {
+    bucket_size = 100;
+  }
+
   if (verbose) {
     std::cout << " finished in " << timer.seconds() << " seconds." << std::endl;
     std::cout << "Partitioning to buckets...";
   }
 
   BucketedHashStore<T> hash_store =
-      partitionToBuckets<T>(filtered_keys, filtered_values);
+      partitionToBuckets<T>(filtered_keys, filtered_values, bucket_size);
 
   if (verbose) {
     std::cout << " finished in " << timer.seconds() << " seconds." << std::endl;
