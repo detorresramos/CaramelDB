@@ -55,7 +55,7 @@ TEST(BucketedHashStoreTest, TestPartitioning) {
   auto values = genRandomVector(size);
 
   auto hash_store =
-      partitionToBuckets<uint32_t>(keys, values, 20);
+      partitionToBuckets<uint32_t>(keys, values, 6);
 
   for (auto key : keys) {
     __uint128_t signature = hashKey(key, 0);
@@ -71,7 +71,7 @@ TEST(BucketedHashStoreTest, TestDuplicateKey) {
   std::vector<std::string> keys = {"HAHA", "HAHA"};
   auto values = genRandomVector(2);
 
-  ASSERT_THROW(partitionToBuckets<uint32_t>(keys, values, 1),
+  ASSERT_THROW(partitionToBuckets<uint32_t>(keys, values, 3),
                std::runtime_error);
 }
 

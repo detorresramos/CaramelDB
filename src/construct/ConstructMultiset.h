@@ -35,22 +35,10 @@ constructMultisetCsf(const std::vector<std::string> &keys,
 
     HuffmanOutput<T> huffman = cannonicalHuffman<T>(filtered_values);
 
-    double avg_bits_per_key = 0;
-    for (const auto &v : filtered_values) {
-      avg_bits_per_key += huffman.codedict.at(v).numBits();
-    }
-    avg_bits_per_key /= filtered_values.size();
-
-    uint64_t bucket_size =
-        static_cast<uint64_t>(3500.0 / avg_bits_per_key);
-    if (bucket_size > 1000) {
-      bucket_size = 1000;
-    } else if (bucket_size < 100) {
-      bucket_size = 100;
-    }
+    uint64_t num_buckets = targetBucketCount(filtered_values, huffman.codedict);
 
     BucketedHashStore<T> hash_store =
-        partitionToBuckets<T>(filtered_keys, filtered_values, bucket_size);
+        partitionToBuckets<T>(filtered_keys, filtered_values, num_buckets);
 
     std::exception_ptr exception = nullptr;
     std::vector<SubsystemSolutionSeedPair> solutions_and_seeds(

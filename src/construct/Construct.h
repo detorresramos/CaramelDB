@@ -100,6 +100,22 @@ constructAndSolveSubsystem(const std::vector<__uint128_t> &key_signatures,
 // equation. This delta is for 3 hashes but for 4 it would be different.
 static const double DELTA = 1.089;
 
+static constexpr uint64_t TARGET_EQUATIONS_PER_BUCKET = 3500;
+
+template <typename T>
+uint64_t targetBucketCount(const std::vector<T> &values,
+                           const CodeDict<T> &codedict) {
+  uint64_t total_equations = 0;
+  for (const auto &v : values) {
+    total_equations += codedict.at(v).numBits();
+  }
+  uint64_t num_keys = values.size();
+  return std::clamp(
+      total_equations / TARGET_EQUATIONS_PER_BUCKET,
+      num_keys / 1000 + 1,
+      num_keys / 100 + 1);
+}
+
 /**
  * Constructs a Csf from the given keys and values.
  */
@@ -142,19 +158,7 @@ constructCsf(const std::vector<std::string> &keys, const std::vector<T> &values,
 
   HuffmanOutput<T> huffman = cannonicalHuffman<T>(filtered_values);
 
-  double avg_bits_per_key = 0;
-  for (const auto &v : filtered_values) {
-    avg_bits_per_key += huffman.codedict.at(v).numBits();
-  }
-  avg_bits_per_key /= filtered_values.size();
-
-  uint64_t bucket_size =
-      static_cast<uint64_t>(3500.0 / avg_bits_per_key);
-  if (bucket_size > 1000) {
-    bucket_size = 1000;
-  } else if (bucket_size < 100) {
-    bucket_size = 100;
-  }
+  uint64_t num_buckets = targetBucketCount(filtered_values, huffman.codedict);
 
   if (verbose) {
     std::cout << " finished in " << timer.seconds() << " seconds." << std::endl;
@@ -162,7 +166,7 @@ constructCsf(const std::vector<std::string> &keys, const std::vector<T> &values,
   }
 
   BucketedHashStore<T> hash_store =
-      partitionToBuckets<T>(filtered_keys, filtered_values, bucket_size);
+      partitionToBuckets<T>(filtered_keys, filtered_values, num_buckets);
 
   if (verbose) {
     std::cout << " finished in " << timer.seconds() << " seconds." << std::endl;
