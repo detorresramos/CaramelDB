@@ -182,7 +182,9 @@ public:
     metadata_bytes += _code_length_counts.size() * sizeof(uint32_t);
     metadata_bytes += _ordered_symbols.size() * sizeof(T);
     metadata_bytes += sizeof(_hash_store_seed) + sizeof(_max_codelength);
-    metadata_bytes += _solutions_and_seeds.size() * sizeof(uint32_t); // seeds
+    // Per-bucket: seed (4) + BitArray serialization framing (13):
+    //   shared_ptr id (4) + _num_bits (4) + _num_blocks (4) + _owns_data (1)
+    metadata_bytes += _solutions_and_seeds.size() * (sizeof(uint32_t) + 13);
     stats.metadata_bytes = static_cast<double>(metadata_bytes);
 
     stats.in_memory_bytes = static_cast<size_t>(
