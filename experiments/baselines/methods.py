@@ -92,9 +92,7 @@ class CppHashTable:
 
     @staticmethod
     def construct(keys, values):
-        return carameldb.UnorderedMapBaseline(
-            keys, np.array(values, dtype=np.uint32)
-        )
+        return carameldb.UnorderedMapBaseline(keys, np.array(values, dtype=np.uint32))
 
     @staticmethod
     def query(structure, key):

@@ -344,7 +344,9 @@ def main():
 
         print(f"\n=== Memory vs Alpha — {dist} ===")
         fig = plot_memory_vs_alpha(experiments, args.filter_type, dist)
-        out = os.path.join(FIGURES_DIR, f"memory_vs_alpha_{args.filter_type}_{dist}.png")
+        out = os.path.join(
+            FIGURES_DIR, f"memory_vs_alpha_{args.filter_type}_{dist}.png"
+        )
         fig.savefig(out, dpi=300, bbox_inches="tight")
         plt.close(fig)
         print(f"  Saved: {out}")
