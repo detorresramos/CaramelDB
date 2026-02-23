@@ -1,18 +1,21 @@
-"""Shibuya's cost model for CSF+Filter epsilon derivation.
+"""Shibuya's cost model for CSF+Bloom filter epsilon derivation.
 
-Implements the alternative epsilon selection from Shibuya's analysis:
+Implements the epsilon selection from Shibuya et al. (WABI 2021):
     epsilon* = C_BF * (1 - alpha) / (C_CSF * alpha * ln2)
 
-where C_BF = 1.44 (idealized Bloom constant) and C_CSF is derived from
-empirical entropy of the value distribution.
+where C_BF = 1.44 (idealized Bloom constant) and C_CSF is a heuristic
+function of the empirical entropy H0.
+
+The canonical Bloom filter construction for a target epsilon is:
+    bits_per_element = ceil(log2(1/eps) * log2(e))
+    num_hashes = round(bits_per_element * ln(2))
 """
 
 import math
 
 import numpy as np
-from theory import binary_fuse_params, bloom_params, xor_params
 
-C_BF = 1.44
+C_BF = 1.44  # idealized Bloom filter constant (log2(e))
 
 
 def empirical_entropy(values):
@@ -39,50 +42,18 @@ def shibuya_optimal_epsilon(alpha, H0):
     return C_BF * (1 - alpha) / (C_CSF * alpha * math.log(2))
 
 
-def _closest_discrete_params(eps_star, candidates):
-    """Find the candidate whose epsilon is closest to eps_star in log space."""
-    best_candidate = None
-    best_dist = float("inf")
-    for candidate in candidates:
-        dist = abs(math.log(candidate["eps"]) - math.log(max(eps_star, 1e-15)))
-        if dist < best_dist:
-            best_dist = dist
-            best_candidate = candidate
-    return best_candidate
+def shibuya_bloom_params(alpha, H0):
+    """Compute Bloom filter parameters from Shibuya's optimal epsilon.
 
+    Uses the canonical Bloom filter construction:
+        bits_per_element = ceil(1.44 * log2(1/eps))
+        num_hashes = round(bits_per_element * ln(2))
 
-def shibuya_best_discrete_params(alpha, H0, filter_type):
-    """Map Shibuya's optimal epsilon to the nearest discrete filter parameters.
-
-    Returns dict with filter parameters and the achieved epsilon.
+    Returns (bits_per_element, num_hashes) or None if eps* >= 1 (no filter).
     """
     eps_star = shibuya_optimal_epsilon(alpha, H0)
-
-    if filter_type in ("xor", "binary_fuse"):
-        param_fn = xor_params if filter_type == "xor" else binary_fuse_params
-        candidates = [{"bits": bits, "eps": param_fn(bits)[1]} for bits in range(1, 9)]
-        best = _closest_discrete_params(eps_star, candidates)
-        _, achieved_eps = param_fn(best["bits"])
-        return {
-            "fingerprint_bits": best["bits"],
-            "epsilon": achieved_eps,
-            "epsilon_star": eps_star,
-        }
-
-    elif filter_type == "bloom":
-        candidates = [
-            {"bpe": bpe, "k": k, "eps": bloom_params(bpe, k)[1]}
-            for bpe in range(1, 9)
-            for k in range(1, 9)
-        ]
-        best = _closest_discrete_params(eps_star, candidates)
-        _, achieved_eps = bloom_params(best["bpe"], best["k"])
-        return {
-            "bloom_bits_per_element": best["bpe"],
-            "bloom_num_hashes": best["k"],
-            "epsilon": achieved_eps,
-            "epsilon_star": eps_star,
-        }
-
-    else:
-        raise ValueError(f"Unknown filter type: {filter_type}")
+    if eps_star >= 1:
+        return None
+    bits_per_element = max(1, math.ceil(C_BF * math.log2(1 / eps_star)))
+    num_hashes = max(1, round(bits_per_element * math.log(2)))
+    return bits_per_element, num_hashes

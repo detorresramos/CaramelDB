@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(_dir, ".."))
 
 import theory
 from data_gen import compute_actual_alpha
-from shibuya import empirical_entropy, shibuya_best_discrete_params
+from shibuya import empirical_entropy, shibuya_bloom_params
 
 
 def _make_filter_config(filter_type, params):
@@ -82,9 +82,15 @@ def _find_optimal_params(filter_type, keys, values):
 
 
 def _find_shibuya_params(filter_type, keys, values):
+    if filter_type != "bloom":
+        raise ValueError(f"Shibuya's method only applies to Bloom filters, got: {filter_type}")
     alpha = compute_actual_alpha(values)
     H0 = empirical_entropy(values)
-    return shibuya_best_discrete_params(alpha, H0, filter_type)
+    result = shibuya_bloom_params(alpha, H0)
+    if result is None:
+        raise ValueError(f"Shibuya recommends no filter (eps* >= 1) for alpha={alpha:.4f}")
+    bits_per_element, num_hashes = result
+    return {"bloom_bits_per_element": bits_per_element, "bloom_num_hashes": num_hashes}
 
 
 class CSFFilter:

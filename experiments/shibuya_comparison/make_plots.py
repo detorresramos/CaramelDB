@@ -22,11 +22,7 @@ _dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(_dir, ".."))
 
 from data_gen import compute_actual_alpha, gen_alpha_values, gen_keys
-from shibuya import (
-    empirical_entropy,
-    shibuya_best_discrete_params,
-    shibuya_optimal_epsilon,
-)
+from shibuya import empirical_entropy, shibuya_bloom_params
 from theory import best_discrete_bloom
 
 FIGURES_DIR = os.path.join(_dir, "figures")
@@ -57,15 +53,6 @@ def our_recommendation(alpha, n_over_N):
     return best_bpe, best_nh
 
 
-def shibuya_recommendation(alpha, H0):
-    """Returns (bits_per_element, num_hashes) or None if eps* >= 1."""
-    eps_star = shibuya_optimal_epsilon(alpha, H0)
-    if eps_star >= 1:
-        return None
-    result = shibuya_best_discrete_params(alpha, H0, "bloom")
-    return result["bloom_bits_per_element"], result["bloom_num_hashes"]
-
-
 def _measure_with_recommendation(keys, values, rec, baseline_bpk):
     if rec is None:
         return baseline_bpk
@@ -86,7 +73,7 @@ def run_experiments():
 
             baseline_bpk = build_and_measure_bpk(keys, values)
             our_rec = our_recommendation(actual_alpha, n_over_N)
-            shib_rec = shibuya_recommendation(actual_alpha, H0)
+            shib_rec = shibuya_bloom_params(actual_alpha, H0)
 
             our_bpk = _measure_with_recommendation(keys, values, our_rec, baseline_bpk)
             shib_bpk = _measure_with_recommendation(
