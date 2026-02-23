@@ -1,0 +1,58 @@
+{
+  "dataset": {
+    "N": 1000,
+    "alpha": 0.9,
+    "target_alpha": 0.9,
+    "minority_dist": "zipfian",
+    "seed": 42
+  },
+  "results": [
+    {
+      "method": "hash_table",
+      "construction_time_s": 7.249999907799065e-05,
+      "avg_inference_time_ns": 75.51,
+      "memory": {
+        "theoretical": 9890
+      },
+      "filter_params": null,
+      "filter_type": null
+    },
+    {
+      "method": "cpp_hash_table",
+      "construction_time_s": 0.00012541702017188072,
+      "avg_inference_time_ns": 236.21,
+      "memory": {
+        "theoretical": 9890
+      },
+      "filter_params": null,
+      "filter_type": null
+    },
+    {
+      "method": "csf_filter_optimal_binary_fuse",
+      "construction_time_s": 0.0007876669988036156,
+      "avg_inference_time_ns": 212.52,
+      "memory": {
+        "stats": 325,
+        "serialized": 505
+      },
+      "filter_params": {
+        "fingerprint_bits": 2
+      },
+      "filter_type": "binary_fuse"
+    },
+    {
+      "method": "csf_filter_shibuya_bloom",
+      "construction_time_s": 0.000754333013901487,
+      "avg_inference_time_ns": 257.12,
+      "memory": {
+        "stats": 319,
+        "serialized": 448
+      },
+      "filter_params": {
+        "bloom_bits_per_element": 4,
+        "bloom_num_hashes": 3
+      },
+      "filter_type": "bloom"
+    }
+  ]
+}

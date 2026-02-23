@@ -30,6 +30,7 @@ from ._caramel import (
     PreFilterString,
     PreFilterUint32,
     PreFilterUint64,
+    UnorderedMapBaseline,
     XORFilterConfig,
     XORPreFilterUint32,
     XORPreFilterUint64,

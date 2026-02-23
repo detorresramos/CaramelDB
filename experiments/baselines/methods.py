@@ -1,6 +1,6 @@
 import os
 import sys
-import tracemalloc
+import tempfile
 
 import carameldb
 import numpy as np
@@ -28,6 +28,47 @@ def _make_filter_config(filter_type, params):
         raise ValueError(f"Unknown filter type: {filter_type}")
 
 
+def _hash_table_memory(keys, values):
+    return {"theoretical": sum(len(k) for k in keys) + len(keys) * 4}
+
+
+def _csf_stats_to_dict(stats):
+    d = {
+        "in_memory_bytes": stats.in_memory_bytes,
+        "solution_bytes": stats.solution_bytes,
+        "filter_bytes": stats.filter_bytes,
+        "metadata_bytes": stats.metadata_bytes,
+    }
+    bs = stats.bucket_stats
+    d["bucket_stats"] = {
+        "num_buckets": bs.num_buckets,
+        "total_solution_bits": bs.total_solution_bits,
+        "avg_solution_bits": bs.avg_solution_bits,
+        "min_solution_bits": bs.min_solution_bits,
+        "max_solution_bits": bs.max_solution_bits,
+    }
+    hs = stats.huffman_stats
+    d["huffman_stats"] = {
+        "num_unique_symbols": hs.num_unique_symbols,
+        "max_code_length": hs.max_code_length,
+        "avg_bits_per_symbol": hs.avg_bits_per_symbol,
+        "code_length_distribution": list(hs.code_length_distribution),
+    }
+    fs = stats.filter_stats
+    if fs is not None:
+        d["filter_stats"] = {
+            "type": fs.type,
+            "size_bytes": fs.size_bytes,
+            "num_elements": fs.num_elements,
+            "num_hashes": fs.num_hashes,
+            "size_bits": fs.size_bits,
+            "fingerprint_bits": fs.fingerprint_bits,
+        }
+    else:
+        d["filter_stats"] = None
+    return d
+
+
 class HashTable:
     name = "hash_table"
 
@@ -39,16 +80,27 @@ class HashTable:
     def query(structure, key):
         return structure[key]
 
-    @staticmethod
-    def measure_memory(keys, values):
-        tracemalloc.start()
-        snap_before = tracemalloc.take_snapshot()
-        d = {k: int(v) for k, v in zip(keys, values)}
-        snap_after = tracemalloc.take_snapshot()
-        tracemalloc.stop()
+    measure_memory = staticmethod(_hash_table_memory)
 
-        stats = snap_after.compare_to(snap_before, "lineno")
-        return sum(s.size_diff for s in stats if s.size_diff > 0)
+    @staticmethod
+    def get_params():
+        return None
+
+
+class CppHashTable:
+    name = "cpp_hash_table"
+
+    @staticmethod
+    def construct(keys, values):
+        return carameldb.UnorderedMapBaseline(
+            keys, np.array(values, dtype=np.uint32)
+        )
+
+    @staticmethod
+    def query(structure, key):
+        return structure.query(key)
+
+    measure_memory = staticmethod(_hash_table_memory)
 
     @staticmethod
     def get_params():
@@ -81,15 +133,14 @@ def _find_optimal_params(filter_type, keys, values):
         raise ValueError(f"Unknown filter type: {filter_type}")
 
 
-def _find_shibuya_params(filter_type, keys, values):
-    if filter_type != "bloom":
-        raise ValueError(f"Shibuya's method only applies to Bloom filters, got: {filter_type}")
+def _find_shibuya_params(keys, values):
     alpha = compute_actual_alpha(values)
     H0 = empirical_entropy(values)
     result = shibuya_bloom_params(alpha, H0)
     if result is None:
-        raise ValueError(f"Shibuya recommends no filter (eps* >= 1) for alpha={alpha:.4f}")
-    bits_per_element, num_hashes = result
+        bits_per_element, num_hashes = 1, 1
+    else:
+        bits_per_element, num_hashes = result
     return {"bloom_bits_per_element": bits_per_element, "bloom_num_hashes": num_hashes}
 
 
@@ -100,16 +151,19 @@ class CSFFilter:
                 f"Unknown epsilon_strategy: {epsilon_strategy}, "
                 f"must be one of {EPSILON_STRATEGIES}"
             )
-        self.filter_type = filter_type
         self.epsilon_strategy = epsilon_strategy
-        self.name = f"csf_filter_{epsilon_strategy}_{filter_type}"
+        if epsilon_strategy == "shibuya":
+            self.filter_type = "bloom"
+        else:
+            self.filter_type = filter_type
+        self.name = f"csf_filter_{epsilon_strategy}_{self.filter_type}"
         self._params = None
 
     def construct(self, keys, values):
         if self.epsilon_strategy == "optimal":
             self._params = _find_optimal_params(self.filter_type, keys, values)
         else:
-            self._params = _find_shibuya_params(self.filter_type, keys, values)
+            self._params = _find_shibuya_params(keys, values)
         config = _make_filter_config(self.filter_type, self._params)
         return carameldb.Caramel(keys, values, prefilter=config, verbose=False)
 
@@ -122,7 +176,18 @@ class CSFFilter:
         return None
 
     def measure_memory_from_structure(self, structure):
-        return structure.get_stats().in_memory_bytes
+        stats = structure.get_stats()
+        with tempfile.NamedTemporaryFile(suffix=".csf", delete=False) as f:
+            tmp_path = f.name
+        try:
+            structure.save(tmp_path)
+            serialized_bytes = os.path.getsize(tmp_path)
+        finally:
+            os.unlink(tmp_path)
+        return {
+            "serialized": serialized_bytes,
+            "csf_stats": _csf_stats_to_dict(stats),
+        }
 
     def get_params(self):
         return self._params

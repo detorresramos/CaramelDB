@@ -21,26 +21,58 @@ FIGURES_DIR = os.path.join(_dir, "figures")
 DATA_DIR = os.path.join(FIGURES_DIR, "data")
 
 METHOD_DISPLAY = {
-    "hash_table": "Hash Table",
+    "cpp_hash_table": "C++ Hash Table",
     "csf_filter_optimal_xor": "CSF+XOR (Optimal)",
     "csf_filter_optimal_binary_fuse": "CSF+BinaryFuse (Optimal)",
     "csf_filter_optimal_bloom": "CSF+Bloom (Optimal)",
-    "csf_filter_shibuya_xor": "CSF+XOR (Shibuya)",
-    "csf_filter_shibuya_binary_fuse": "CSF+BinaryFuse (Shibuya)",
     "csf_filter_shibuya_bloom": "CSF+Bloom (Shibuya)",
 }
 
 METHOD_MARKERS = {
-    "hash_table": "s",
+    "cpp_hash_table": "D",
     "csf_filter_optimal": "o",
     "csf_filter_shibuya": "^",
 }
 
 METHOD_COLORS = {
-    "hash_table": "tab:gray",
+    "cpp_hash_table": "tab:red",
     "csf_filter_optimal": "tab:blue",
     "csf_filter_shibuya": "tab:orange",
 }
+
+
+PLOT_METHODS = {"cpp_hash_table", "csf_filter_optimal", "csf_filter_shibuya"}
+
+
+def _should_plot(method_name):
+    return any(method_name.startswith(p) or method_name == p for p in PLOT_METHODS)
+
+
+def _get_memory_bytes(result):
+    """Extract a single memory number for plotting.
+
+    Uses theoretical for hash tables, serialized for CSFs.
+    """
+    mem = result.get("memory")
+    if mem is not None:
+        if "theoretical" in mem:
+            return mem["theoretical"]
+        if "serialized" in mem:
+            return mem["serialized"]
+        csf = mem.get("csf_stats")
+        if csf is not None:
+            return csf["in_memory_bytes"]
+        if "stats" in mem:
+            return mem["stats"]
+    return result.get("memory_bytes", 0)
+
+
+def _get_inference_ns(result):
+    """Extract mean inference time, handling both old and new format."""
+    inf = result.get("inference_ns")
+    if inf is not None:
+        return inf["mean"]
+    return result.get("avg_inference_time_ns", 0)
 
 
 def load_json(path):
@@ -90,7 +122,7 @@ def print_table(title, experiments, value_fn, fmt=".1f"):
         methods = []
         for exp in dist_exps:
             for r in exp["results"]:
-                if r["method"] not in methods:
+                if r["method"] not in methods and _should_plot(r["method"]):
                     methods.append(r["method"])
 
         print(f"\n{'=' * 40}")
@@ -124,10 +156,11 @@ def print_table(title, experiments, value_fn, fmt=".1f"):
             print()
 
 
-def plot_inference_vs_memory_grid(experiments, filter_type):
-    ns = sorted(set(exp["dataset"]["N"] for exp in experiments))
-    alphas = sorted(set(exp["dataset"]["alpha"] for exp in experiments))
-    grid = build_grid(experiments)
+def plot_inference_vs_memory_grid(experiments, filter_type, dist):
+    dist_exps = filter_by_dist(experiments, dist)
+    ns = sorted(set(exp["dataset"]["N"] for exp in dist_exps))
+    alphas = sorted(set(exp["dataset"]["alpha"] for exp in dist_exps))
+    grid = build_grid(dist_exps)
 
     fig, axes = plt.subplots(1, len(ns), figsize=(6 * len(ns), 5), squeeze=False)
     axes = axes[0]
@@ -139,17 +172,19 @@ def plot_inference_vs_memory_grid(experiments, filter_type):
         ax = axes[ax_idx]
 
         for alpha in alphas:
-            exp = grid.get((n, alpha))
+            exp = grid.get((dist, n, alpha))
             if exp is None:
                 continue
             N = exp["dataset"]["N"]
             color = cmap(alpha_norm(alpha))
 
             for r in exp["results"]:
+                if not _should_plot(r["method"]):
+                    continue
                 marker, _ = _method_style(r["method"])
                 ax.scatter(
-                    r["memory_bytes"] * 8 / N,
-                    r["avg_inference_time_ns"],
+                    _get_memory_bytes(r) * 8 / N,
+                    _get_inference_ns(r),
                     s=80,
                     marker=marker,
                     color=color,
@@ -181,20 +216,21 @@ def plot_inference_vs_memory_grid(experiments, filter_type):
     sm.set_array([])
     fig.colorbar(sm, ax=axes, label=r"$\alpha$", shrink=0.8)
 
-    fig.suptitle(f"Inference vs Memory — {filter_type}", fontsize=14, y=1.02)
+    fig.suptitle(f"Inference vs Memory — {filter_type} [{dist}]", fontsize=14, y=1.02)
     plt.tight_layout()
     return fig
 
 
-def plot_memory_vs_alpha(experiments, filter_type):
-    ns = sorted(set(exp["dataset"]["N"] for exp in experiments))
-    alphas = sorted(set(exp["dataset"]["alpha"] for exp in experiments))
-    grid = build_grid(experiments)
+def plot_memory_vs_alpha(experiments, filter_type, dist):
+    dist_exps = filter_by_dist(experiments, dist)
+    ns = sorted(set(exp["dataset"]["N"] for exp in dist_exps))
+    alphas = sorted(set(exp["dataset"]["alpha"] for exp in dist_exps))
+    grid = build_grid(dist_exps)
 
     methods = []
-    for exp in experiments:
+    for exp in dist_exps:
         for r in exp["results"]:
-            if r["method"] not in methods:
+            if r["method"] not in methods and _should_plot(r["method"]):
                 methods.append(r["method"])
 
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -205,13 +241,13 @@ def plot_memory_vs_alpha(experiments, filter_type):
             bpks = []
             valid_alphas = []
             for alpha in alphas:
-                exp = grid.get((n, alpha))
+                exp = grid.get((dist, n, alpha))
                 if exp is None:
                     continue
                 match = next((r for r in exp["results"] if r["method"] == method), None)
                 if match:
                     valid_alphas.append(alpha)
-                    bpks.append(match["memory_bytes"] * 8 / exp["dataset"]["N"])
+                    bpks.append(_get_memory_bytes(match) * 8 / exp["dataset"]["N"])
 
             if not bpks:
                 continue
@@ -231,7 +267,7 @@ def plot_memory_vs_alpha(experiments, filter_type):
 
     ax.set_xlabel(r"$\alpha$")
     ax.set_ylabel("Memory (bits/key)")
-    ax.set_title(f"Memory vs Alpha — {filter_type}")
+    ax.set_title(f"Memory vs Alpha — {filter_type} [{dist}]")
     ax.legend(fontsize=7, loc="best", ncol=2)
     ax.grid(True, alpha=0.3)
     plt.tight_layout()
@@ -275,14 +311,14 @@ def main():
     print_table(
         f"Memory (bits/key) — {args.filter_type}",
         experiments,
-        lambda r, ds: r["memory_bytes"] * 8 / ds["N"],
+        lambda r, ds: _get_memory_bytes(r) * 8 / ds["N"],
         fmt=".2f",
     )
 
     print_table(
         f"Avg Inference Time (ns) — {args.filter_type}",
         experiments,
-        lambda r, ds: r["avg_inference_time_ns"],
+        lambda r, ds: _get_inference_ns(r),
         fmt=".0f",
     )
 
@@ -293,20 +329,25 @@ def main():
         fmt=".3f",
     )
 
-    print("\n=== Inference vs Memory plots ===")
-    fig = plot_inference_vs_memory_grid(experiments, args.filter_type)
-    out = os.path.join(FIGURES_DIR, f"inference_vs_memory_{args.filter_type}.png")
+    dists = sorted(set(exp["dataset"]["minority_dist"] for exp in experiments))
     os.makedirs(FIGURES_DIR, exist_ok=True)
-    fig.savefig(out, dpi=300, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  Saved: {out}")
 
-    print("\n=== Memory vs Alpha plot ===")
-    fig = plot_memory_vs_alpha(experiments, args.filter_type)
-    out = os.path.join(FIGURES_DIR, f"memory_vs_alpha_{args.filter_type}.png")
-    fig.savefig(out, dpi=300, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  Saved: {out}")
+    for dist in dists:
+        print(f"\n=== Inference vs Memory — {dist} ===")
+        fig = plot_inference_vs_memory_grid(experiments, args.filter_type, dist)
+        out = os.path.join(
+            FIGURES_DIR, f"inference_vs_memory_{args.filter_type}_{dist}.png"
+        )
+        fig.savefig(out, dpi=300, bbox_inches="tight")
+        plt.close(fig)
+        print(f"  Saved: {out}")
+
+        print(f"\n=== Memory vs Alpha — {dist} ===")
+        fig = plot_memory_vs_alpha(experiments, args.filter_type, dist)
+        out = os.path.join(FIGURES_DIR, f"memory_vs_alpha_{args.filter_type}_{dist}.png")
+        fig.savefig(out, dpi=300, bbox_inches="tight")
+        plt.close(fig)
+        print(f"  Saved: {out}")
 
 
 if __name__ == "__main__":

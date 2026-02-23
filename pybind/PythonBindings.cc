@@ -1,4 +1,5 @@
 #include <memory.h>
+#include <src/baselines/UnorderedMapBaseline.h>
 #include <src/construct/Construct.h>
 #include <src/construct/ConstructMultiset.h>
 #include <src/construct/Csf.h>
@@ -194,6 +195,15 @@ void bindMultisetCsf(py::module &module, const char *name,
       .def_static("is_multiset", []() { return true; });
 }
 
+void bindUnorderedMapBaseline(py::module &module) {
+  py::class_<caramel::UnorderedMapBaseline>(module, "UnorderedMapBaseline")
+      .def(py::init<const std::vector<std::string> &,
+                     const std::vector<uint32_t> &>(),
+           py::arg("keys"), py::arg("values"))
+      .def("query", &caramel::UnorderedMapBaseline::query, py::arg("key"))
+      .def("size", &caramel::UnorderedMapBaseline::size);
+}
+
 template <typename T> void bindPermutation(py::module &m, const char *name) {
   m.def(name,
         [](py::array_t<T, py::array::c_style | py::array::forcecast> &array) {
@@ -257,6 +267,8 @@ PYBIND11_MODULE(_caramel, module) { // NOLINT
   bindPermutation<std::array<char, 10>>(module, "permute_char10");
   bindPermutation<std::array<char, 12>>(module, "permute_char12");
   // permutation is not supported for std::string types
+
+  bindUnorderedMapBaseline(module);
 
   py::register_exception<CsfDeserializationException>(
       module, "CsfDeserializationException");

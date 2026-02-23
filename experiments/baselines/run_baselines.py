@@ -13,6 +13,7 @@ import json
 import os
 import sys
 import time
+import tracemalloc
 
 import numpy as np
 
@@ -26,7 +27,7 @@ from data_gen import (
     gen_alpha_values,
     gen_keys,
 )
-from methods import CSFFilter, HashTable
+from methods import CppHashTable, CSFFilter, HashTable
 
 FIGURES_DIR = os.path.join(_dir, "figures")
 DATA_DIR = os.path.join(FIGURES_DIR, "data")
@@ -55,7 +56,26 @@ def measure_inference_time(method, structure, keys, seed):
         t1 = time.perf_counter_ns()
         times_ns.append(t1 - t0)
 
-    return float(np.mean(times_ns))
+    arr = np.array(times_ns, dtype=float)
+    return {
+        "mean": float(np.mean(arr)),
+        "median": float(np.median(arr)),
+        "std": float(np.std(arr)),
+        "min": float(np.min(arr)),
+        "max": float(np.max(arr)),
+        "p95": float(np.percentile(arr, 95)),
+        "p99": float(np.percentile(arr, 99)),
+    }
+
+
+def measure_tracemalloc(method, keys, values):
+    tracemalloc.start()
+    snap_before = tracemalloc.take_snapshot()
+    method.construct(keys, values)
+    snap_after = tracemalloc.take_snapshot()
+    tracemalloc.stop()
+    stats = snap_after.compare_to(snap_before, "lineno")
+    return sum(s.size_diff for s in stats if s.size_diff > 0)
 
 
 def run_single_method(method, keys, values, seed):
@@ -63,18 +83,18 @@ def run_single_method(method, keys, values, seed):
     structure = method.construct(keys, values)
     construction_time = time.perf_counter() - t0
 
-    # CSFFilter.measure_memory returns None; use in-memory stats from the structure instead
-    memory_bytes = method.measure_memory(keys, values)
-    if memory_bytes is None and hasattr(method, "measure_memory_from_structure"):
-        memory_bytes = method.measure_memory_from_structure(structure)
+    memory = method.measure_memory(keys, values)
+    if memory is None and hasattr(method, "measure_memory_from_structure"):
+        memory = method.measure_memory_from_structure(structure)
+    memory["tracemalloc"] = measure_tracemalloc(method, keys, values)
 
-    avg_inference_ns = measure_inference_time(method, structure, keys, seed)
+    inference_ns = measure_inference_time(method, structure, keys, seed)
 
     return {
         "method": method.name,
         "construction_time_s": construction_time,
-        "avg_inference_time_ns": avg_inference_ns,
-        "memory_bytes": memory_bytes,
+        "inference_ns": inference_ns,
+        "memory": memory,
         "filter_params": method.get_params(),
     }
 
@@ -98,6 +118,7 @@ def run_experiment(n, alpha, minority_dist, seed, filter_type, keys=None, values
 
     methods = [
         HashTable(),
+        CppHashTable(),
         CSFFilter(filter_type=filter_type, epsilon_strategy="optimal"),
         CSFFilter(filter_type=filter_type, epsilon_strategy="shibuya"),
     ]
@@ -106,12 +127,14 @@ def run_experiment(n, alpha, minority_dist, seed, filter_type, keys=None, values
     for method in methods:
         print(f"  Running {method.name}...")
         result = run_single_method(method, keys, values, seed)
-        result["filter_type"] = filter_type if method.name != "hash_table" else None
+        result["filter_type"] = getattr(method, "filter_type", None)
         results.append(result)
+        inf = result["inference_ns"]
+        mem = result["memory"]
         print(
             f"    construction={result['construction_time_s']:.3f}s  "
-            f"inference={result['avg_inference_time_ns']:.0f}ns  "
-            f"memory={result['memory_bytes']:,}B"
+            f"inference={inf['mean']:.0f}ns (p99={inf['p99']:.0f})  "
+            f"tracemalloc={mem['tracemalloc']:,}B"
         )
 
     return {
