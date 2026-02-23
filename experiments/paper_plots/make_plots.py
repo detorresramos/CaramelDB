@@ -123,27 +123,41 @@ def plot_alpha_sweep(data, filter_label, ax=None):
     ax.fill_between(alphas, lb_vals, ub_vals, alpha=0.2, color="blue")
     ax.plot(alphas, ub_vals, "b-", linewidth=1.5, label="Upper bound")
     ax.plot(alphas, lb_vals, "b--", linewidth=1.5, label="Lower bound")
-    ax.plot(alphas, theory_guided, "g.-", linewidth=1.5, markersize=4, label="Theory-guided")
-    ax.plot(alphas, best_empirical, "r.-", linewidth=1.5, markersize=4, alpha=0.7, label="Best empirical")
-
+    ax.plot(
+        alphas, theory_guided, "g.-", linewidth=1.5, markersize=4, label="Theory-guided"
+    )
+    ax.plot(
+        alphas,
+        best_empirical,
+        "r.-",
+        linewidth=1.5,
+        markersize=4,
+        alpha=0.7,
+        label="Best empirical",
+    )
     ax.axhline(y=0, color="gray", linestyle="-", alpha=0.5, linewidth=1)
 
-    # Crossover annotation for lower bound
     for i in range(len(lb_vals) - 1):
         if lb_vals[i] < 0 and lb_vals[i + 1] >= 0:
-            cross = alphas[i] + (alphas[i + 1] - alphas[i]) * (-lb_vals[i]) / (lb_vals[i + 1] - lb_vals[i])
+            cross = alphas[i] + (alphas[i + 1] - alphas[i]) * (-lb_vals[i]) / (
+                lb_vals[i + 1] - lb_vals[i]
+            )
             ax.axvline(x=cross, color="blue", linestyle=":", alpha=0.5, linewidth=1)
             ax.annotate(
-                f"LB=0 @ {cross:.2f}", xy=(cross, 0),
+                f"LB=0 @ {cross:.2f}",
+                xy=(cross, 0),
                 xytext=(cross + 0.02, min(lb_vals) * 0.3),
-                fontsize=8, color="blue",
+                fontsize=8,
+                color="blue",
             )
             break
 
     ax.set_xlabel(r"$\alpha$")
     ax.set_ylabel("Bits per key saved")
     ax.set_xlim(0.5, 1.0)
-    ax.set_title(f"{FILTER_DISPLAY[filter_label]} — {DIST_DISPLAY[data['distribution']]}")
+    ax.set_title(
+        f"{FILTER_DISPLAY[filter_label]} — {DIST_DISPLAY[data['distribution']]}"
+    )
     ax.legend(fontsize=8, loc="upper left")
     ax.grid(True, alpha=0.3)
 
@@ -161,7 +175,9 @@ def plot_alpha_sweep_individual(filter_label, dist):
     plot_alpha_sweep(data, filter_label, ax)
     plt.tight_layout()
 
-    out = os.path.join(FIGURES_DIR, "alpha_sweep", f"alpha_sweep_{filter_label}_{dist}.png")
+    out = os.path.join(
+        FIGURES_DIR, "alpha_sweep", f"alpha_sweep_{filter_label}_{dist}.png"
+    )
     os.makedirs(os.path.dirname(out), exist_ok=True)
     fig.savefig(out, dpi=300, bbox_inches="tight")
     plt.close(fig)
@@ -203,12 +219,10 @@ def plot_epsilon_sweep(data, filter_label, ax=None):
     n_filter = int(N * (1 - alpha))
     pk = PARAM_KEY[filter_label]
 
-    # Discrete empirical points
     param_vals = [e[pk] for e in data["empirical_per_param"]]
     bpk_saved = [e["bpk_saved"] for e in data["empirical_per_param"]]
     eps_discrete = [compute_params(filter_label, p, n_filter)[1] for p in param_vals]
 
-    # Continuous lower bound curve
     eps_min = min(eps_discrete) * 0.5
     eps_max = min(max(eps_discrete) * 2, 0.999)
     eps_cont = np.logspace(np.log10(eps_min), np.log10(eps_max), 500)
@@ -221,29 +235,39 @@ def plot_epsilon_sweep(data, filter_label, ax=None):
         lb_cont.append(theory.lower_bound(alpha, e, b, n_over_N))
 
     ax.plot(eps_cont, lb_cont, "b--", linewidth=1.5, label="Lower bound")
-    ax.plot(eps_discrete, bpk_saved, "ro-", linewidth=2, markersize=6, label="Empirical")
-
+    ax.plot(
+        eps_discrete, bpk_saved, "ro-", linewidth=2, markersize=6, label="Empirical"
+    )
     ax.axhline(y=0, color="gray", linestyle="-", alpha=0.5, linewidth=1)
 
-    # Mark theory-optimal
     best_param, _ = compute_theory_best(filter_label, alpha, n_over_N, n_filter)
     _, eps_theory = compute_params(filter_label, best_param, n_filter)
-    ax.axvline(x=eps_theory, color="blue", linestyle=":", alpha=0.7, linewidth=1.5,
-               label=f"Theory opt ({pk}={best_param})")
+    ax.axvline(
+        x=eps_theory,
+        color="blue",
+        linestyle=":",
+        alpha=0.7,
+        linewidth=1.5,
+        label=f"Theory opt ({pk}={best_param})",
+    )
 
-    # Mark empirically-optimal
     best_idx = int(np.argmax(bpk_saved))
     best_emp_param = param_vals[best_idx]
     if best_emp_param != best_param:
-        ax.axvline(x=eps_discrete[best_idx], color="red", linestyle=":", alpha=0.7, linewidth=1.5,
-                   label=f"Empirical opt ({pk}={best_emp_param})")
+        ax.axvline(
+            x=eps_discrete[best_idx],
+            color="red",
+            linestyle=":",
+            alpha=0.7,
+            linewidth=1.5,
+            label=f"Empirical opt ({pk}={best_emp_param})",
+        )
 
     ax.set_xscale("log")
     ax.set_xlabel(r"$\varepsilon$ (false positive rate)")
     ax.set_ylabel("Bits per key saved")
     ax.set_xlim(eps_min, eps_max)
 
-    # Secondary x-axis showing param values
     ax2 = ax.twiny()
     ax2.set_xscale("log")
     ax2.set_xlim(ax.get_xlim())
@@ -263,7 +287,9 @@ def plot_epsilon_sweep(data, filter_label, ax=None):
 
 
 def plot_epsilon_sweep_individual(filter_label, dist, alpha):
-    path = os.path.join(DATA_DIR, f"epsilon_sweep_{filter_label}_{dist}_alpha{alpha}.json")
+    path = os.path.join(
+        DATA_DIR, f"epsilon_sweep_{filter_label}_{dist}_alpha{alpha}.json"
+    )
     data = load_json(path)
     if data is None:
         print(f"  Skipping (no data): {path}")
@@ -274,7 +300,8 @@ def plot_epsilon_sweep_individual(filter_label, dist, alpha):
     plt.tight_layout()
 
     out = os.path.join(
-        FIGURES_DIR, "epsilon_sweep",
+        FIGURES_DIR,
+        "epsilon_sweep",
         f"epsilon_sweep_{filter_label}_{dist}_alpha{alpha}.png",
     )
     os.makedirs(os.path.dirname(out), exist_ok=True)
@@ -298,11 +325,14 @@ def plot_epsilon_sweep_combined(dist, alpha):
 
     fig.suptitle(
         f"Epsilon Sweep — {DIST_DISPLAY[dist]} ($\\alpha$={alpha})",
-        fontsize=14, y=1.05,
+        fontsize=14,
+        y=1.05,
     )
     plt.tight_layout()
 
-    out = os.path.join(FIGURES_DIR, "combined", f"epsilon_sweep_{dist}_alpha{alpha}.png")
+    out = os.path.join(
+        FIGURES_DIR, "combined", f"epsilon_sweep_{dist}_alpha{alpha}.png"
+    )
     os.makedirs(os.path.dirname(out), exist_ok=True)
     fig.savefig(out, dpi=300, bbox_inches="tight")
     plt.close(fig)
@@ -310,15 +340,17 @@ def plot_epsilon_sweep_combined(dist, alpha):
 
 
 def main():
-    plt.rcParams.update({
-        "font.size": 10,
-        "axes.labelsize": 11,
-        "axes.titlesize": 12,
-        "legend.fontsize": 8,
-        "xtick.labelsize": 9,
-        "ytick.labelsize": 9,
-        "lines.linewidth": 1.5,
-    })
+    plt.rcParams.update(
+        {
+            "font.size": 10,
+            "axes.labelsize": 11,
+            "axes.titlesize": 12,
+            "legend.fontsize": 8,
+            "xtick.labelsize": 9,
+            "ytick.labelsize": 9,
+            "lines.linewidth": 1.5,
+        }
+    )
 
     print("=== Individual alpha sweep plots ===")
     for fl in FILTER_LABELS:

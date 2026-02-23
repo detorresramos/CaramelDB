@@ -1,7 +1,8 @@
 import os
 import tempfile
+
 import carameldb
-from carameldb import BloomFilterConfig, XORFilterConfig, BinaryFuseFilterConfig
+from carameldb import BinaryFuseFilterConfig, BloomFilterConfig, XORFilterConfig
 
 
 def measure_size(csf):
@@ -19,10 +20,18 @@ def print_stats(csf, name):
     sz = measure_size(csf)
     print(f"\n{name}")
     print(f"  serialized: {sz:,} bytes")
-    print(f"  solution: {stats.solution_bytes:.0f}, filter: {stats.filter_bytes:.0f}, meta: {stats.metadata_bytes:.0f}")
+    print(
+        f"  solution: {stats.solution_bytes:.0f}, "
+        f"filter: {stats.filter_bytes:.0f}, "
+        f"meta: {stats.metadata_bytes:.0f}"
+    )
     if stats.filter_stats:
         fs = stats.filter_stats
-        extra = f"hashes={fs.num_hashes}" if fs.num_hashes else f"fp_bits={fs.fingerprint_bits}"
+        extra = (
+            f"hashes={fs.num_hashes}"
+            if fs.num_hashes
+            else f"fp_bits={fs.fingerprint_bits}"
+        )
         print(f"  filter: {fs.type}, {fs.size_bytes:,} bytes, {extra}")
     return sz
 
@@ -50,4 +59,3 @@ print_stats(csf, "XOR(fingerprint_bits=8)")
 bf = BinaryFuseFilterConfig(fingerprint_bits=8)
 csf = carameldb.Caramel(keys, values, prefilter=bf, verbose=False)
 print_stats(csf, "BinaryFuse(fingerprint_bits=8)")
-

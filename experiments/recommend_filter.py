@@ -30,7 +30,6 @@ from theory import (
     best_discrete_bloom,
     best_discrete_xor,
     bloom_params,
-    lower_bound,
     optimal_epsilon_binary_fuse,
     optimal_epsilon_xor,
 )
@@ -73,9 +72,13 @@ if __name__ == "__main__":
         eps = OPTIMAL_EPSILON_FNS[filter_type](alpha)
         bits, lb = BEST_DISCRETE_FNS[filter_type](alpha, n_over_N)
         print(f"  Closed-form eps* = {eps:.4f}")
-        print(f"  Best discrete:  fingerprint_bits = {bits},  LB = {lb:+.4f} bits_per_key\n")
+        print(
+            f"  Best discrete:  fingerprint_bits = {bits},  LB = {lb:+.4f} bits_per_key\n"
+        )
 
     print("=== BLOOM ===")
     bpe, nh, lb = best_bloom(alpha, n_over_N)
     _, eps = bloom_params(bpe, nh)
-    print(f"  Best discrete:  bits_per_element = {bpe}, num_hashes = {nh},  LB = {lb:+.4f} bits_per_key")
+    print(
+        f"  Best discrete:  bits_per_element = {bpe}, num_hashes = {nh},  LB = {lb:+.4f} bits_per_key"
+    )

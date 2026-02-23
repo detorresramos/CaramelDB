@@ -1,10 +1,5 @@
 """Plot generation for baseline comparisons.
 
-Reads JSON results from figures/data/ and generates:
-1. Table: memory (bits/key) for each method across alpha x N grid
-2. Table: inference time (ns) for each method across alpha x N grid
-3. Inference time vs memory scatter plots
-
 Usage:
     python experiments/baselines/make_plots.py
     python experiments/baselines/make_plots.py --filter-type binary_fuse
@@ -17,6 +12,7 @@ import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.lines import Line2D
 
 _dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _dir)
@@ -70,7 +66,6 @@ def _method_style(method_name):
 
 
 def build_grid(experiments):
-    """Index experiments by (dist, N, alpha) for grid lookups."""
     grid = {}
     for exp in experiments:
         ds = exp["dataset"]
@@ -84,7 +79,6 @@ def filter_by_dist(experiments, dist):
 
 
 def print_table(title, experiments, value_fn, fmt=".1f"):
-    """Print a text table with rows=methods, columns=alpha x N, one table per dist."""
     dists = sorted(set(exp["dataset"]["minority_dist"] for exp in experiments))
     grid = build_grid(experiments)
 
@@ -118,7 +112,9 @@ def print_table(title, experiments, value_fn, fmt=".1f"):
                     if exp is None:
                         row += f"  {'—':>8}"
                         continue
-                    match = next((r for r in exp["results"] if r["method"] == method), None)
+                    match = next(
+                        (r for r in exp["results"] if r["method"] == method), None
+                    )
                     if match:
                         val = value_fn(match, exp["dataset"])
                         row += f"  {val:>8{fmt}}"
@@ -129,7 +125,6 @@ def print_table(title, experiments, value_fn, fmt=".1f"):
 
 
 def plot_inference_vs_memory_grid(experiments, filter_type):
-    """One scatter plot per N, with all alphas shown by color gradient."""
     ns = sorted(set(exp["dataset"]["N"] for exp in experiments))
     alphas = sorted(set(exp["dataset"]["alpha"] for exp in experiments))
     grid = build_grid(experiments)
@@ -151,26 +146,35 @@ def plot_inference_vs_memory_grid(experiments, filter_type):
             color = cmap(alpha_norm(alpha))
 
             for r in exp["results"]:
-                method = r["method"]
-                memory_bpk = r["memory_bytes"] * 8 / N
-                inference_ns = r["avg_inference_time_ns"]
-                marker, _ = _method_style(method)
-
-                ax.scatter(memory_bpk, inference_ns, s=80, marker=marker,
-                           color=color, zorder=5, edgecolors="white", linewidths=0.5)
+                marker, _ = _method_style(r["method"])
+                ax.scatter(
+                    r["memory_bytes"] * 8 / N,
+                    r["avg_inference_time_ns"],
+                    s=80,
+                    marker=marker,
+                    color=color,
+                    zorder=5,
+                    edgecolors="white",
+                    linewidths=0.5,
+                )
 
         ax.set_xlabel("Memory (bits/key)")
         ax.set_ylabel("Avg inference time (ns)")
         ax.set_title(f"N = {_format_n(n)}")
         ax.grid(True, alpha=0.3)
 
-    # Shared legend for methods
-    from matplotlib.lines import Line2D
-    method_handles = []
-    for prefix, marker in METHOD_MARKERS.items():
-        label = prefix.replace("_", " ").title()
-        method_handles.append(Line2D([0], [0], marker=marker, color="gray",
-                                     linestyle="None", markersize=8, label=label))
+    method_handles = [
+        Line2D(
+            [0],
+            [0],
+            marker=marker,
+            color="gray",
+            linestyle="None",
+            markersize=8,
+            label=prefix.replace("_", " ").title(),
+        )
+        for prefix, marker in METHOD_MARKERS.items()
+    ]
     axes[-1].legend(handles=method_handles, fontsize=8, loc="best")
 
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=alpha_norm)
@@ -183,7 +187,6 @@ def plot_inference_vs_memory_grid(experiments, filter_type):
 
 
 def plot_memory_vs_alpha(experiments, filter_type):
-    """Line plot: bits/key vs alpha, one line per (method, N)."""
     ns = sorted(set(exp["dataset"]["N"] for exp in experiments))
     alphas = sorted(set(exp["dataset"]["alpha"] for exp in experiments))
     grid = build_grid(experiments)
@@ -215,9 +218,16 @@ def plot_memory_vs_alpha(experiments, filter_type):
 
             marker, _ = _method_style(method)
             label = f"{METHOD_DISPLAY.get(method, method)} (N={_format_n(n)})"
-            ax.plot(valid_alphas, bpks, marker=marker, markersize=5,
-                    color=n_colors[n_idx], linestyle="-" if "optimal" in method else "--",
-                    alpha=0.8 if "hash" not in method else 0.4, label=label)
+            ax.plot(
+                valid_alphas,
+                bpks,
+                marker=marker,
+                markersize=5,
+                color=n_colors[n_idx],
+                linestyle="-" if "optimal" in method else "--",
+                alpha=0.8 if "hash" not in method else 0.4,
+                label=label,
+            )
 
     ax.set_xlabel(r"$\alpha$")
     ax.set_ylabel("Memory (bits/key)")
@@ -233,19 +243,25 @@ def main():
         description="Generate baseline comparison plots",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("--filter-type", choices=["xor", "binary_fuse", "bloom"],
-                        default="binary_fuse", help="Filter type to plot")
+    parser.add_argument(
+        "--filter-type",
+        choices=["xor", "binary_fuse", "bloom"],
+        default="binary_fuse",
+        help="Filter type to plot",
+    )
     args = parser.parse_args()
 
-    plt.rcParams.update({
-        "font.size": 10,
-        "axes.labelsize": 11,
-        "axes.titlesize": 12,
-        "legend.fontsize": 8,
-        "xtick.labelsize": 9,
-        "ytick.labelsize": 9,
-        "lines.linewidth": 1.5,
-    })
+    plt.rcParams.update(
+        {
+            "font.size": 10,
+            "axes.labelsize": 11,
+            "axes.titlesize": 12,
+            "legend.fontsize": 8,
+            "xtick.labelsize": 9,
+            "ytick.labelsize": 9,
+            "lines.linewidth": 1.5,
+        }
+    )
 
     sweep_path = os.path.join(DATA_DIR, f"baselines_sweep_{args.filter_type}.json")
     sweep = load_json(sweep_path)
@@ -256,7 +272,6 @@ def main():
 
     experiments = sweep["experiments"]
 
-    # 1. Memory table (bits/key)
     print_table(
         f"Memory (bits/key) — {args.filter_type}",
         experiments,
@@ -264,7 +279,6 @@ def main():
         fmt=".2f",
     )
 
-    # 2. Inference time table (ns)
     print_table(
         f"Avg Inference Time (ns) — {args.filter_type}",
         experiments,
@@ -272,7 +286,6 @@ def main():
         fmt=".0f",
     )
 
-    # 3. Construction time table (s)
     print_table(
         f"Construction Time (s) — {args.filter_type}",
         experiments,
@@ -280,7 +293,6 @@ def main():
         fmt=".3f",
     )
 
-    # 4. Inference vs Memory scatter grid
     print("\n=== Inference vs Memory plots ===")
     fig = plot_inference_vs_memory_grid(experiments, args.filter_type)
     out = os.path.join(FIGURES_DIR, f"inference_vs_memory_{args.filter_type}.png")
@@ -289,7 +301,6 @@ def main():
     plt.close(fig)
     print(f"  Saved: {out}")
 
-    # 5. Memory vs Alpha line plot
     print("\n=== Memory vs Alpha plot ===")
     fig = plot_memory_vs_alpha(experiments, args.filter_type)
     out = os.path.join(FIGURES_DIR, f"memory_vs_alpha_{args.filter_type}.png")

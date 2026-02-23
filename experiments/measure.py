@@ -5,11 +5,7 @@ from typing import Optional
 
 import carameldb
 import numpy as np
-from carameldb import (
-    BinaryFuseFilterConfig,
-    BloomFilterConfig,
-    XORFilterConfig,
-)
+from carameldb import BinaryFuseFilterConfig, BloomFilterConfig, XORFilterConfig
 
 
 @dataclass
@@ -50,18 +46,10 @@ def create_filter_config(
     if filter_type == "none":
         return None
     elif filter_type == "xor":
-        if fingerprint_bits is None:
-            raise ValueError("fingerprint_bits required for xor filter")
         return XORFilterConfig(fingerprint_bits=fingerprint_bits)
     elif filter_type == "binary_fuse":
-        if fingerprint_bits is None:
-            raise ValueError("fingerprint_bits required for binary_fuse filter")
         return BinaryFuseFilterConfig(fingerprint_bits=fingerprint_bits)
     elif filter_type == "bloom":
-        if bloom_bits_per_element is None or bloom_num_hashes is None:
-            raise ValueError(
-                "bloom_bits_per_element and bloom_num_hashes required for bloom filter"
-            )
         return BloomFilterConfig(
             bits_per_element=bloom_bits_per_element, num_hashes=bloom_num_hashes
         )

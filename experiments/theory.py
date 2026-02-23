@@ -64,7 +64,8 @@ def lower_bound(alpha, eps, b_eps, n_over_N):
 def upper_bound(alpha, eps, b_eps, n_over_N):
     """U = delta * (1 + H(alpha) - 2*alpha*eps*(1-alpha)/(3-alpha)) + n/N - b(eps)*(1-alpha)"""
     return (
-        DELTA * (1 + binary_entropy(alpha) - 2 * alpha * eps * (1 - alpha) / (3 - alpha))
+        DELTA
+        * (1 + binary_entropy(alpha) - 2 * alpha * eps * (1 - alpha) / (3 - alpha))
         + n_over_N
         - b_eps * (1 - alpha)
     )

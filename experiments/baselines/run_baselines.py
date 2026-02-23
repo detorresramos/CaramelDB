@@ -1,8 +1,5 @@
 """Experiment runner for baseline comparisons.
 
-Measures construction time, inference time, and memory usage for each method
-across configurable dataset parameters. Saves results as JSON.
-
 Usage:
     python experiments/baselines/run_baselines.py                              # default sweep
     python experiments/baselines/run_baselines.py --alpha 0.8 --n 100000      # single config
@@ -23,7 +20,12 @@ _dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _dir)
 sys.path.insert(0, os.path.join(_dir, ".."))
 
-from data_gen import MINORITY_DISTRIBUTIONS, compute_actual_alpha, gen_alpha_values, gen_keys
+from data_gen import (
+    MINORITY_DISTRIBUTIONS,
+    compute_actual_alpha,
+    gen_alpha_values,
+    gen_keys,
+)
 from methods import CSFFilter, HashTable
 
 FIGURES_DIR = os.path.join(_dir, "figures")
@@ -39,12 +41,10 @@ SWEEP_DISTS = ["unique", "zipfian", "uniform_100"]
 
 
 def measure_inference_time(method, structure, keys, seed):
-    """Measure average inference time over random key lookups."""
     rng = np.random.RandomState(seed)
     sample_indices = rng.choice(len(keys), size=NUM_INFERENCE_QUERIES, replace=True)
     sample_keys = [keys[i] for i in sample_indices]
 
-    # Warmup
     for k in sample_keys[:10]:
         method.query(structure, k)
 
@@ -59,19 +59,15 @@ def measure_inference_time(method, structure, keys, seed):
 
 
 def run_single_method(method, keys, values, seed):
-    """Run a single method and collect all measurements."""
-    # Construction time
     t0 = time.perf_counter()
     structure = method.construct(keys, values)
     construction_time = time.perf_counter() - t0
 
-    # Memory
-    if hasattr(method, "measure_memory_from_structure") and method.measure_memory(keys, values) is None:
+    # CSFFilter.measure_memory returns None; use in-memory stats from the structure instead
+    memory_bytes = method.measure_memory(keys, values)
+    if memory_bytes is None and hasattr(method, "measure_memory_from_structure"):
         memory_bytes = method.measure_memory_from_structure(structure)
-    else:
-        memory_bytes = method.measure_memory(keys, values)
 
-    # Inference time
     avg_inference_ns = measure_inference_time(method, structure, keys, seed)
 
     return {
@@ -84,7 +80,6 @@ def run_single_method(method, keys, values, seed):
 
 
 def load_dataset(path):
-    """Load a dataset from a CSV file with 'key' and 'value' columns."""
     keys = []
     values = []
     with open(path, newline="") as f:
@@ -96,7 +91,6 @@ def load_dataset(path):
 
 
 def run_experiment(n, alpha, minority_dist, seed, filter_type, keys=None, values=None):
-    """Run all methods for a single dataset configuration."""
     if keys is None:
         keys = gen_keys(n, seed=seed)
         values = gen_alpha_values(n, alpha, seed=seed, minority_dist=minority_dist)
@@ -114,9 +108,11 @@ def run_experiment(n, alpha, minority_dist, seed, filter_type, keys=None, values
         result = run_single_method(method, keys, values, seed)
         result["filter_type"] = filter_type if method.name != "hash_table" else None
         results.append(result)
-        print(f"    construction={result['construction_time_s']:.3f}s  "
-              f"inference={result['avg_inference_time_ns']:.0f}ns  "
-              f"memory={result['memory_bytes']:,}B")
+        print(
+            f"    construction={result['construction_time_s']:.3f}s  "
+            f"inference={result['avg_inference_time_ns']:.0f}ns  "
+            f"memory={result['memory_bytes']:,}B"
+        )
 
     return {
         "dataset": {
@@ -142,16 +138,39 @@ def parse_args():
         description="Run baseline comparisons",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("--n", type=int, nargs="+", default=None,
-                        help="Number of keys (one or more). Omit for default sweep.")
-    parser.add_argument("--alpha", type=float, nargs="+", default=None,
-                        help="Alpha values (one or more). Omit for default sweep.")
-    parser.add_argument("--minority-dist", choices=MINORITY_DISTRIBUTIONS, nargs="+", default=None,
-                        help="Minority distributions (one or more). Omit for default sweep.")
-    parser.add_argument("--dataset", type=str, default=None,
-                        help="Path to CSV file with 'key' and 'value' columns")
-    parser.add_argument("--filter-type", choices=["xor", "binary_fuse", "bloom"],
-                        default=DEFAULT_FILTER_TYPE, help="Filter type for CSF methods")
+    parser.add_argument(
+        "--n",
+        type=int,
+        nargs="+",
+        default=None,
+        help="Number of keys (one or more). Omit for default sweep.",
+    )
+    parser.add_argument(
+        "--alpha",
+        type=float,
+        nargs="+",
+        default=None,
+        help="Alpha values (one or more). Omit for default sweep.",
+    )
+    parser.add_argument(
+        "--minority-dist",
+        choices=MINORITY_DISTRIBUTIONS,
+        nargs="+",
+        default=None,
+        help="Minority distributions (one or more). Omit for default sweep.",
+    )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default=None,
+        help="Path to CSV file with 'key' and 'value' columns",
+    )
+    parser.add_argument(
+        "--filter-type",
+        choices=["xor", "binary_fuse", "bloom"],
+        default=DEFAULT_FILTER_TYPE,
+        help="Filter type for CSF methods",
+    )
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED, help="Random seed")
     return parser.parse_args()
 
@@ -165,10 +184,13 @@ def main():
         alpha = float(compute_actual_alpha(values))
         n = len(keys)
         dataset_name = os.path.splitext(os.path.basename(args.dataset))[0]
-        print(f"\n=== dataset={args.dataset}, n={n}, alpha={alpha:.4f}, filter={args.filter_type} ===")
+        print(
+            f"\n=== dataset={args.dataset}, n={n}, alpha={alpha:.4f}, filter={args.filter_type} ==="
+        )
 
-        data = run_experiment(n, alpha, "custom", args.seed, args.filter_type,
-                              keys=keys, values=values)
+        data = run_experiment(
+            n, alpha, "custom", args.seed, args.filter_type, keys=keys, values=values
+        )
         data["dataset"]["source"] = args.dataset
 
         filename = f"baselines_{dataset_name}_{args.filter_type}.json"
@@ -183,7 +205,9 @@ def main():
     for dist in dists:
         for n in ns:
             for alpha in alphas:
-                print(f"\n=== alpha={alpha}, dist={dist}, n={n:,}, filter={args.filter_type} ===")
+                print(
+                    f"\n=== alpha={alpha}, dist={dist}, n={n:,}, filter={args.filter_type} ==="
+                )
 
                 data = run_experiment(n, alpha, dist, args.seed, args.filter_type)
                 all_results.append(data)
@@ -199,7 +223,9 @@ def main():
         "seed": args.seed,
         "experiments": all_results,
     }
-    save_json(combined, os.path.join(DATA_DIR, f"baselines_sweep_{args.filter_type}.json"))
+    save_json(
+        combined, os.path.join(DATA_DIR, f"baselines_sweep_{args.filter_type}.json")
+    )
 
 
 if __name__ == "__main__":

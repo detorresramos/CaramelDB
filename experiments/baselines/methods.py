@@ -2,18 +2,15 @@ import os
 import sys
 import tracemalloc
 
-import numpy as np
-
 import carameldb
+import numpy as np
 from carameldb import BinaryFuseFilterConfig, BloomFilterConfig, XORFilterConfig
 
 _dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(_dir, ".."))
 
-from data_gen import compute_actual_alpha
-
 import theory
-
+from data_gen import compute_actual_alpha
 from shibuya import empirical_entropy, shibuya_best_discrete_params
 
 
@@ -91,8 +88,6 @@ def _find_shibuya_params(filter_type, keys, values):
 
 
 class CSFFilter:
-    """CSF + Filter with configurable epsilon strategy."""
-
     def __init__(self, filter_type="binary_fuse", epsilon_strategy="optimal"):
         if epsilon_strategy not in EPSILON_STRATEGIES:
             raise ValueError(

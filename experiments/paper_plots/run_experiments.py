@@ -44,21 +44,30 @@ FILTERS = {
         "param_range": range(1, 9),
         "param_key": "bpe",
         "theory_best_fn": lambda a, n: theory.best_discrete_bloom(a, n, k=1),
-        "measure_kwargs": lambda p: {"bloom_bits_per_element": p, "bloom_num_hashes": 1},
+        "measure_kwargs": lambda p: {
+            "bloom_bits_per_element": p,
+            "bloom_num_hashes": 1,
+        },
     },
     "bloom_k2": {
         "filter_type": "bloom",
         "param_range": range(1, 9),
         "param_key": "bpe",
         "theory_best_fn": lambda a, n: theory.best_discrete_bloom(a, n, k=2),
-        "measure_kwargs": lambda p: {"bloom_bits_per_element": p, "bloom_num_hashes": 2},
+        "measure_kwargs": lambda p: {
+            "bloom_bits_per_element": p,
+            "bloom_num_hashes": 2,
+        },
     },
     "bloom_k3": {
         "filter_type": "bloom",
         "param_range": range(1, 9),
         "param_key": "bpe",
         "theory_best_fn": lambda a, n: theory.best_discrete_bloom(a, n, k=3),
-        "measure_kwargs": lambda p: {"bloom_bits_per_element": p, "bloom_num_hashes": 3},
+        "measure_kwargs": lambda p: {
+            "bloom_bits_per_element": p,
+            "bloom_num_hashes": 3,
+        },
     },
 }
 
@@ -81,27 +90,38 @@ def run_alpha_sweep(filter_label, dist):
         for param in cfg["param_range"]:
             kwargs = cfg["measure_kwargs"](param)
             filtered = measure_csf(
-                keys, values, cfg["filter_type"], N, alpha,
-                minority_dist=dist, **kwargs,
+                keys,
+                values,
+                cfg["filter_type"],
+                N,
+                alpha,
+                minority_dist=dist,
+                **kwargs,
             )
             bpk_saved = baseline_bpk - filtered.bits_per_key
-            empirical_per_param.append({cfg["param_key"]: param, "bpk_saved": bpk_saved})
+            empirical_per_param.append(
+                {cfg["param_key"]: param, "bpk_saved": bpk_saved}
+            )
 
         theory_guided = next(
             r for r in empirical_per_param if r[cfg["param_key"]] == best_param
         )
         best_empirical = max(empirical_per_param, key=lambda r: r["bpk_saved"])
 
-        results.append({
-            "alpha": round(alpha, 4),
-            "n_over_N": n_over_N,
-            "baseline_bpk": baseline_bpk,
-            "theory_optimal_params": {cfg["param_key"]: best_param},
-            "theory_guided_bpk_saved": theory_guided["bpk_saved"],
-            "empirical_per_param": empirical_per_param,
-            "best_empirical_bpk_saved": best_empirical["bpk_saved"],
-            "best_empirical_params": {cfg["param_key"]: best_empirical[cfg["param_key"]]},
-        })
+        results.append(
+            {
+                "alpha": round(alpha, 4),
+                "n_over_N": n_over_N,
+                "baseline_bpk": baseline_bpk,
+                "theory_optimal_params": {cfg["param_key"]: best_param},
+                "theory_guided_bpk_saved": theory_guided["bpk_saved"],
+                "empirical_per_param": empirical_per_param,
+                "best_empirical_bpk_saved": best_empirical["bpk_saved"],
+                "best_empirical_params": {
+                    cfg["param_key"]: best_empirical[cfg["param_key"]]
+                },
+            }
+        )
 
     return {
         "filter_type": filter_label,
@@ -123,11 +143,18 @@ def run_epsilon_sweep(filter_label, dist, alpha):
     n_over_N = baseline.huffman_num_symbols / N
 
     empirical_per_param = []
-    for param in tqdm(cfg["param_range"], desc=f"eps sweep {filter_label}/{dist}/a={alpha}"):
+    for param in tqdm(
+        cfg["param_range"], desc=f"eps sweep {filter_label}/{dist}/a={alpha}"
+    ):
         kwargs = cfg["measure_kwargs"](param)
         filtered = measure_csf(
-            keys, values, cfg["filter_type"], N, alpha,
-            minority_dist=dist, **kwargs,
+            keys,
+            values,
+            cfg["filter_type"],
+            N,
+            alpha,
+            minority_dist=dist,
+            **kwargs,
         )
         bpk_saved = baseline_bpk - filtered.bits_per_key
         empirical_per_param.append({cfg["param_key"]: param, "bpk_saved": bpk_saved})
