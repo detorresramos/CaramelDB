@@ -1,0 +1,41 @@
+{
+  "dataset": {
+    "N": 100000,
+    "alpha": 0.6,
+    "target_alpha": 0.6,
+    "minority_dist": "unique",
+    "seed": 42
+  },
+  "results": [
+    {
+      "method": "hash_table",
+      "construction_time_s": 0.007028042018646374,
+      "avg_inference_time_ns": 649.17,
+      "memory_bytes": 6878256,
+      "filter_params": null,
+      "filter_type": null
+    },
+    {
+      "method": "csf_filter_optimal_binary_fuse",
+      "construction_time_s": 0.06789045900222845,
+      "avg_inference_time_ns": 305.75,
+      "memory_bytes": 263639,
+      "filter_params": {
+        "fingerprint_bits": 1
+      },
+      "filter_type": "binary_fuse"
+    },
+    {
+      "method": "csf_filter_shibuya_binary_fuse",
+      "construction_time_s": 0.06742850001319312,
+      "avg_inference_time_ns": 420.77,
+      "memory_bytes": 269512,
+      "filter_params": {
+        "fingerprint_bits": 3,
+        "epsilon": 0.125,
+        "epsilon_star": 0.17323949483812986
+      },
+      "filter_type": "binary_fuse"
+    }
+  ]
+}

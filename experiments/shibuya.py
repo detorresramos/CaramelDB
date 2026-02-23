@@ -8,23 +8,10 @@ empirical entropy of the value distribution.
 """
 
 import math
-import os
-import sys
 
 import numpy as np
 
-_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(_dir, ".."))
-
-from recommend_filter import (
-    best_binary_fuse,
-    best_bloom,
-    best_xor,
-    binary_fuse_params,
-    bloom_params,
-    lower_bound,
-    xor_params,
-)
+from theory import binary_fuse_params, bloom_params, xor_params
 
 C_BF = 1.44  # idealized Bloom filter constant
 
@@ -57,7 +44,7 @@ def shibuya_optimal_epsilon(alpha, H0):
     return C_BF * (1 - alpha) / (C_CSF * alpha * math.log(2))
 
 
-def shibuya_best_discrete_params(alpha, H0, filter_type, n_over_N=0.0):
+def shibuya_best_discrete_params(alpha, H0, filter_type):
     """Map Shibuya's optimal epsilon to the nearest discrete filter parameters.
 
     For xor/binary_fuse: finds the fingerprint_bits whose epsilon is closest

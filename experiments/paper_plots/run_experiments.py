@@ -8,8 +8,8 @@ import numpy as np
 from tqdm import tqdm
 
 _dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, _dir)
 sys.path.insert(0, os.path.join(_dir, ".."))
+sys.path.insert(0, _dir)
 
 import theory
 from data_gen import gen_alpha_values, gen_keys

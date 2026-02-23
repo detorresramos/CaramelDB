@@ -1,8 +1,9 @@
 """Plot generation for baseline comparisons.
 
 Reads JSON results from figures/data/ and generates:
-1. Inference time vs memory scatter plots
-2. Construction time comparison tables
+1. Table: memory (bits/key) for each method across alpha x N grid
+2. Table: inference time (ns) for each method across alpha x N grid
+3. Inference time vs memory scatter plots
 
 Usage:
     python experiments/baselines/make_plots.py
@@ -35,22 +36,14 @@ METHOD_DISPLAY = {
 
 METHOD_MARKERS = {
     "hash_table": "s",
-    "csf_filter_optimal_xor": "o",
-    "csf_filter_optimal_binary_fuse": "o",
-    "csf_filter_optimal_bloom": "o",
-    "csf_filter_shibuya_xor": "^",
-    "csf_filter_shibuya_binary_fuse": "^",
-    "csf_filter_shibuya_bloom": "^",
+    "csf_filter_optimal": "o",
+    "csf_filter_shibuya": "^",
 }
 
 METHOD_COLORS = {
     "hash_table": "tab:gray",
-    "csf_filter_optimal_xor": "tab:blue",
-    "csf_filter_optimal_binary_fuse": "tab:blue",
-    "csf_filter_optimal_bloom": "tab:blue",
-    "csf_filter_shibuya_xor": "tab:orange",
-    "csf_filter_shibuya_binary_fuse": "tab:orange",
-    "csf_filter_shibuya_bloom": "tab:orange",
+    "csf_filter_optimal": "tab:blue",
+    "csf_filter_shibuya": "tab:orange",
 }
 
 
@@ -61,91 +54,178 @@ def load_json(path):
         return json.load(f)
 
 
-def plot_inference_vs_memory(data, ax=None):
-    """Scatter plot: inference time (ns) vs memory (bytes/key)."""
-    if ax is None:
-        fig, ax = plt.subplots(figsize=(8, 6))
-    else:
-        fig = ax.figure
-
-    dataset = data["dataset"]
-    N = dataset["N"]
-
-    for r in data["results"]:
-        method = r["method"]
-        memory_per_key = r["memory_bytes"] / N
-        inference_ns = r["avg_inference_time_ns"]
-
-        label = METHOD_DISPLAY.get(method, method)
-        marker = METHOD_MARKERS.get(method, "o")
-        color = METHOD_COLORS.get(method, "tab:blue")
-
-        ax.scatter(memory_per_key, inference_ns, s=100, marker=marker,
-                   color=color, label=label, zorder=5)
-        ax.annotate(label, (memory_per_key, inference_ns),
-                    textcoords="offset points", xytext=(8, 4), fontsize=8)
-
-    ax.set_xlabel("Memory (bytes/key)")
-    ax.set_ylabel("Avg inference time (ns)")
-    ax.set_title(
-        f"Inference vs Memory — "
-        f"N={N:,}, α={dataset['alpha']}, dist={dataset['minority_dist']}"
-    )
-    ax.grid(True, alpha=0.3)
-    ax.legend(fontsize=8, loc="best")
-
-    return fig, ax
+def _format_n(n):
+    if n >= 1_000_000:
+        return f"{n // 1_000_000}M"
+    elif n >= 1_000:
+        return f"{n // 1_000}k"
+    return str(n)
 
 
-def plot_construction_time_table(experiments, ax=None):
-    """Render construction time comparison as a table figure."""
-    if not experiments:
-        return None, None
+def _method_style(method_name):
+    for prefix in METHOD_MARKERS:
+        if method_name.startswith(prefix) or method_name == prefix:
+            return METHOD_MARKERS[prefix], METHOD_COLORS[prefix]
+    return "o", "tab:blue"
 
-    if ax is None:
-        fig, ax = plt.subplots(figsize=(10, 3))
-    else:
-        fig = ax.figure
 
-    # Collect all methods and dataset labels
+def build_grid(experiments):
+    """Index experiments by (dist, N, alpha) for grid lookups."""
+    grid = {}
+    for exp in experiments:
+        ds = exp["dataset"]
+        key = (ds["minority_dist"], ds["N"], ds["alpha"])
+        grid[key] = exp
+    return grid
+
+
+def filter_by_dist(experiments, dist):
+    return [e for e in experiments if e["dataset"]["minority_dist"] == dist]
+
+
+def print_table(title, experiments, value_fn, fmt=".1f"):
+    """Print a text table with rows=methods, columns=alpha x N, one table per dist."""
+    dists = sorted(set(exp["dataset"]["minority_dist"] for exp in experiments))
+    grid = build_grid(experiments)
+
+    for dist in dists:
+        dist_exps = filter_by_dist(experiments, dist)
+        ns = sorted(set(exp["dataset"]["N"] for exp in dist_exps))
+        alphas = sorted(set(exp["dataset"]["alpha"] for exp in dist_exps))
+
+        methods = []
+        for exp in dist_exps:
+            for r in exp["results"]:
+                if r["method"] not in methods:
+                    methods.append(r["method"])
+
+        print(f"\n{'=' * 40}")
+        print(f"  {title} [{dist}]")
+        print(f"{'=' * 40}")
+
+        for n in ns:
+            col_labels = [f"a={a}" for a in alphas]
+            header = f"N={_format_n(n):<6} {'Method':<25}"
+            for label in col_labels:
+                header += f"  {label:>8}"
+            print(header)
+            print("-" * (31 + 10 * len(col_labels)))
+
+            for method in methods:
+                row = f"       {METHOD_DISPLAY.get(method, method):<25}"
+                for a in alphas:
+                    exp = grid.get((dist, n, a))
+                    if exp is None:
+                        row += f"  {'—':>8}"
+                        continue
+                    match = next((r for r in exp["results"] if r["method"] == method), None)
+                    if match:
+                        val = value_fn(match, exp["dataset"])
+                        row += f"  {val:>8{fmt}}"
+                    else:
+                        row += f"  {'—':>8}"
+                print(row)
+            print()
+
+
+def plot_inference_vs_memory_grid(experiments, filter_type):
+    """One scatter plot per N, with all alphas shown by color gradient."""
+    ns = sorted(set(exp["dataset"]["N"] for exp in experiments))
+    alphas = sorted(set(exp["dataset"]["alpha"] for exp in experiments))
+    grid = build_grid(experiments)
+
+    fig, axes = plt.subplots(1, len(ns), figsize=(6 * len(ns), 5), squeeze=False)
+    axes = axes[0]
+
+    cmap = plt.cm.viridis
+    alpha_norm = plt.Normalize(min(alphas), max(alphas))
+
+    for ax_idx, n in enumerate(ns):
+        ax = axes[ax_idx]
+
+        for alpha in alphas:
+            exp = grid.get((n, alpha))
+            if exp is None:
+                continue
+            N = exp["dataset"]["N"]
+            color = cmap(alpha_norm(alpha))
+
+            for r in exp["results"]:
+                method = r["method"]
+                memory_bpk = r["memory_bytes"] * 8 / N
+                inference_ns = r["avg_inference_time_ns"]
+                marker, _ = _method_style(method)
+
+                ax.scatter(memory_bpk, inference_ns, s=80, marker=marker,
+                           color=color, zorder=5, edgecolors="white", linewidths=0.5)
+
+        ax.set_xlabel("Memory (bits/key)")
+        ax.set_ylabel("Avg inference time (ns)")
+        ax.set_title(f"N = {_format_n(n)}")
+        ax.grid(True, alpha=0.3)
+
+    # Shared legend for methods
+    from matplotlib.lines import Line2D
+    method_handles = []
+    for prefix, marker in METHOD_MARKERS.items():
+        label = prefix.replace("_", " ").title()
+        method_handles.append(Line2D([0], [0], marker=marker, color="gray",
+                                     linestyle="None", markersize=8, label=label))
+    axes[-1].legend(handles=method_handles, fontsize=8, loc="best")
+
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=alpha_norm)
+    sm.set_array([])
+    fig.colorbar(sm, ax=axes, label=r"$\alpha$", shrink=0.8)
+
+    fig.suptitle(f"Inference vs Memory — {filter_type}", fontsize=14, y=1.02)
+    plt.tight_layout()
+    return fig
+
+
+def plot_memory_vs_alpha(experiments, filter_type):
+    """Line plot: bits/key vs alpha, one line per (method, N)."""
+    ns = sorted(set(exp["dataset"]["N"] for exp in experiments))
+    alphas = sorted(set(exp["dataset"]["alpha"] for exp in experiments))
+    grid = build_grid(experiments)
+
     methods = []
     for exp in experiments:
         for r in exp["results"]:
             if r["method"] not in methods:
                 methods.append(r["method"])
 
-    col_labels = []
-    for exp in experiments:
-        ds = exp["dataset"]
-        col_labels.append(f"α={ds['alpha']}\n{ds['minority_dist']}")
+    fig, ax = plt.subplots(figsize=(10, 6))
+    n_colors = plt.cm.tab10(np.linspace(0, 1, len(ns)))
 
-    cell_text = []
-    row_labels = []
-    for method in methods:
-        row_labels.append(METHOD_DISPLAY.get(method, method))
-        row = []
-        for exp in experiments:
-            match = next((r for r in exp["results"] if r["method"] == method), None)
-            if match:
-                row.append(f"{match['construction_time_s']:.3f}s")
-            else:
-                row.append("—")
-        cell_text.append(row)
+    for n_idx, n in enumerate(ns):
+        for method in methods:
+            bpks = []
+            valid_alphas = []
+            for alpha in alphas:
+                exp = grid.get((n, alpha))
+                if exp is None:
+                    continue
+                match = next((r for r in exp["results"] if r["method"] == method), None)
+                if match:
+                    valid_alphas.append(alpha)
+                    bpks.append(match["memory_bytes"] * 8 / exp["dataset"]["N"])
 
-    ax.axis("off")
-    table = ax.table(
-        cellText=cell_text,
-        rowLabels=row_labels,
-        colLabels=col_labels,
-        cellLoc="center",
-        loc="center",
-    )
-    table.auto_set_font_size(False)
-    table.set_fontsize(9)
-    table.scale(1.2, 1.5)
-    ax.set_title("Construction Time Comparison", fontsize=12, pad=20)
+            if not bpks:
+                continue
 
-    return fig, ax
+            marker, _ = _method_style(method)
+            label = f"{METHOD_DISPLAY.get(method, method)} (N={_format_n(n)})"
+            ax.plot(valid_alphas, bpks, marker=marker, markersize=5,
+                    color=n_colors[n_idx], linestyle="-" if "optimal" in method else "--",
+                    alpha=0.8 if "hash" not in method else 0.4, label=label)
+
+    ax.set_xlabel(r"$\alpha$")
+    ax.set_ylabel("Memory (bits/key)")
+    ax.set_title(f"Memory vs Alpha — {filter_type}")
+    ax.legend(fontsize=7, loc="best", ncol=2)
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    return fig
 
 
 def main():
@@ -167,74 +247,55 @@ def main():
         "lines.linewidth": 1.5,
     })
 
-    # Load combined results
-    combined_path = os.path.join(DATA_DIR, f"baselines_combined_{args.filter_type}.json")
-    combined = load_json(combined_path)
+    sweep_path = os.path.join(DATA_DIR, f"baselines_sweep_{args.filter_type}.json")
+    sweep = load_json(sweep_path)
 
-    if combined is None:
-        # Fall back to loading individual files
-        print(f"No combined file found at {combined_path}, loading individual files...")
-        import glob
-        pattern = os.path.join(DATA_DIR, f"baselines_a*_{args.filter_type}.json")
-        files = sorted(glob.glob(pattern))
-        if not files:
-            print("No data files found. Run run_baselines.py first.")
-            return
-        experiments = [load_json(f) for f in files]
-    else:
-        experiments = combined["experiments"]
+    if sweep is None:
+        print(f"No sweep file found at {sweep_path}. Run run_baselines.py first.")
+        return
 
-    # 1. Inference vs Memory scatter plots (one per experiment)
-    print("=== Inference vs Memory plots ===")
-    for exp in experiments:
-        ds = exp["dataset"]
-        fig, ax = plt.subplots(figsize=(8, 6))
-        plot_inference_vs_memory(exp, ax)
-        plt.tight_layout()
+    experiments = sweep["experiments"]
 
-        filename = f"inference_vs_memory_n{ds['N']}_a{ds['alpha']}_{ds['minority_dist']}_{args.filter_type}.png"
-        out = os.path.join(FIGURES_DIR, filename)
-        fig.savefig(out, dpi=300, bbox_inches="tight")
-        plt.close(fig)
-        print(f"  Saved: {out}")
+    # 1. Memory table (bits/key)
+    print_table(
+        f"Memory (bits/key) — {args.filter_type}",
+        experiments,
+        lambda r, ds: r["memory_bytes"] * 8 / ds["N"],
+        fmt=".2f",
+    )
 
-    # 2. Construction time table
-    print("\n=== Construction time table ===")
-    fig, ax = plt.subplots(figsize=(10, 3))
-    plot_construction_time_table(experiments, ax)
-    plt.tight_layout()
+    # 2. Inference time table (ns)
+    print_table(
+        f"Avg Inference Time (ns) — {args.filter_type}",
+        experiments,
+        lambda r, ds: r["avg_inference_time_ns"],
+        fmt=".0f",
+    )
 
-    N = experiments[0]["dataset"]["N"]
-    out = os.path.join(FIGURES_DIR, f"construction_time_table_n{N}_{args.filter_type}.png")
+    # 3. Construction time table (s)
+    print_table(
+        f"Construction Time (s) — {args.filter_type}",
+        experiments,
+        lambda r, ds: r["construction_time_s"],
+        fmt=".3f",
+    )
+
+    # 4. Inference vs Memory scatter grid
+    print("\n=== Inference vs Memory plots ===")
+    fig = plot_inference_vs_memory_grid(experiments, args.filter_type)
+    out = os.path.join(FIGURES_DIR, f"inference_vs_memory_{args.filter_type}.png")
+    os.makedirs(FIGURES_DIR, exist_ok=True)
     fig.savefig(out, dpi=300, bbox_inches="tight")
     plt.close(fig)
     print(f"  Saved: {out}")
 
-    # Also print table to stdout
-    print("\nConstruction Time (seconds):")
-    print("-" * 70)
-    header = "Method".ljust(35)
-    for exp in experiments:
-        ds = exp["dataset"]
-        header += f"  α={ds['alpha']} {ds['minority_dist'][:8]:>8}"
-    print(header)
-    print("-" * 70)
-
-    methods = []
-    for exp in experiments:
-        for r in exp["results"]:
-            if r["method"] not in methods:
-                methods.append(r["method"])
-
-    for method in methods:
-        row = METHOD_DISPLAY.get(method, method).ljust(35)
-        for exp in experiments:
-            match = next((r for r in exp["results"] if r["method"] == method), None)
-            if match:
-                row += f"  {match['construction_time_s']:>14.3f}"
-            else:
-                row += f"  {'—':>14}"
-        print(row)
+    # 5. Memory vs Alpha line plot
+    print("\n=== Memory vs Alpha plot ===")
+    fig = plot_memory_vs_alpha(experiments, args.filter_type)
+    out = os.path.join(FIGURES_DIR, f"memory_vs_alpha_{args.filter_type}.png")
+    fig.savefig(out, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  Saved: {out}")
 
 
 if __name__ == "__main__":

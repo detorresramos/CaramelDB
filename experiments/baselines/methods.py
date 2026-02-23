@@ -11,7 +11,8 @@ _dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(_dir, ".."))
 
 from data_gen import compute_actual_alpha
-from recommend_filter import best_binary_fuse, best_bloom, best_xor
+
+import theory
 
 from shibuya import empirical_entropy, shibuya_best_discrete_params
 
@@ -64,16 +65,21 @@ def _find_optimal_params(filter_type, keys, values):
     n = len(keys)
     alpha = compute_actual_alpha(values)
     n_over_N = len(np.unique(values)) / n
+    n_filter = int(n * (1 - alpha))
 
     if filter_type == "xor":
-        bits, _ = best_xor(alpha, n_over_N)
+        bits, _ = theory.best_discrete_xor(alpha, n_over_N)
         return {"fingerprint_bits": bits}
     elif filter_type == "binary_fuse":
-        bits, _ = best_binary_fuse(alpha, n_over_N)
+        bits, _ = theory.best_discrete_binary_fuse(alpha, n_over_N, n_filter)
         return {"fingerprint_bits": bits}
     elif filter_type == "bloom":
-        bpe, nh, _ = best_bloom(alpha, n_over_N)
-        return {"bloom_bits_per_element": bpe, "bloom_num_hashes": nh}
+        best_lb, best_bpe, best_k = float("-inf"), 1, 1
+        for k in range(1, 9):
+            bpe, lb = theory.best_discrete_bloom(alpha, n_over_N, k)
+            if lb > best_lb:
+                best_lb, best_bpe, best_k = lb, bpe, k
+        return {"bloom_bits_per_element": best_bpe, "bloom_num_hashes": best_k}
     else:
         raise ValueError(f"Unknown filter type: {filter_type}")
 

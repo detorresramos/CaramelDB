@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 _dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, _dir)
+sys.path.insert(0, os.path.join(_dir, ".."))
 
 import theory
 

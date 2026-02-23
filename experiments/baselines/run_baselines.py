@@ -29,18 +29,13 @@ from methods import CSFFilter, HashTable
 FIGURES_DIR = os.path.join(_dir, "figures")
 DATA_DIR = os.path.join(FIGURES_DIR, "data")
 
-DEFAULT_N = 100_000
 DEFAULT_SEED = 42
 DEFAULT_FILTER_TYPE = "binary_fuse"
 NUM_INFERENCE_QUERIES = 100
 
-SWEEP_CONFIGS = [
-    {"alpha": 0.7, "minority_dist": "unique"},
-    {"alpha": 0.8, "minority_dist": "unique"},
-    {"alpha": 0.9, "minority_dist": "unique"},
-    {"alpha": 0.8, "minority_dist": "zipfian"},
-    {"alpha": 0.8, "minority_dist": "uniform_100"},
-]
+SWEEP_NS = [100_000, 1_000_000, 10_000_000]
+SWEEP_ALPHAS = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99]
+SWEEP_DISTS = ["unique", "zipfian", "uniform_100"]
 
 
 def measure_inference_time(method, structure, keys, seed):
@@ -147,10 +142,12 @@ def parse_args():
         description="Run baseline comparisons",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("--n", type=int, default=DEFAULT_N, help="Number of keys")
-    parser.add_argument("--alpha", type=float, default=None, help="Alpha value (omit for sweep)")
-    parser.add_argument("--minority-dist", choices=MINORITY_DISTRIBUTIONS, default=None,
-                        help="Minority distribution (omit for sweep)")
+    parser.add_argument("--n", type=int, nargs="+", default=None,
+                        help="Number of keys (one or more). Omit for default sweep.")
+    parser.add_argument("--alpha", type=float, nargs="+", default=None,
+                        help="Alpha values (one or more). Omit for default sweep.")
+    parser.add_argument("--minority-dist", choices=MINORITY_DISTRIBUTIONS, nargs="+", default=None,
+                        help="Minority distributions (one or more). Omit for default sweep.")
     parser.add_argument("--dataset", type=str, default=None,
                         help="Path to CSV file with 'key' and 'value' columns")
     parser.add_argument("--filter-type", choices=["xor", "binary_fuse", "bloom"],
@@ -164,7 +161,6 @@ def main():
     os.makedirs(DATA_DIR, exist_ok=True)
 
     if args.dataset is not None:
-        # Custom dataset from CSV
         keys, values = load_dataset(args.dataset)
         alpha = float(compute_actual_alpha(values))
         n = len(keys)
@@ -179,34 +175,31 @@ def main():
         save_json(data, os.path.join(DATA_DIR, filename))
         return
 
-    if args.alpha is not None:
-        # Single experiment
-        minority_dist = args.minority_dist or "unique"
-        configs = [{"alpha": args.alpha, "minority_dist": minority_dist}]
-    else:
-        # Default sweep
-        configs = SWEEP_CONFIGS
+    ns = args.n if args.n is not None else SWEEP_NS
+    alphas = args.alpha if args.alpha is not None else SWEEP_ALPHAS
+    dists = args.minority_dist if args.minority_dist is not None else SWEEP_DISTS
 
     all_results = []
-    for cfg in configs:
-        alpha = cfg["alpha"]
-        dist = cfg["minority_dist"]
-        print(f"\n=== alpha={alpha}, dist={dist}, n={args.n}, filter={args.filter_type} ===")
+    for dist in dists:
+        for n in ns:
+            for alpha in alphas:
+                print(f"\n=== alpha={alpha}, dist={dist}, n={n:,}, filter={args.filter_type} ===")
 
-        data = run_experiment(args.n, alpha, dist, args.seed, args.filter_type)
-        all_results.append(data)
+                data = run_experiment(n, alpha, dist, args.seed, args.filter_type)
+                all_results.append(data)
 
-        filename = f"baselines_a{alpha}_{dist}_{args.filter_type}.json"
-        save_json(data, os.path.join(DATA_DIR, filename))
+                filename = f"baselines_n{n}_a{alpha}_{dist}_{args.filter_type}.json"
+                save_json(data, os.path.join(DATA_DIR, filename))
 
-    # Also save combined results
     combined = {
         "filter_type": args.filter_type,
-        "N": args.n,
+        "ns": ns,
+        "alphas": alphas,
+        "dists": dists,
         "seed": args.seed,
         "experiments": all_results,
     }
-    save_json(combined, os.path.join(DATA_DIR, f"baselines_combined_{args.filter_type}.json"))
+    save_json(combined, os.path.join(DATA_DIR, f"baselines_sweep_{args.filter_type}.json"))
 
 
 if __name__ == "__main__":

@@ -34,7 +34,8 @@ def gen_alpha_values(
     num_most_common = int(n * alpha)
     num_minority = n - num_most_common
 
-    values = np.zeros(n, dtype=np.uint32)
+    majority_value = np.uint32(2**32 - 1)
+    values = np.full(n, majority_value, dtype=np.uint32)
 
     if num_minority > 0:
         minority_values = _generate_minority_values(num_minority, minority_dist)
@@ -46,7 +47,7 @@ def gen_alpha_values(
 
 
 def _generate_minority_values(num_minority: int, minority_dist: str) -> np.ndarray:
-    # Values start at 1 to avoid collision with most_common_value=0
+    # Values start at 1 to avoid collision with majority_value=2^32-1
     if minority_dist == "unique":
         return np.arange(1, num_minority + 1, dtype=np.uint32)
     elif minority_dist == "zipfian":

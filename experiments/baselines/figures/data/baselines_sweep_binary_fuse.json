@@ -1,0 +1,2608 @@
+{
+  "filter_type": "binary_fuse",
+  "ns": [
+    100000,
+    1000000,
+    10000000
+  ],
+  "alphas": [
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.9,
+    0.95,
+    0.99
+  ],
+  "dists": [
+    "unique",
+    "zipfian",
+    "uniform_100"
+  ],
+  "seed": 42,
+  "experiments": [
+    {
+      "dataset": {
+        "N": 100000,
+        "alpha": 0.5,
+        "target_alpha": 0.5,
+        "minority_dist": "unique",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.00803754199296236,
+          "avg_inference_time_ns": 772.47,
+          "memory_bytes": 6838288,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.08372891700128093,
+          "avg_inference_time_ns": 312.57,
+          "memory_bytes": 328823,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.07580466699437238,
+          "avg_inference_time_ns": 273.06,
+          "memory_bytes": 332384,
+          "filter_params": {
+            "fingerprint_bits": 2,
+            "epsilon": 0.25,
+            "epsilon_star": 0.2101585570214528
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 100000,
+        "alpha": 0.6,
+        "target_alpha": 0.6,
+        "minority_dist": "unique",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.007028042018646374,
+          "avg_inference_time_ns": 649.17,
+          "memory_bytes": 6878256,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.06789045900222845,
+          "avg_inference_time_ns": 305.75,
+          "memory_bytes": 263639,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.06742850001319312,
+          "avg_inference_time_ns": 420.77,
+          "memory_bytes": 269512,
+          "filter_params": {
+            "fingerprint_bits": 3,
+            "epsilon": 0.125,
+            "epsilon_star": 0.17323949483812986
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 100000,
+        "alpha": 0.7,
+        "target_alpha": 0.7,
+        "minority_dist": "unique",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.0074541250069160014,
+          "avg_inference_time_ns": 436.22,
+          "memory_bytes": 6918224,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.05493670798023231,
+          "avg_inference_time_ns": 235.63,
+          "memory_bytes": 197522,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.05647808397770859,
+          "avg_inference_time_ns": 247.02,
+          "memory_bytes": 201560,
+          "filter_params": {
+            "fingerprint_bits": 3,
+            "epsilon": 0.125,
+            "epsilon_star": 0.14650155395697867
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 100000,
+        "alpha": 0.8,
+        "target_alpha": 0.8,
+        "minority_dist": "unique",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.006982791994232684,
+          "avg_inference_time_ns": 419.61,
+          "memory_bytes": 6958176,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.042604624992236495,
+          "avg_inference_time_ns": 226.31,
+          "memory_bytes": 132587,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.041407750017242506,
+          "avg_inference_time_ns": 210.05,
+          "memory_bytes": 133998,
+          "filter_params": {
+            "fingerprint_bits": 3,
+            "epsilon": 0.125,
+            "epsilon_star": 0.1255300434794468
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 100000,
+        "alpha": 0.9,
+        "target_alpha": 0.9,
+        "minority_dist": "unique",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.006422999984351918,
+          "avg_inference_time_ns": 518.67,
+          "memory_bytes": 6998144,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.03517595899756998,
+          "avg_inference_time_ns": 192.48,
+          "memory_bytes": 66768,
+          "filter_params": {
+            "fingerprint_bits": 3
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.02353116701124236,
+          "avg_inference_time_ns": 203.37,
+          "memory_bytes": 66752,
+          "filter_params": {
+            "fingerprint_bits": 3,
+            "epsilon": 0.125,
+            "epsilon_star": 0.10517998862306929
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 100000,
+        "alpha": 0.95,
+        "target_alpha": 0.95,
+        "minority_dist": "unique",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.006480874988483265,
+          "avg_inference_time_ns": 476.22,
+          "memory_bytes": 7018112,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.023807792022125795,
+          "avg_inference_time_ns": 253.3,
+          "memory_bytes": 33564,
+          "filter_params": {
+            "fingerprint_bits": 4
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.02177245798520744,
+          "avg_inference_time_ns": 202.52,
+          "memory_bytes": 33572,
+          "filter_params": {
+            "fingerprint_bits": 4,
+            "epsilon": 0.0625,
+            "epsilon_star": 0.07286244784877692
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 100000,
+        "alpha": 0.99,
+        "target_alpha": 0.99,
+        "minority_dist": "unique",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.00666312500834465,
+          "avg_inference_time_ns": 568.33,
+          "memory_bytes": 7034080,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.015844917012145743,
+          "avg_inference_time_ns": 177.47,
+          "memory_bytes": 6871,
+          "filter_params": {
+            "fingerprint_bits": 6
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.015212958998745307,
+          "avg_inference_time_ns": 177.08,
+          "memory_bytes": 6863,
+          "filter_params": {
+            "fingerprint_bits": 6,
+            "epsilon": 0.015625,
+            "epsilon_star": 0.01749238834583427
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 1000000,
+        "alpha": 0.5,
+        "target_alpha": 0.5,
+        "minority_dist": "unique",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.1227220419968944,
+          "avg_inference_time_ns": 1036.67,
+          "memory_bytes": 60751488,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.9702481669955887,
+          "avg_inference_time_ns": 358.44,
+          "memory_bytes": 3526558,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.8881360410014167,
+          "avg_inference_time_ns": 357.6,
+          "memory_bytes": 3557797,
+          "filter_params": {
+            "fingerprint_bits": 2,
+            "epsilon": 0.25,
+            "epsilon_star": 0.17737504462284762
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 1000000,
+        "alpha": 0.6,
+        "target_alpha": 0.6,
+        "minority_dist": "unique",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.11580400000093505,
+          "avg_inference_time_ns": 785.85,
+          "memory_bytes": 61151456,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.77334770798916,
+          "avg_inference_time_ns": 405.87,
+          "memory_bytes": 2822095,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.7456782920053229,
+          "avg_inference_time_ns": 377.1,
+          "memory_bytes": 2871906,
+          "filter_params": {
+            "fingerprint_bits": 3,
+            "epsilon": 0.125,
+            "epsilon_star": 0.14646204916288988
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 1000000,
+        "alpha": 0.7,
+        "target_alpha": 0.7,
+        "minority_dist": "unique",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.12340066701290198,
+          "avg_inference_time_ns": 708.77,
+          "memory_bytes": 61551424,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.6622080839879345,
+          "avg_inference_time_ns": 358.31,
+          "memory_bytes": 2115974,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.6247894999978598,
+          "avg_inference_time_ns": 371.74,
+          "memory_bytes": 2148591,
+          "filter_params": {
+            "fingerprint_bits": 3,
+            "epsilon": 0.125,
+            "epsilon_star": 0.12411398777173295
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 1000000,
+        "alpha": 0.8,
+        "target_alpha": 0.8,
+        "minority_dist": "unique",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.11987774999579415,
+          "avg_inference_time_ns": 696.67,
+          "memory_bytes": 61951392,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.48648249998223037,
+          "avg_inference_time_ns": 285.52,
+          "memory_bytes": 1418562,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.45035766597720794,
+          "avg_inference_time_ns": 301.65,
+          "memory_bytes": 1426835,
+          "filter_params": {
+            "fingerprint_bits": 3,
+            "epsilon": 0.125,
+            "epsilon_star": 0.10668537741619477
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 1000000,
+        "alpha": 0.9,
+        "target_alpha": 0.9,
+        "minority_dist": "unique",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.12107829199521802,
+          "avg_inference_time_ns": 793.79,
+          "memory_bytes": 62351344,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.2910654580045957,
+          "avg_inference_time_ns": 272.88,
+          "memory_bytes": 710889,
+          "filter_params": {
+            "fingerprint_bits": 3
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.2931597089918796,
+          "avg_inference_time_ns": 258.75,
+          "memory_bytes": 711017,
+          "filter_params": {
+            "fingerprint_bits": 3,
+            "epsilon": 0.125,
+            "epsilon_star": 0.0907728023548667
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 1000000,
+        "alpha": 0.95,
+        "target_alpha": 0.95,
+        "minority_dist": "unique",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.12157512499834411,
+          "avg_inference_time_ns": 729.96,
+          "memory_bytes": 62551312,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.23144499998306856,
+          "avg_inference_time_ns": 209.14,
+          "memory_bytes": 356323,
+          "filter_params": {
+            "fingerprint_bits": 4
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.18261891597649083,
+          "avg_inference_time_ns": 205.42,
+          "memory_bytes": 356403,
+          "filter_params": {
+            "fingerprint_bits": 4,
+            "epsilon": 0.0625,
+            "epsilon_star": 0.0682337465643145
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 1000000,
+        "alpha": 0.99,
+        "target_alpha": 0.99,
+        "minority_dist": "unique",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.12252941602491774,
+          "avg_inference_time_ns": 722.02,
+          "memory_bytes": 62711280,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.12719287499203347,
+          "avg_inference_time_ns": 222.09,
+          "memory_bytes": 71977,
+          "filter_params": {
+            "fingerprint_bits": 6
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.13256399999954738,
+          "avg_inference_time_ns": 203.34,
+          "memory_bytes": 71977,
+          "filter_params": {
+            "fingerprint_bits": 6,
+            "epsilon": 0.015625,
+            "epsilon_star": 0.01736414794696223
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 10000000,
+        "alpha": 0.5,
+        "target_alpha": 0.5,
+        "minority_dist": "unique",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 2.553816542000277,
+          "avg_inference_time_ns": 4857.11,
+          "memory_bytes": 546058856,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 12.433770708012162,
+          "avg_inference_time_ns": 758.35,
+          "memory_bytes": 37641896,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 11.040088375011692,
+          "avg_inference_time_ns": 432.2,
+          "memory_bytes": 38390807,
+          "filter_params": {
+            "fingerprint_bits": 3,
+            "epsilon": 0.125,
+            "epsilon_star": 0.15343939202682919
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 10000000,
+        "alpha": 0.6,
+        "target_alpha": 0.6,
+        "minority_dist": "unique",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 2.534284541994566,
+          "avg_inference_time_ns": 6857.02,
+          "memory_bytes": 550058856,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 10.218775291985366,
+          "avg_inference_time_ns": 405.94,
+          "memory_bytes": 30089434,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 9.358673084003385,
+          "avg_inference_time_ns": 429.23,
+          "memory_bytes": 30608707,
+          "filter_params": {
+            "fingerprint_bits": 3,
+            "epsilon": 0.125,
+            "epsilon_star": 0.12685431216382573
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 10000000,
+        "alpha": 0.7,
+        "target_alpha": 0.7,
+        "minority_dist": "unique",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 2.5262340829940513,
+          "avg_inference_time_ns": 7086.62,
+          "memory_bytes": 554058856,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 7.399271667003632,
+          "avg_inference_time_ns": 378.84,
+          "memory_bytes": 22596505,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 6.824192125000991,
+          "avg_inference_time_ns": 437.87,
+          "memory_bytes": 22870931,
+          "filter_params": {
+            "fingerprint_bits": 3,
+            "epsilon": 0.125,
+            "epsilon_star": 0.10766171356120627
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 10000000,
+        "alpha": 0.8,
+        "target_alpha": 0.8,
+        "minority_dist": "unique",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 2.542095166980289,
+          "avg_inference_time_ns": 3457.92,
+          "memory_bytes": 558058856,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 5.3501829160086345,
+          "avg_inference_time_ns": 418.32,
+          "memory_bytes": 15098586,
+          "filter_params": {
+            "fingerprint_bits": 2
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 5.016168917005416,
+          "avg_inference_time_ns": 463.67,
+          "memory_bytes": 15218704,
+          "filter_params": {
+            "fingerprint_bits": 3,
+            "epsilon": 0.125,
+            "epsilon_star": 0.09276015244010147
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 10000000,
+        "alpha": 0.9,
+        "target_alpha": 0.9,
+        "minority_dist": "unique",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 2.552399082982447,
+          "avg_inference_time_ns": 2602.93,
+          "memory_bytes": 562058856,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 3.0996829160139896,
+          "avg_inference_time_ns": 367.95,
+          "memory_bytes": 7558447,
+          "filter_params": {
+            "fingerprint_bits": 3
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 2.879572708014166,
+          "avg_inference_time_ns": 345.86,
+          "memory_bytes": 7612750,
+          "filter_params": {
+            "fingerprint_bits": 4,
+            "epsilon": 0.0625,
+            "epsilon_star": 0.07936795849215598
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 10000000,
+        "alpha": 0.95,
+        "target_alpha": 0.95,
+        "minority_dist": "unique",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 2.531378375017084,
+          "avg_inference_time_ns": 3840.39,
+          "memory_bytes": 564058856,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 1.963583375007147,
+          "avg_inference_time_ns": 352.95,
+          "memory_bytes": 3780211,
+          "filter_params": {
+            "fingerprint_bits": 4
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 1.979787459014915,
+          "avg_inference_time_ns": 333.31,
+          "memory_bytes": 3780291,
+          "filter_params": {
+            "fingerprint_bits": 4,
+            "epsilon": 0.0625,
+            "epsilon_star": 0.06370426631832263
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 10000000,
+        "alpha": 0.99,
+        "target_alpha": 0.99,
+        "minority_dist": "unique",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 2.5300285420089494,
+          "avg_inference_time_ns": 1619.2,
+          "memory_bytes": 565658856,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 1.2802185420005117,
+          "avg_inference_time_ns": 384.97,
+          "memory_bytes": 759213,
+          "filter_params": {
+            "fingerprint_bits": 6
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 1.243484750011703,
+          "avg_inference_time_ns": 289.59,
+          "memory_bytes": 759397,
+          "filter_params": {
+            "fingerprint_bits": 6,
+            "epsilon": 0.015625,
+            "epsilon_star": 0.017230901587639128
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 100000,
+        "alpha": 0.5,
+        "target_alpha": 0.5,
+        "minority_dist": "zipfian",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.007161458022892475,
+          "avg_inference_time_ns": 391.19,
+          "memory_bytes": 5510096,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.03769562498200685,
+          "avg_inference_time_ns": 264.9,
+          "memory_bytes": 57104,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.03595220801071264,
+          "avg_inference_time_ns": 241.74,
+          "memory_bytes": 57120,
+          "filter_params": {
+            "fingerprint_bits": 1,
+            "epsilon": 0.5,
+            "epsilon_star": 0.5506976619132353
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 100000,
+        "alpha": 0.6,
+        "target_alpha": 0.6,
+        "minority_dist": "zipfian",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.006999667006311938,
+          "avg_inference_time_ns": 402.99,
+          "memory_bytes": 5817468,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.03701345800072886,
+          "avg_inference_time_ns": 260.48,
+          "memory_bytes": 48311,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.0343367499881424,
+          "avg_inference_time_ns": 222.96,
+          "memory_bytes": 48351,
+          "filter_params": {
+            "fingerprint_bits": 1,
+            "epsilon": 0.5,
+            "epsilon_star": 0.42701160953773487
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 100000,
+        "alpha": 0.7,
+        "target_alpha": 0.7,
+        "minority_dist": "zipfian",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.007760500011499971,
+          "avg_inference_time_ns": 416.18,
+          "memory_bytes": 6124756,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.028172624995931983,
+          "avg_inference_time_ns": 236.57,
+          "memory_bytes": 38882,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.029415083001367748,
+          "avg_inference_time_ns": 290.81,
+          "memory_bytes": 40384,
+          "filter_params": {
+            "fingerprint_bits": 2,
+            "epsilon": 0.25,
+            "epsilon_star": 0.33578328027696847
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 100000,
+        "alpha": 0.8,
+        "target_alpha": 0.8,
+        "minority_dist": "zipfian",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.007358000002568588,
+          "avg_inference_time_ns": 429.93,
+          "memory_bytes": 6431176,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.024830874986946583,
+          "avg_inference_time_ns": 251.23,
+          "memory_bytes": 28976,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.02196179100428708,
+          "avg_inference_time_ns": 198.75,
+          "memory_bytes": 28837,
+          "filter_params": {
+            "fingerprint_bits": 2,
+            "epsilon": 0.25,
+            "epsilon_star": 0.2570674697106186
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 100000,
+        "alpha": 0.9,
+        "target_alpha": 0.9,
+        "minority_dist": "zipfian",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.0074484159995336086,
+          "avg_inference_time_ns": 425.39,
+          "memory_bytes": 6739136,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.01776316700852476,
+          "avg_inference_time_ns": 228.74,
+          "memory_bytes": 16926,
+          "filter_params": {
+            "fingerprint_bits": 3
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.018227291002403945,
+          "avg_inference_time_ns": 192.08,
+          "memory_bytes": 16894,
+          "filter_params": {
+            "fingerprint_bits": 3,
+            "epsilon": 0.125,
+            "epsilon_star": 0.15307910404298583
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 100000,
+        "alpha": 0.95,
+        "target_alpha": 0.95,
+        "minority_dist": "zipfian",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.006980915990425274,
+          "avg_inference_time_ns": 466.22,
+          "memory_bytes": 6892332,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.015315041993744671,
+          "avg_inference_time_ns": 178.31,
+          "memory_bytes": 9687,
+          "filter_params": {
+            "fingerprint_bits": 4
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.015107750019524246,
+          "avg_inference_time_ns": 201.2,
+          "memory_bytes": 9671,
+          "filter_params": {
+            "fingerprint_bits": 4,
+            "epsilon": 0.0625,
+            "epsilon_star": 0.0836706130371534
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 100000,
+        "alpha": 0.99,
+        "target_alpha": 0.99,
+        "minority_dist": "zipfian",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.007111040991730988,
+          "avg_inference_time_ns": 434.24,
+          "memory_bytes": 7014508,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.013049166998825967,
+          "avg_inference_time_ns": 185.4,
+          "memory_bytes": 2603,
+          "filter_params": {
+            "fingerprint_bits": 6
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.013413665990810841,
+          "avg_inference_time_ns": 179.21,
+          "memory_bytes": 2611,
+          "filter_params": {
+            "fingerprint_bits": 6,
+            "epsilon": 0.015625,
+            "epsilon_star": 0.017708938871082904
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 1000000,
+        "alpha": 0.5,
+        "target_alpha": 0.5,
+        "minority_dist": "zipfian",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.13645091699436307,
+          "avg_inference_time_ns": 782.93,
+          "memory_bytes": 47425744,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.3443860420084093,
+          "avg_inference_time_ns": 374.2,
+          "memory_bytes": 532270,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.34066254197387025,
+          "avg_inference_time_ns": 301.26,
+          "memory_bytes": 532030,
+          "filter_params": {
+            "fingerprint_bits": 1,
+            "epsilon": 0.5,
+            "epsilon_star": 0.5445416937018799
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 1000000,
+        "alpha": 0.6,
+        "target_alpha": 0.6,
+        "minority_dist": "zipfian",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.12698520798585378,
+          "avg_inference_time_ns": 729.96,
+          "memory_bytes": 50493920,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.3035203330218792,
+          "avg_inference_time_ns": 286.38,
+          "memory_bytes": 449580,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.3042676670011133,
+          "avg_inference_time_ns": 329.1,
+          "memory_bytes": 449653,
+          "filter_params": {
+            "fingerprint_bits": 1,
+            "epsilon": 0.5,
+            "epsilon_star": 0.42216173654499173
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 1000000,
+        "alpha": 0.7,
+        "target_alpha": 0.7,
+        "minority_dist": "zipfian",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.12203437500284053,
+          "avg_inference_time_ns": 750.02,
+          "memory_bytes": 53559316,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.27951299998676404,
+          "avg_inference_time_ns": 316.26,
+          "memory_bytes": 358827,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.2691693329834379,
+          "avg_inference_time_ns": 403.31,
+          "memory_bytes": 371757,
+          "filter_params": {
+            "fingerprint_bits": 2,
+            "epsilon": 0.25,
+            "epsilon_star": 0.33264901237428673
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 1000000,
+        "alpha": 0.8,
+        "target_alpha": 0.8,
+        "minority_dist": "zipfian",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.12864320899825543,
+          "avg_inference_time_ns": 1008.68,
+          "memory_bytes": 56621832,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.21546012500766665,
+          "avg_inference_time_ns": 282.12,
+          "memory_bytes": 267813,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.22014087499701418,
+          "avg_inference_time_ns": 327.07,
+          "memory_bytes": 263540,
+          "filter_params": {
+            "fingerprint_bits": 2,
+            "epsilon": 0.25,
+            "epsilon_star": 0.2547006169555854
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 1000000,
+        "alpha": 0.9,
+        "target_alpha": 0.9,
+        "minority_dist": "zipfian",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.14138216600986198,
+          "avg_inference_time_ns": 675.85,
+          "memory_bytes": 59692716,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.1661740420095157,
+          "avg_inference_time_ns": 251.18,
+          "memory_bytes": 151261,
+          "filter_params": {
+            "fingerprint_bits": 3
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.16469750000396743,
+          "avg_inference_time_ns": 258.73,
+          "memory_bytes": 151229,
+          "filter_params": {
+            "fingerprint_bits": 3,
+            "epsilon": 0.125,
+            "epsilon_star": 0.15246387205726603
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 1000000,
+        "alpha": 0.95,
+        "target_alpha": 0.95,
+        "minority_dist": "zipfian",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.12250008399132639,
+          "avg_inference_time_ns": 657.48,
+          "memory_bytes": 61223552,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.1404362500179559,
+          "avg_inference_time_ns": 212.89,
+          "memory_bytes": 84605,
+          "filter_params": {
+            "fingerprint_bits": 4
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.13818774998071603,
+          "avg_inference_time_ns": 239.56,
+          "memory_bytes": 84662,
+          "filter_params": {
+            "fingerprint_bits": 4,
+            "epsilon": 0.0625,
+            "epsilon_star": 0.08349876594503045
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 1000000,
+        "alpha": 0.99,
+        "target_alpha": 0.99,
+        "minority_dist": "zipfian",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.13415041702683084,
+          "avg_inference_time_ns": 571.16,
+          "memory_bytes": 62452592,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.12022787501337007,
+          "avg_inference_time_ns": 180.45,
+          "memory_bytes": 22186,
+          "filter_params": {
+            "fingerprint_bits": 6
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.11664545797975734,
+          "avg_inference_time_ns": 166.23,
+          "memory_bytes": 22202,
+          "filter_params": {
+            "fingerprint_bits": 6,
+            "epsilon": 0.015625,
+            "epsilon_star": 0.017693773945855248
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 10000000,
+        "alpha": 0.5,
+        "target_alpha": 0.5,
+        "minority_dist": "zipfian",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 2.578798333997838,
+          "avg_inference_time_ns": 941.28,
+          "memory_bytes": 412734108,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 3.436651957978029,
+          "avg_inference_time_ns": 349.2,
+          "memory_bytes": 5159133,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 3.5093716660048813,
+          "avg_inference_time_ns": 325.03,
+          "memory_bytes": 5159414,
+          "filter_params": {
+            "fingerprint_bits": 1,
+            "epsilon": 0.5,
+            "epsilon_star": 0.541659567516708
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 10000000,
+        "alpha": 0.6,
+        "target_alpha": 0.6,
+        "minority_dist": "zipfian",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 2.542855874984525,
+          "avg_inference_time_ns": 1948.38,
+          "memory_bytes": 443395268,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 3.1262456249969546,
+          "avg_inference_time_ns": 340.75,
+          "memory_bytes": 4345643,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 3.1446680419903714,
+          "avg_inference_time_ns": 350.77,
+          "memory_bytes": 4346348,
+          "filter_params": {
+            "fingerprint_bits": 1,
+            "epsilon": 0.5,
+            "epsilon_star": 0.42027304467517296
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 10000000,
+        "alpha": 0.7,
+        "target_alpha": 0.7,
+        "minority_dist": "zipfian",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 2.557667916000355,
+          "avg_inference_time_ns": 2396.66,
+          "memory_bytes": 474069524,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 2.6795638329931535,
+          "avg_inference_time_ns": 325.05,
+          "memory_bytes": 3463485,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 2.6300300830043852,
+          "avg_inference_time_ns": 331.61,
+          "memory_bytes": 3585933,
+          "filter_params": {
+            "fingerprint_bits": 2,
+            "epsilon": 0.25,
+            "epsilon_star": 0.331099313907247
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 10000000,
+        "alpha": 0.8,
+        "target_alpha": 0.8,
+        "minority_dist": "zipfian",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 2.558297124982346,
+          "avg_inference_time_ns": 1889.53,
+          "memory_bytes": 504734600,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 2.2774808749963995,
+          "avg_inference_time_ns": 396.29,
+          "memory_bytes": 2534084,
+          "filter_params": {
+            "fingerprint_bits": 2
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 2.1673189169960096,
+          "avg_inference_time_ns": 344.65,
+          "memory_bytes": 2534493,
+          "filter_params": {
+            "fingerprint_bits": 2,
+            "epsilon": 0.25,
+            "epsilon_star": 0.25353177360039414
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 10000000,
+        "alpha": 0.9,
+        "target_alpha": 0.9,
+        "minority_dist": "zipfian",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 2.5415617499966174,
+          "avg_inference_time_ns": 5342.52,
+          "memory_bytes": 535395932,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 1.622253958019428,
+          "avg_inference_time_ns": 454.14,
+          "memory_bytes": 1430622,
+          "filter_params": {
+            "fingerprint_bits": 3
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 1.6055501659866422,
+          "avg_inference_time_ns": 313.36,
+          "memory_bytes": 1430421,
+          "filter_params": {
+            "fingerprint_bits": 3,
+            "epsilon": 0.125,
+            "epsilon_star": 0.15225434353348224
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 10000000,
+        "alpha": 0.95,
+        "target_alpha": 0.95,
+        "minority_dist": "zipfian",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 2.5369346250081435,
+          "avg_inference_time_ns": 3362.13,
+          "memory_bytes": 550733344,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 1.3374854170251638,
+          "avg_inference_time_ns": 303.72,
+          "memory_bytes": 795230,
+          "filter_params": {
+            "fingerprint_bits": 4
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 1.331672875006916,
+          "avg_inference_time_ns": 307.58,
+          "memory_bytes": 795632,
+          "filter_params": {
+            "fingerprint_bits": 4,
+            "epsilon": 0.0625,
+            "epsilon_star": 0.08339857535260775
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 10000000,
+        "alpha": 0.99,
+        "target_alpha": 0.99,
+        "minority_dist": "zipfian",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 2.5316570000140928,
+          "avg_inference_time_ns": 2552.05,
+          "memory_bytes": 563000316,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 1.1545871660055127,
+          "avg_inference_time_ns": 275.41,
+          "memory_bytes": 200135,
+          "filter_params": {
+            "fingerprint_bits": 6
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 1.159083834005287,
+          "avg_inference_time_ns": 247.49,
+          "memory_bytes": 200095,
+          "filter_params": {
+            "fingerprint_bits": 6,
+            "epsilon": 0.015625,
+            "epsilon_star": 0.017690117627387418
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 100000,
+        "alpha": 0.5,
+        "target_alpha": 0.5,
+        "minority_dist": "uniform_100",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.007085916993673891,
+          "avg_inference_time_ns": 374.57,
+          "memory_bytes": 5444968,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.045423916017170995,
+          "avg_inference_time_ns": 330.01,
+          "memory_bytes": 65139,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.05044991700560786,
+          "avg_inference_time_ns": 258.34,
+          "memory_bytes": 65115,
+          "filter_params": {
+            "fingerprint_bits": 1,
+            "epsilon": 0.5,
+            "epsilon_star": 0.419415942834956
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 100000,
+        "alpha": 0.6,
+        "target_alpha": 0.6,
+        "minority_dist": "uniform_100",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.00701695799943991,
+          "avg_inference_time_ns": 394.96,
+          "memory_bytes": 5764968,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.04407358300522901,
+          "avg_inference_time_ns": 275.8,
+          "memory_bytes": 54408,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.04754800000227988,
+          "avg_inference_time_ns": 245.47,
+          "memory_bytes": 56577,
+          "filter_params": {
+            "fingerprint_bits": 2,
+            "epsilon": 0.25,
+            "epsilon_star": 0.33051348396310354
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 100000,
+        "alpha": 0.7,
+        "target_alpha": 0.7,
+        "minority_dist": "uniform_100",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.007121959002688527,
+          "avg_inference_time_ns": 447.11,
+          "memory_bytes": 6084968,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.0346338750096038,
+          "avg_inference_time_ns": 277.03,
+          "memory_bytes": 42707,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.033515874994918704,
+          "avg_inference_time_ns": 217.87,
+          "memory_bytes": 44430,
+          "filter_params": {
+            "fingerprint_bits": 2,
+            "epsilon": 0.25,
+            "epsilon_star": 0.2649071085623013
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 100000,
+        "alpha": 0.8,
+        "target_alpha": 0.8,
+        "minority_dist": "uniform_100",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.007437666994519532,
+          "avg_inference_time_ns": 439.52,
+          "memory_bytes": 6404968,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.0292985420092009,
+          "avg_inference_time_ns": 240.75,
+          "memory_bytes": 31157,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.028619000018807128,
+          "avg_inference_time_ns": 242.06,
+          "memory_bytes": 31137,
+          "filter_params": {
+            "fingerprint_bits": 2,
+            "epsilon": 0.25,
+            "epsilon_star": 0.21155843822572462
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 100000,
+        "alpha": 0.9,
+        "target_alpha": 0.9,
+        "minority_dist": "uniform_100",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.0071544169913977385,
+          "avg_inference_time_ns": 496.25,
+          "memory_bytes": 6724968,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.022276584000792354,
+          "avg_inference_time_ns": 190.86,
+          "memory_bytes": 17625,
+          "filter_params": {
+            "fingerprint_bits": 3
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.018883083015680313,
+          "avg_inference_time_ns": 189.92,
+          "memory_bytes": 17577,
+          "filter_params": {
+            "fingerprint_bits": 3,
+            "epsilon": 0.125,
+            "epsilon_star": 0.14022907898384862
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 100000,
+        "alpha": 0.95,
+        "target_alpha": 0.95,
+        "minority_dist": "uniform_100",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.00716220898902975,
+          "avg_inference_time_ns": 427.9,
+          "memory_bytes": 6884968,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.017527583986520767,
+          "avg_inference_time_ns": 180.4,
+          "memory_bytes": 9868,
+          "filter_params": {
+            "fingerprint_bits": 4
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.019223582989070565,
+          "avg_inference_time_ns": 172.92,
+          "memory_bytes": 9900,
+          "filter_params": {
+            "fingerprint_bits": 4,
+            "epsilon": 0.0625,
+            "epsilon_star": 0.08068536264059009
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 100000,
+        "alpha": 0.99,
+        "target_alpha": 0.99,
+        "minority_dist": "uniform_100",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.007134083018172532,
+          "avg_inference_time_ns": 426.27,
+          "memory_bytes": 7012968,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.015308958012610674,
+          "avg_inference_time_ns": 188.79,
+          "memory_bytes": 2783,
+          "filter_params": {
+            "fingerprint_bits": 6
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.0165575830033049,
+          "avg_inference_time_ns": 182.09,
+          "memory_bytes": 2799,
+          "filter_params": {
+            "fingerprint_bits": 6,
+            "epsilon": 0.015625,
+            "epsilon_star": 0.01761829617393988
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 1000000,
+        "alpha": 0.5,
+        "target_alpha": 0.5,
+        "minority_dist": "uniform_100",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.12162974997772835,
+          "avg_inference_time_ns": 604.58,
+          "memory_bytes": 46758424,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.40778479201253504,
+          "avg_inference_time_ns": 302.14,
+          "memory_bytes": 642905,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.4173810000065714,
+          "avg_inference_time_ns": 291.61,
+          "memory_bytes": 643338,
+          "filter_params": {
+            "fingerprint_bits": 1,
+            "epsilon": 0.5,
+            "epsilon_star": 0.4193514833548801
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 1000000,
+        "alpha": 0.6,
+        "target_alpha": 0.6,
+        "minority_dist": "uniform_100",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.1223299169796519,
+          "avg_inference_time_ns": 567.53,
+          "memory_bytes": 49958424,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.359366292017512,
+          "avg_inference_time_ns": 328.37,
+          "memory_bytes": 536927,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.33037045897799544,
+          "avg_inference_time_ns": 346.59,
+          "memory_bytes": 554918,
+          "filter_params": {
+            "fingerprint_bits": 2,
+            "epsilon": 0.25,
+            "epsilon_star": 0.33044684701979504
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 1000000,
+        "alpha": 0.7,
+        "target_alpha": 0.7,
+        "minority_dist": "uniform_100",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.12226358297630213,
+          "avg_inference_time_ns": 574.22,
+          "memory_bytes": 53158424,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.31410816599964164,
+          "avg_inference_time_ns": 301.29,
+          "memory_bytes": 420761,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.29510858398862183,
+          "avg_inference_time_ns": 329.55,
+          "memory_bytes": 434554,
+          "filter_params": {
+            "fingerprint_bits": 2,
+            "epsilon": 0.25,
+            "epsilon_star": 0.2648423323658917
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 1000000,
+        "alpha": 0.8,
+        "target_alpha": 0.8,
+        "minority_dist": "uniform_100",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.11790325000765733,
+          "avg_inference_time_ns": 596.69,
+          "memory_bytes": 56358424,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.27117266700952314,
+          "avg_inference_time_ns": 289.23,
+          "memory_bytes": 305865,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.2585827919829171,
+          "avg_inference_time_ns": 306.27,
+          "memory_bytes": 303793,
+          "filter_params": {
+            "fingerprint_bits": 2,
+            "epsilon": 0.25,
+            "epsilon_star": 0.21149744761019645
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 1000000,
+        "alpha": 0.9,
+        "target_alpha": 0.9,
+        "minority_dist": "uniform_100",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.13426787502248771,
+          "avg_inference_time_ns": 659.21,
+          "memory_bytes": 59558424,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.18865724999341182,
+          "avg_inference_time_ns": 244.16,
+          "memory_bytes": 168588,
+          "filter_params": {
+            "fingerprint_bits": 3
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.20013087498955429,
+          "avg_inference_time_ns": 264.91,
+          "memory_bytes": 168444,
+          "filter_params": {
+            "fingerprint_bits": 3,
+            "epsilon": 0.125,
+            "epsilon_star": 0.1401901416067351
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 1000000,
+        "alpha": 0.95,
+        "target_alpha": 0.95,
+        "minority_dist": "uniform_100",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.11846054199850187,
+          "avg_inference_time_ns": 571.25,
+          "memory_bytes": 61158424,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.15555079202749766,
+          "avg_inference_time_ns": 203.35,
+          "memory_bytes": 92398,
+          "filter_params": {
+            "fingerprint_bits": 4
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.15179233299568295,
+          "avg_inference_time_ns": 207.51,
+          "memory_bytes": 92358,
+          "filter_params": {
+            "fingerprint_bits": 4,
+            "epsilon": 0.0625,
+            "epsilon_star": 0.08066507200642922
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 1000000,
+        "alpha": 0.99,
+        "target_alpha": 0.99,
+        "minority_dist": "uniform_100",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 0.12328758300282061,
+          "avg_inference_time_ns": 544.95,
+          "memory_bytes": 62438424,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 0.12602437500027008,
+          "avg_inference_time_ns": 178.77,
+          "memory_bytes": 22826,
+          "filter_params": {
+            "fingerprint_bits": 6
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 0.12749891600105911,
+          "avg_inference_time_ns": 196.31,
+          "memory_bytes": 22818,
+          "filter_params": {
+            "fingerprint_bits": 6,
+            "epsilon": 0.015625,
+            "epsilon_star": 0.017615626020968635
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 10000000,
+        "alpha": 0.5,
+        "target_alpha": 0.5,
+        "minority_dist": "uniform_100",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 2.5364914160163607,
+          "avg_inference_time_ns": 1782.48,
+          "memory_bytes": 406066024,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 4.1642993329733144,
+          "avg_inference_time_ns": 335.38,
+          "memory_bytes": 6426198,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 4.037339625007007,
+          "avg_inference_time_ns": 339.15,
+          "memory_bytes": 6425661,
+          "filter_params": {
+            "fingerprint_bits": 1,
+            "epsilon": 0.5,
+            "epsilon_star": 0.41934462491723973
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 10000000,
+        "alpha": 0.6,
+        "target_alpha": 0.6,
+        "minority_dist": "uniform_100",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 2.5400259160087444,
+          "avg_inference_time_ns": 2011.64,
+          "memory_bytes": 438066024,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 3.585091667016968,
+          "avg_inference_time_ns": 346.65,
+          "memory_bytes": 5361918,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 3.450279375014361,
+          "avg_inference_time_ns": 402.46,
+          "memory_bytes": 5535475,
+          "filter_params": {
+            "fingerprint_bits": 2,
+            "epsilon": 0.25,
+            "epsilon_star": 0.3304404877843527
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 10000000,
+        "alpha": 0.7,
+        "target_alpha": 0.7,
+        "minority_dist": "uniform_100",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 2.5606792499893345,
+          "avg_inference_time_ns": 2471.27,
+          "memory_bytes": 470066024,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 3.1525250829872675,
+          "avg_inference_time_ns": 335.35,
+          "memory_bytes": 4199871,
+          "filter_params": {
+            "fingerprint_bits": 1
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 3.0150341670087073,
+          "avg_inference_time_ns": 336.23,
+          "memory_bytes": 4330195,
+          "filter_params": {
+            "fingerprint_bits": 2,
+            "epsilon": 0.25,
+            "epsilon_star": 0.2648362186451841
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 10000000,
+        "alpha": 0.8,
+        "target_alpha": 0.8,
+        "minority_dist": "uniform_100",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 2.5595315840037074,
+          "avg_inference_time_ns": 2631.66,
+          "memory_bytes": 502066024,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 2.4521842910035048,
+          "avg_inference_time_ns": 335.07,
+          "memory_bytes": 3021989,
+          "filter_params": {
+            "fingerprint_bits": 2
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 2.457498083997052,
+          "avg_inference_time_ns": 356.34,
+          "memory_bytes": 3022414,
+          "filter_params": {
+            "fingerprint_bits": 2,
+            "epsilon": 0.25,
+            "epsilon_star": 0.21149042827869816
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 10000000,
+        "alpha": 0.9,
+        "target_alpha": 0.9,
+        "minority_dist": "uniform_100",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 2.5985515830107033,
+          "avg_inference_time_ns": 3617.56,
+          "memory_bytes": 534066024,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 1.7644509169913363,
+          "avg_inference_time_ns": 317.44,
+          "memory_bytes": 1663790,
+          "filter_params": {
+            "fingerprint_bits": 3
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 1.7797678750066552,
+          "avg_inference_time_ns": 307.54,
+          "memory_bytes": 1663718,
+          "filter_params": {
+            "fingerprint_bits": 3,
+            "epsilon": 0.125,
+            "epsilon_star": 0.14018606808972095
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 10000000,
+        "alpha": 0.95,
+        "target_alpha": 0.95,
+        "minority_dist": "uniform_100",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 2.525355625024531,
+          "avg_inference_time_ns": 3573.36,
+          "memory_bytes": 550066024,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 1.4397549589921255,
+          "avg_inference_time_ns": 337.52,
+          "memory_bytes": 904767,
+          "filter_params": {
+            "fingerprint_bits": 4
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 1.4317223750113044,
+          "avg_inference_time_ns": 315.01,
+          "memory_bytes": 904591,
+          "filter_params": {
+            "fingerprint_bits": 4,
+            "epsilon": 0.0625,
+            "epsilon_star": 0.08066320958284305
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    },
+    {
+      "dataset": {
+        "N": 10000000,
+        "alpha": 0.99,
+        "target_alpha": 0.99,
+        "minority_dist": "uniform_100",
+        "seed": 42
+      },
+      "results": [
+        {
+          "method": "hash_table",
+          "construction_time_s": 2.53422383297584,
+          "avg_inference_time_ns": 4649.96,
+          "memory_bytes": 562866024,
+          "filter_params": null,
+          "filter_type": null
+        },
+        {
+          "method": "csf_filter_optimal_binary_fuse",
+          "construction_time_s": 1.1793940410134383,
+          "avg_inference_time_ns": 247.07,
+          "memory_bytes": 216640,
+          "filter_params": {
+            "fingerprint_bits": 6
+          },
+          "filter_type": "binary_fuse"
+        },
+        {
+          "method": "csf_filter_shibuya_binary_fuse",
+          "construction_time_s": 1.1686459170014132,
+          "avg_inference_time_ns": 239.59,
+          "memory_bytes": 216728,
+          "filter_params": {
+            "fingerprint_bits": 6,
+            "epsilon": 0.015625,
+            "epsilon_star": 0.01761538213456485
+          },
+          "filter_type": "binary_fuse"
+        }
+      ]
+    }
+  ]
+}
