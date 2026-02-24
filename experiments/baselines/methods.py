@@ -1,6 +1,10 @@
+import json
 import os
+import shutil
+import subprocess
 import sys
 import tempfile
+import warnings
 
 import carameldb
 import numpy as np
@@ -189,3 +193,99 @@ class CSFFilter:
 
     def get_params(self):
         return self._params
+
+
+CARAMEL_JAVA_DIR = os.path.normpath(
+    os.path.join(_dir, "..", "..", "..", "caramel-java")
+)
+JAVA_CSF_JAR = os.path.join(
+    CARAMEL_JAVA_DIR, "java-caramel", "target", "java-caramel-1.0-SNAPSHOT.jar"
+)
+JAVA_MPH_JAR = os.path.join(
+    CARAMEL_JAVA_DIR, "java-mph", "target", "mph-table-1.0.6-SNAPSHOT.jar"
+)
+
+
+def _find_java():
+    homebrew_java = "/opt/homebrew/opt/openjdk/bin/java"
+    if os.path.isfile(homebrew_java):
+        return homebrew_java
+    return shutil.which("java")
+
+
+def _run_java_benchmark(jar_path, main_class, keys, values, seed, num_queries=100):
+    java_bin = _find_java()
+    if java_bin is None:
+        warnings.warn("java not found on PATH, skipping Java benchmark")
+        return None
+    if not os.path.isfile(jar_path):
+        warnings.warn(f"JAR not found: {jar_path}, skipping Java benchmark")
+        return None
+
+    tmp_paths = []
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            tmp_paths.append(f.name)
+            f.write("\n".join(keys))
+
+        with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
+            tmp_paths.append(f.name)
+            f.write(np.array(values, dtype=">u8").tobytes())
+
+        tmp_keys, tmp_values = tmp_paths
+        cmd = [
+            java_bin,
+            "-Dorg.slf4j.simpleLogger.logFile=System.err",
+            "--add-opens=java.base/java.io=ALL-UNNAMED",
+            "--add-opens=java.base/java.nio=ALL-UNNAMED",
+            "--enable-native-access=ALL-UNNAMED",
+            "-Xmx4g",
+            "-cp",
+            jar_path,
+            main_class,
+            tmp_keys,
+            tmp_values,
+            str(seed),
+            str(num_queries),
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+        if result.returncode != 0:
+            warnings.warn(
+                f"Java benchmark failed (rc={result.returncode}):\n{result.stderr}"
+            )
+            return None
+        return json.loads(result.stdout)
+    except subprocess.TimeoutExpired:
+        warnings.warn("Java benchmark timed out after 600s")
+        return None
+    except Exception as e:
+        warnings.warn(f"Java benchmark error: {e}")
+        return None
+    finally:
+        for path in tmp_paths:
+            if os.path.exists(path):
+                os.unlink(path)
+
+
+class JavaBenchmark:
+    def __init__(self, name, jar_path, main_class, params=None):
+        self.name = name
+        self._jar_path = jar_path
+        self._main_class = main_class
+        self._params = params
+
+    def run_full_benchmark(self, keys, values, seed):
+        return _run_java_benchmark(self._jar_path, self._main_class, keys, values, seed)
+
+    def get_params(self):
+        return self._params
+
+
+def JavaCSF():
+    return JavaBenchmark(
+        "java_csf", JAVA_CSF_JAR, "com.randorithms.app.Benchmark", {"codec": "Huffman"}
+    )
+
+
+def JavaMPH():
+    return JavaBenchmark("java_mph", JAVA_MPH_JAR, "com.indeed.mph.Benchmark")

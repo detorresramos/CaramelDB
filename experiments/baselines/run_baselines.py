@@ -27,7 +27,7 @@ from data_gen import (
     gen_alpha_values,
     gen_keys,
 )
-from methods import CppHashTable, CSFFilter, HashTable
+from methods import CppHashTable, CSFFilter, HashTable, JavaCSF, JavaMPH
 
 FIGURES_DIR = os.path.join(_dir, "figures")
 DATA_DIR = os.path.join(FIGURES_DIR, "data")
@@ -76,6 +76,28 @@ def measure_tracemalloc(method, keys, values):
     tracemalloc.stop()
     stats = snap_after.compare_to(snap_before, "lineno")
     return sum(s.size_diff for s in stats if s.size_diff > 0)
+
+
+def _print_result_summary(result):
+    inf = result["inference_ns"]
+    mem = result["memory"]
+    if "tracemalloc" in mem:
+        memory_desc = f"tracemalloc={mem['tracemalloc']:,}B"
+    else:
+        memory_desc = f"serialized={mem.get('serialized_bytes', 0):,}B"
+    print(
+        f"    construction={result['construction_time_s']:.3f}s  "
+        f"inference={inf['mean']:.0f}ns (p99={inf['p99']:.0f})  "
+        f"{memory_desc}"
+    )
+
+
+def run_java_method(method, keys, values, seed):
+    result = method.run_full_benchmark(keys, values, seed)
+    if result is None:
+        return None
+    result["filter_params"] = method.get_params()
+    return result
 
 
 def run_single_method(method, keys, values, seed):
@@ -129,13 +151,17 @@ def run_experiment(n, alpha, minority_dist, seed, filter_type, keys=None, values
         result = run_single_method(method, keys, values, seed)
         result["filter_type"] = getattr(method, "filter_type", None)
         results.append(result)
-        inf = result["inference_ns"]
-        mem = result["memory"]
-        print(
-            f"    construction={result['construction_time_s']:.3f}s  "
-            f"inference={inf['mean']:.0f}ns (p99={inf['p99']:.0f})  "
-            f"tracemalloc={mem['tracemalloc']:,}B"
-        )
+        _print_result_summary(result)
+
+    for java_method in [JavaCSF(), JavaMPH()]:
+        print(f"  Running {java_method.name}...")
+        result = run_java_method(java_method, keys, values, seed)
+        if result is None:
+            print("    Skipped (Java not available or JAR not built)")
+            continue
+        result["filter_type"] = None
+        results.append(result)
+        _print_result_summary(result)
 
     return {
         "dataset": {

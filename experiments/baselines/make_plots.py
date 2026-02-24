@@ -26,37 +26,39 @@ METHOD_DISPLAY = {
     "csf_filter_optimal_binary_fuse": "CSF+BinaryFuse (Optimal)",
     "csf_filter_optimal_bloom": "CSF+Bloom (Optimal)",
     "csf_filter_shibuya_bloom": "CSF+Bloom (Shibuya)",
+    "java_csf": "Java CSF (Sux4J)",
+    "java_mph": "Java MPH Table",
 }
 
 METHOD_MARKERS = {
     "cpp_hash_table": "D",
     "csf_filter_optimal": "o",
     "csf_filter_shibuya": "^",
+    "java_csf": "s",
+    "java_mph": "P",
 }
 
 METHOD_COLORS = {
     "cpp_hash_table": "tab:red",
     "csf_filter_optimal": "tab:blue",
     "csf_filter_shibuya": "tab:orange",
+    "java_csf": "tab:green",
+    "java_mph": "tab:purple",
 }
 
 
-PLOT_METHODS = {"cpp_hash_table", "csf_filter_optimal", "csf_filter_shibuya"}
-
-
 def _should_plot(method_name):
-    return any(method_name.startswith(p) or method_name == p for p in PLOT_METHODS)
+    return any(method_name.startswith(p) for p in METHOD_MARKERS)
 
 
 def _get_memory_bytes(result):
-    """Extract a single memory number for plotting.
-
-    Uses theoretical for hash tables, serialized for CSFs.
-    """
+    """Extract a single memory number (in bytes) for plotting."""
     mem = result.get("memory")
     if mem is not None:
         if "theoretical" in mem:
             return mem["theoretical"]
+        if "serialized_bytes" in mem:
+            return mem["serialized_bytes"]
         if "serialized" in mem:
             return mem["serialized"]
         csf = mem.get("csf_stats")
@@ -92,7 +94,7 @@ def _format_n(n):
 
 def _method_style(method_name):
     for prefix in METHOD_MARKERS:
-        if method_name.startswith(prefix) or method_name == prefix:
+        if method_name.startswith(prefix):
             return METHOD_MARKERS[prefix], METHOD_COLORS[prefix]
     return "o", "tab:blue"
 
@@ -110,6 +112,16 @@ def filter_by_dist(experiments, dist):
     return [e for e in experiments if e["dataset"]["minority_dist"] == dist]
 
 
+def _collect_plottable_methods(experiments):
+    """Return ordered list of unique method names that should be plotted."""
+    methods = []
+    for exp in experiments:
+        for r in exp["results"]:
+            if r["method"] not in methods and _should_plot(r["method"]):
+                methods.append(r["method"])
+    return methods
+
+
 def print_table(title, experiments, value_fn, fmt=".1f"):
     dists = sorted(set(exp["dataset"]["minority_dist"] for exp in experiments))
     grid = build_grid(experiments)
@@ -119,11 +131,7 @@ def print_table(title, experiments, value_fn, fmt=".1f"):
         ns = sorted(set(exp["dataset"]["N"] for exp in dist_exps))
         alphas = sorted(set(exp["dataset"]["alpha"] for exp in dist_exps))
 
-        methods = []
-        for exp in dist_exps:
-            for r in exp["results"]:
-                if r["method"] not in methods and _should_plot(r["method"]):
-                    methods.append(r["method"])
+        methods = _collect_plottable_methods(dist_exps)
 
         print(f"\n{'=' * 40}")
         print(f"  {title} [{dist}]")
@@ -227,11 +235,7 @@ def plot_memory_vs_alpha(experiments, filter_type, dist):
     alphas = sorted(set(exp["dataset"]["alpha"] for exp in dist_exps))
     grid = build_grid(dist_exps)
 
-    methods = []
-    for exp in dist_exps:
-        for r in exp["results"]:
-            if r["method"] not in methods and _should_plot(r["method"]):
-                methods.append(r["method"])
+    methods = _collect_plottable_methods(dist_exps)
 
     fig, ax = plt.subplots(figsize=(10, 6))
     n_colors = plt.cm.tab10(np.linspace(0, 1, len(ns)))
