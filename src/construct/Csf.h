@@ -85,7 +85,7 @@ public:
                              solution->getuint64(e[1], _max_codelength) ^
                              solution->getuint64(e[2], _max_codelength);
 
-    return cannonicalDecodeFromNumber(encoded_value, _code_length_counts,
+    return canonicalDecodeFromNumber(encoded_value, _code_length_counts,
                                       _ordered_symbols, _max_codelength);
   }
 
@@ -197,51 +197,7 @@ private:
   std::optional<FilterStats> getFilterStats() const {
     if (!_filter)
       return std::nullopt;
-
-    FilterStats fs;
-
-    if (auto bloom = std::dynamic_pointer_cast<BloomPreFilter<T>>(_filter)) {
-      auto bf = bloom->getBloomFilter();
-      fs.type = "bloom";
-      if (bf) {
-        fs.size_bits = bf->size();
-        fs.size_bytes = (bf->size() + 7) / 8;
-        fs.num_hashes = bf->numHashes();
-      } else {
-        fs.size_bytes = 0;
-      }
-      fs.num_elements = 0;
-    } else if (auto xor_pf =
-                   std::dynamic_pointer_cast<XORPreFilter<T>>(_filter)) {
-      auto xf = xor_pf->getXorFilter();
-      fs.type = "xor";
-      if (xf) {
-        fs.size_bytes = xf->size();
-        fs.num_elements = xf->numElements();
-        fs.fingerprint_bits = xf->fingerprintWidth();
-      } else {
-        fs.size_bytes = 0;
-        fs.num_elements = 0;
-      }
-    } else if (auto bf_pf =
-                   std::dynamic_pointer_cast<BinaryFusePreFilter<T>>(_filter)) {
-      auto bff = bf_pf->getBinaryFuseFilter();
-      fs.type = "binary_fuse";
-      if (bff) {
-        fs.size_bytes = bff->size();
-        fs.num_elements = bff->numElements();
-        fs.fingerprint_bits = bff->fingerprintWidth();
-      } else {
-        fs.size_bytes = 0;
-        fs.num_elements = 0;
-      }
-    } else {
-      fs.type = "unknown";
-      fs.size_bytes = 0;
-      fs.num_elements = 0;
-    }
-
-    return fs;
+    return _filter->getStats();
   }
 
   // Private constructor for cereal

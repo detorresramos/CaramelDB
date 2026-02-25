@@ -18,7 +18,7 @@ template <typename T> struct HuffmanOutput {
 };
 
 template <typename T>
-HuffmanOutput<T> cannonicalHuffman(const std::vector<T> &symbols) {
+HuffmanOutput<T> canonicalHuffman(const std::vector<T> &symbols) {
   std::unordered_map<T, uint32_t> frequencies;
   for (const auto &symbol : symbols) {
     ++frequencies[symbol];
@@ -89,7 +89,7 @@ HuffmanOutput<T> cannonicalHuffman(const std::vector<T> &symbols) {
   Source: https://github.com/madler/zlib/blob/master/contrib/puff/puff.c#L235
 */
 template <typename T>
-T cannonicalDecode(const BitArray &bitarray,
+T canonicalDecode(const BitArray &bitarray,
                    const std::vector<uint32_t> &code_length_counts,
                    const std::vector<T> &symbols) {
   // instead of storing the symbols, if we have variable length stuff, store a
@@ -113,7 +113,7 @@ T cannonicalDecode(const BitArray &bitarray,
 }
 
 template <typename T>
-inline T cannonicalDecodeFromNumber(
+inline T canonicalDecodeFromNumber(
     uint64_t encoded_value, const std::vector<uint32_t> &code_length_counts,
     const std::vector<T> &symbols, uint32_t max_codelength) {
   // instead of storing the symbols, if we have variable length stuff, store a

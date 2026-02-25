@@ -39,42 +39,16 @@ template <typename T> void bindPreFilter(py::module &module, const char *name) {
   py::class_<PreFilter<T>, PreFilterPtr<T>>(module, name);
 }
 
-template <typename T>
-void bindBloomPreFilter(py::module &module, const char *bloom_name) {
-  py::class_<BloomPreFilter<T>, PreFilter<T>, BloomPreFilterPtr<T>>(module,
-                                                                    bloom_name)
-      .def("save", &BloomPreFilter<T>::save, py::arg("filename"))
-      .def_static("load", &BloomPreFilter<T>::load, py::arg("filename"))
-      .def("contains", &BloomPreFilter<T>::contains, py::arg("key"))
-      .def("get_bloom_filter", &BloomPreFilter<T>::getBloomFilter,
-           py::return_value_policy::reference)
-      .def("get_most_common_value", &BloomPreFilter<T>::getMostCommonValue);
-}
-
-template <typename T>
-void bindXORPreFilter(py::module &module, const char *xor_name) {
-  py::class_<XORPreFilter<T>, PreFilter<T>, XORPreFilterPtr<T>>(module,
-                                                                xor_name)
-      .def("save", &XORPreFilter<T>::save, py::arg("filename"))
-      .def_static("load", &XORPreFilter<T>::load, py::arg("filename"))
-      .def("contains", &XORPreFilter<T>::contains, py::arg("key"))
-      .def("get_xor_filter", &XORPreFilter<T>::getXorFilter,
-           py::return_value_policy::reference)
-      .def("get_most_common_value", &XORPreFilter<T>::getMostCommonValue);
-}
-
-template <typename T>
-void bindBinaryFusePreFilter(py::module &module, const char *bf_name) {
-  py::class_<BinaryFusePreFilter<T>, PreFilter<T>, BinaryFusePreFilterPtr<T>>(
-      module, bf_name)
-      .def("save", &BinaryFusePreFilter<T>::save, py::arg("filename"))
-      .def_static("load", &BinaryFusePreFilter<T>::load, py::arg("filename"))
-      .def("contains", &BinaryFusePreFilter<T>::contains, py::arg("key"))
-      .def("get_binary_fuse_filter",
-           &BinaryFusePreFilter<T>::getBinaryFuseFilter,
-           py::return_value_policy::reference)
-      .def("get_most_common_value",
-           &BinaryFusePreFilter<T>::getMostCommonValue);
+template <typename FilterT, typename T, typename FilterObjPtr>
+void bindPreFilterImpl(py::module &module, const char *name,
+                       const char *get_filter_name,
+                       FilterObjPtr (FilterT::*getter)() const) {
+  py::class_<FilterT, PreFilter<T>, std::shared_ptr<FilterT>>(module, name)
+      .def("save", &FilterT::save, py::arg("filename"))
+      .def_static("load", &FilterT::load, py::arg("filename"))
+      .def("contains", &FilterT::contains, py::arg("key"))
+      .def(get_filter_name, getter, py::return_value_policy::reference)
+      .def("get_most_common_value", &FilterT::getMostCommonValue);
 }
 
 void bindPreFilterConfig(py::module &module) {
@@ -230,25 +204,57 @@ PYBIND11_MODULE(_caramel, module) { // NOLINT
   bindPreFilter<std::array<char, 12>>(module, "PreFilterChar12");
   bindPreFilter<std::string>(module, "PreFilterString");
 
-  bindBloomPreFilter<uint32_t>(module, "BloomPreFilterUint32");
-  bindBloomPreFilter<uint64_t>(module, "BloomPreFilterUint64");
-  bindBloomPreFilter<std::array<char, 10>>(module, "BloomPreFilterChar10");
-  bindBloomPreFilter<std::array<char, 12>>(module, "BloomPreFilterChar12");
-  bindBloomPreFilter<std::string>(module, "BloomPreFilterString");
+  bindPreFilterImpl<BloomPreFilter<uint32_t>, uint32_t>(
+      module, "BloomPreFilterUint32", "get_bloom_filter",
+      &BloomPreFilter<uint32_t>::getBloomFilter);
+  bindPreFilterImpl<BloomPreFilter<uint64_t>, uint64_t>(
+      module, "BloomPreFilterUint64", "get_bloom_filter",
+      &BloomPreFilter<uint64_t>::getBloomFilter);
+  bindPreFilterImpl<BloomPreFilter<std::array<char, 10>>,
+                    std::array<char, 10>>(
+      module, "BloomPreFilterChar10", "get_bloom_filter",
+      &BloomPreFilter<std::array<char, 10>>::getBloomFilter);
+  bindPreFilterImpl<BloomPreFilter<std::array<char, 12>>,
+                    std::array<char, 12>>(
+      module, "BloomPreFilterChar12", "get_bloom_filter",
+      &BloomPreFilter<std::array<char, 12>>::getBloomFilter);
+  bindPreFilterImpl<BloomPreFilter<std::string>, std::string>(
+      module, "BloomPreFilterString", "get_bloom_filter",
+      &BloomPreFilter<std::string>::getBloomFilter);
 
-  bindXORPreFilter<uint32_t>(module, "XORPreFilterUint32");
-  bindXORPreFilter<uint64_t>(module, "XORPreFilterUint64");
-  bindXORPreFilter<std::array<char, 10>>(module, "XORPreFilterChar10");
-  bindXORPreFilter<std::array<char, 12>>(module, "XORPreFilterChar12");
-  bindXORPreFilter<std::string>(module, "XORPreFilterString");
+  bindPreFilterImpl<XORPreFilter<uint32_t>, uint32_t>(
+      module, "XORPreFilterUint32", "get_xor_filter",
+      &XORPreFilter<uint32_t>::getXorFilter);
+  bindPreFilterImpl<XORPreFilter<uint64_t>, uint64_t>(
+      module, "XORPreFilterUint64", "get_xor_filter",
+      &XORPreFilter<uint64_t>::getXorFilter);
+  bindPreFilterImpl<XORPreFilter<std::array<char, 10>>, std::array<char, 10>>(
+      module, "XORPreFilterChar10", "get_xor_filter",
+      &XORPreFilter<std::array<char, 10>>::getXorFilter);
+  bindPreFilterImpl<XORPreFilter<std::array<char, 12>>, std::array<char, 12>>(
+      module, "XORPreFilterChar12", "get_xor_filter",
+      &XORPreFilter<std::array<char, 12>>::getXorFilter);
+  bindPreFilterImpl<XORPreFilter<std::string>, std::string>(
+      module, "XORPreFilterString", "get_xor_filter",
+      &XORPreFilter<std::string>::getXorFilter);
 
-  bindBinaryFusePreFilter<uint32_t>(module, "BinaryFusePreFilterUint32");
-  bindBinaryFusePreFilter<uint64_t>(module, "BinaryFusePreFilterUint64");
-  bindBinaryFusePreFilter<std::array<char, 10>>(module,
-                                                "BinaryFusePreFilterChar10");
-  bindBinaryFusePreFilter<std::array<char, 12>>(module,
-                                                "BinaryFusePreFilterChar12");
-  bindBinaryFusePreFilter<std::string>(module, "BinaryFusePreFilterString");
+  bindPreFilterImpl<BinaryFusePreFilter<uint32_t>, uint32_t>(
+      module, "BinaryFusePreFilterUint32", "get_binary_fuse_filter",
+      &BinaryFusePreFilter<uint32_t>::getBinaryFuseFilter);
+  bindPreFilterImpl<BinaryFusePreFilter<uint64_t>, uint64_t>(
+      module, "BinaryFusePreFilterUint64", "get_binary_fuse_filter",
+      &BinaryFusePreFilter<uint64_t>::getBinaryFuseFilter);
+  bindPreFilterImpl<BinaryFusePreFilter<std::array<char, 10>>,
+                    std::array<char, 10>>(
+      module, "BinaryFusePreFilterChar10", "get_binary_fuse_filter",
+      &BinaryFusePreFilter<std::array<char, 10>>::getBinaryFuseFilter);
+  bindPreFilterImpl<BinaryFusePreFilter<std::array<char, 12>>,
+                    std::array<char, 12>>(
+      module, "BinaryFusePreFilterChar12", "get_binary_fuse_filter",
+      &BinaryFusePreFilter<std::array<char, 12>>::getBinaryFuseFilter);
+  bindPreFilterImpl<BinaryFusePreFilter<std::string>, std::string>(
+      module, "BinaryFusePreFilterString", "get_binary_fuse_filter",
+      &BinaryFusePreFilter<std::string>::getBinaryFuseFilter);
 
   bindCsf<uint32_t>(module, "CSFUint32", 1);
   bindCsf<uint64_t>(module, "CSFUint64", 2);

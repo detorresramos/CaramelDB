@@ -5,6 +5,7 @@
 #include <cereal/archives/portable_binary.hpp>
 #include <cereal/types/polymorphic.hpp>
 #include <optional>
+#include <src/construct/CsfStats.h>
 #include <src/utils/Timer.h>
 #include <string>
 #include <unordered_map>
@@ -56,6 +57,10 @@ public:
   virtual bool contains(const std::string &key) = 0;
 
   virtual std::optional<T> getMostCommonValue() const = 0;
+
+  virtual std::optional<FilterStats> getStats() const {
+    return std::nullopt;
+  }
 
   virtual ~PreFilter() = default;
 
