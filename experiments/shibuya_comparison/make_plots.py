@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.join(_dir, ".."))
 
 from data_gen import compute_actual_alpha, gen_alpha_values, gen_keys
 from shibuya import empirical_entropy, shibuya_bloom_params
-from theory import best_discrete_bloom
+from theory import best_discrete_bloom_all_k
 
 FIGURES_DIR = os.path.join(_dir, "figures")
 ALPHAS = np.arange(0.50, 1.00, 0.01)
@@ -43,14 +43,10 @@ def our_recommendation(alpha, n_over_N):
 
     Returns None if no config has positive lower bound.
     """
-    best_lb, best_bpe, best_nh = float("-inf"), None, None
-    for num_hashes in range(1, 9):
-        bpe, lb = best_discrete_bloom(alpha, n_over_N, num_hashes)
-        if lb > best_lb:
-            best_lb, best_bpe, best_nh = lb, bpe, num_hashes
-    if best_lb <= 0:
+    bpe, k, lb = best_discrete_bloom_all_k(alpha, n_over_N)
+    if lb <= 0:
         return None
-    return best_bpe, best_nh
+    return bpe, k
 
 
 def _measure_with_recommendation(keys, values, rec, baseline_bpk):

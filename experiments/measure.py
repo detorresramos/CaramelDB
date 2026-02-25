@@ -1,11 +1,13 @@
 """CSF measurement and stats collection utilities."""
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Optional
 
 import carameldb
 import numpy as np
 from carameldb import BinaryFuseFilterConfig, BloomFilterConfig, XORFilterConfig
+
+from data_gen import compute_actual_alpha
 
 
 @dataclass
@@ -29,12 +31,6 @@ class ExperimentResult:
     huffman_num_symbols: int
     huffman_avg_bits: float
 
-    def to_dict(self) -> dict:
-        return asdict(self)
-
-    @classmethod
-    def from_dict(cls, d: dict) -> "ExperimentResult":
-        return cls(**d)
 
 
 def create_filter_config(
@@ -61,13 +57,14 @@ def measure_csf(
     keys: list,
     values: np.ndarray,
     filter_type: str,
-    n: int,
-    alpha: float,
     fingerprint_bits: Optional[int] = None,
     bloom_bits_per_element: Optional[int] = None,
     bloom_num_hashes: Optional[int] = None,
     minority_dist: str = "unique",
 ) -> ExperimentResult:
+    n = len(keys)
+    alpha = compute_actual_alpha(values)
+
     filter_config = create_filter_config(
         filter_type=filter_type,
         fingerprint_bits=fingerprint_bits,

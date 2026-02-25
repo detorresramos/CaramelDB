@@ -53,28 +53,14 @@ def _should_plot(method_name):
 
 def _get_memory_bytes(result):
     """Extract a single memory number (in bytes) for plotting."""
-    mem = result.get("memory")
-    if mem is not None:
-        if "theoretical" in mem:
-            return mem["theoretical"]
-        if "serialized_bytes" in mem:
-            return mem["serialized_bytes"]
-        if "serialized" in mem:
-            return mem["serialized"]
-        csf = mem.get("csf_stats")
-        if csf is not None:
-            return csf["in_memory_bytes"]
-        if "stats" in mem:
-            return mem["stats"]
-    return result.get("memory_bytes", 0)
+    mem = result["memory"]
+    if "theoretical" in mem:
+        return mem["theoretical"]
+    return mem["serialized"]
 
 
 def _get_inference_ns(result):
-    """Extract mean inference time, handling both old and new format."""
-    inf = result.get("inference_ns")
-    if inf is not None:
-        return inf["mean"]
-    return result.get("avg_inference_time_ns", 0)
+    return result["inference_ns"]["mean"]
 
 
 def load_json(path):

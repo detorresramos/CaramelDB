@@ -111,12 +111,8 @@ def _find_optimal_params(filter_type, keys, values):
         bits, _ = theory.best_discrete_binary_fuse(alpha, n_over_N, n_filter)
         return {"fingerprint_bits": bits}
     elif filter_type == "bloom":
-        best_lb, best_bpe, best_k = float("-inf"), 1, 1
-        for k in range(1, 9):
-            bpe, lb = theory.best_discrete_bloom(alpha, n_over_N, k)
-            if lb > best_lb:
-                best_lb, best_bpe, best_k = lb, bpe, k
-        return {"bloom_bits_per_element": best_bpe, "bloom_num_hashes": best_k}
+        bpe, k, _ = theory.best_discrete_bloom_all_k(alpha, n_over_N)
+        return {"bloom_bits_per_element": bpe, "bloom_num_hashes": k}
     else:
         raise ValueError(f"Unknown filter type: {filter_type}")
 

@@ -114,3 +114,12 @@ def best_discrete_bloom(alpha, n_over_N, k, max_bpe=8):
         if lb > best_lb:
             best_lb, best_bpe = lb, bpe
     return best_bpe, best_lb
+
+
+def best_discrete_bloom_all_k(alpha, n_over_N, max_bpe=8, max_k=8):
+    best_lb, best_bpe, best_k = float("-inf"), None, None
+    for k in range(1, max_k + 1):
+        bpe, lb = best_discrete_bloom(alpha, n_over_N, k, max_bpe)
+        if lb > best_lb:
+            best_lb, best_bpe, best_k = lb, bpe, k
+    return best_bpe, best_k, best_lb

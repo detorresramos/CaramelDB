@@ -80,7 +80,7 @@ def run_alpha_sweep(filter_label, dist):
         keys = gen_keys(N)
         values = gen_alpha_values(N, alpha, seed=SEED, minority_dist=dist)
 
-        baseline = measure_csf(keys, values, "none", N, alpha, minority_dist=dist)
+        baseline = measure_csf(keys, values, "none", minority_dist=dist)
         baseline_bpk = baseline.bits_per_key
         n_over_N = baseline.huffman_num_symbols / N
 
@@ -93,8 +93,6 @@ def run_alpha_sweep(filter_label, dist):
                 keys,
                 values,
                 cfg["filter_type"],
-                N,
-                alpha,
                 minority_dist=dist,
                 **kwargs,
             )
@@ -138,7 +136,7 @@ def run_epsilon_sweep(filter_label, dist, alpha):
     keys = gen_keys(N)
     values = gen_alpha_values(N, alpha, seed=SEED, minority_dist=dist)
 
-    baseline = measure_csf(keys, values, "none", N, alpha, minority_dist=dist)
+    baseline = measure_csf(keys, values, "none", minority_dist=dist)
     baseline_bpk = baseline.bits_per_key
     n_over_N = baseline.huffman_num_symbols / N
 
@@ -151,8 +149,6 @@ def run_epsilon_sweep(filter_label, dist, alpha):
             keys,
             values,
             cfg["filter_type"],
-            N,
-            alpha,
             minority_dist=dist,
             **kwargs,
         )
