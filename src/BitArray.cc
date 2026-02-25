@@ -92,7 +92,6 @@ BitArray &BitArray::operator^=(const BitArray &other) {
     _mm_storeu_si128(reinterpret_cast<__m128i *>(&_backing_array[i]), result);
   }
 
-  // Handle the last element if the total number is odd
   if (i < _num_blocks) {
     _backing_array[i] ^= other._backing_array[i];
   }
@@ -116,7 +115,6 @@ BitArray &BitArray::operator&=(const BitArray &other) {
     _mm_storeu_si128(reinterpret_cast<__m128i *>(&_backing_array[i]), result);
   }
 
-  // Handle the last element if the total number is odd
   if (i < _num_blocks) {
     _backing_array[i] &= other._backing_array[i];
   }
@@ -138,17 +136,14 @@ BitArray BitArray::operator&(const BitArray &other) const {
 
 BitArray &BitArray::operator=(const BitArray &other) {
   if (*this == other) {
-    /* don't do anything for a self assignment */
     return *this;
   }
 
   if (_num_bits != other.numBits()) {
-    /* don't do assignment with different array sizes */
     return *this;
   }
 
   if ((_num_bits == 0) || (other.numBits() == 0)) {
-    /* don't do assignment with unallocated array */
     return *this;
   }
 
@@ -159,11 +154,11 @@ BitArray &BitArray::operator=(const BitArray &other) {
 
 bool BitArray::operator==(const BitArray &other) const {
   if (_num_bits != other.numBits()) {
-    /* unequal sizes */
     return false;
   }
 
-  return (_backing_array == other._backing_array);
+  return std::equal(_backing_array, _backing_array + _num_blocks,
+                     other._backing_array);
 }
 
 std::optional<uint32_t> BitArray::find() const {
@@ -177,10 +172,9 @@ std::optional<uint32_t> BitArray::find() const {
 }
 
 void BitArray::setAll() {
-  /* set bits in all bytes to 1 */
   std::fill(_backing_array, _backing_array + _num_blocks, UINT64_MAX);
 
-  /* zero any spare bits so increment and decrement are consistent */
+  // Zero trailing bits to keep the array consistent
   int bits = _num_bits % BLOCK_SIZE;
   if (bits != 0) {
     uint64_t mask = UINT64_MAX << (BLOCK_SIZE - bits);

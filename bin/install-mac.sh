@@ -1,23 +1,12 @@
 #!/bin/bash
 
-# Run this script with sudo
+# Install dependencies for macOS (do NOT run with sudo — Homebrew refuses root)
 
-# Install llvm
 brew install llvm
-
-# Install gcc
 brew install gcc
-
-# Install cmake
 brew install cmake
-
-# Install openmp (from LLVM)
 brew install libomp
-
-pip3 install pytest
 
 git submodule update --init --recursive
 
-# link libomp ?
-
-pip3 install numpy
+pip3 install pytest numpy

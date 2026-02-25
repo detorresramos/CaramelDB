@@ -13,8 +13,15 @@ A high-performance C++/Python library for space-efficient static key-value store
 Clone the repository and all dependencies:
 
 ```bash
-git clone --recurse-submodules git@github.com:detorresramos/CaramelDB.git
+git clone --recurse-submodules https://github.com/detorresramos/CaramelDB.git
 cd CaramelDB
+```
+
+We recommend using a virtual environment:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
 ```
 
 Install the required packages using our install scripts: `sh bin/install-linux.sh` or `sh bin/install-mac.sh`.

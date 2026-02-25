@@ -57,7 +57,7 @@ def main():
         os.environ["CARAMEL_BUILD_MODE"] = args.build_mode
 
         os.chdir("pybind")
-        checked_system_call(f"pip3 install . --verbose --force --no-dependencies")
+        checked_system_call(f"pip3 install . --verbose --force-reinstall")
         os.chdir("..")
     else:
         cmake_command = f"cmake -B build -S . -DPYTHON_EXECUTABLE=$(which python3) -DCMAKE_BUILD_TYPE={args.build_mode}"

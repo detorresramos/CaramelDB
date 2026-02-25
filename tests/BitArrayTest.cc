@@ -184,4 +184,20 @@ TEST(BitArrayTest, BitArrayGetUint64) {
   ASSERT_EQ(bitarray->getuint64(64, 6), 37);
 }
 
+TEST(BitArrayTest, TestValueEquality) {
+  BitArray a(10);
+  BitArray b(10);
+  ASSERT_EQ(a, b);
+
+  a.setBit(3);
+  ASSERT_NE(a, b);
+
+  b.setBit(3);
+  ASSERT_EQ(a, b);
+
+  // Different sizes are never equal
+  BitArray c(20);
+  ASSERT_NE(a, c);
+}
+
 } // namespace caramel::tests
