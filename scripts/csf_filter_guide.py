@@ -36,26 +36,27 @@ def print_stats(csf, name):
     return sz
 
 
-N = 100_000
-ALPHA = 0.9
+if __name__ == "__main__":
+    N = 100_000
+    ALPHA = 0.9
 
-keys = [f"key_{i:08d}" for i in range(N)]
-n_common = int(N * ALPHA)
-values = [999999] * n_common + list(range(N - n_common))
+    keys = [f"key_{i:08d}" for i in range(N)]
+    n_common = int(N * ALPHA)
+    values = [999999] * n_common + list(range(N - n_common))
 
-print(f"N={N:,}, alpha={ALPHA} ({n_common:,} common, {N - n_common:,} uncommon)\n")
+    print(f"N={N:,}, alpha={ALPHA} ({n_common:,} common, {N - n_common:,} uncommon)\n")
 
-csf = carameldb.Caramel(keys, values, prefilter=None, verbose=False)
-sz_none = print_stats(csf, "No Filter")
+    csf = carameldb.Caramel(keys, values, prefilter=None, verbose=False)
+    sz_none = print_stats(csf, "No Filter")
 
-bloom = BloomFilterConfig(bits_per_element=10, num_hashes=7)
-csf = carameldb.Caramel(keys, values, prefilter=bloom, verbose=False)
-print_stats(csf, "Bloom(bits_per_element=10, num_hashes=7)")
+    bloom = BloomFilterConfig(bits_per_element=10, num_hashes=7)
+    csf = carameldb.Caramel(keys, values, prefilter=bloom, verbose=False)
+    print_stats(csf, "Bloom(bits_per_element=10, num_hashes=7)")
 
-xor = XORFilterConfig(fingerprint_bits=8)
-csf = carameldb.Caramel(keys, values, prefilter=xor, verbose=False)
-print_stats(csf, "XOR(fingerprint_bits=8)")
+    xor = XORFilterConfig(fingerprint_bits=8)
+    csf = carameldb.Caramel(keys, values, prefilter=xor, verbose=False)
+    print_stats(csf, "XOR(fingerprint_bits=8)")
 
-bf = BinaryFuseFilterConfig(fingerprint_bits=8)
-csf = carameldb.Caramel(keys, values, prefilter=bf, verbose=False)
-print_stats(csf, "BinaryFuse(fingerprint_bits=8)")
+    bf = BinaryFuseFilterConfig(fingerprint_bits=8)
+    csf = carameldb.Caramel(keys, values, prefilter=bf, verbose=False)
+    print_stats(csf, "BinaryFuse(fingerprint_bits=8)")
