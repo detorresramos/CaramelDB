@@ -8,28 +8,14 @@ import warnings
 
 import carameldb
 import numpy as np
-from carameldb import BinaryFuseFilterConfig, BloomFilterConfig, XORFilterConfig
 
 _dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(_dir, ".."))
 
 import theory
 from data_gen import compute_actual_alpha
+from measure import create_filter_config
 from shibuya import empirical_entropy, shibuya_bloom_params
-
-
-def _make_filter_config(filter_type, params):
-    if filter_type == "xor":
-        return XORFilterConfig(fingerprint_bits=params["fingerprint_bits"])
-    elif filter_type == "binary_fuse":
-        return BinaryFuseFilterConfig(fingerprint_bits=params["fingerprint_bits"])
-    elif filter_type == "bloom":
-        return BloomFilterConfig(
-            bits_per_element=params["bloom_bits_per_element"],
-            num_hashes=params["bloom_num_hashes"],
-        )
-    else:
-        raise ValueError(f"Unknown filter type: {filter_type}")
 
 
 def _hash_table_memory(keys, values):
@@ -166,7 +152,7 @@ class CSFFilter:
             self._params = _find_optimal_params(self.filter_type, keys, values)
         else:
             self._params = _find_shibuya_params(keys, values)
-        config = _make_filter_config(self.filter_type, self._params)
+        config = create_filter_config(self.filter_type, **self._params)
         return carameldb.Caramel(keys, values, prefilter=config, verbose=False)
 
     @staticmethod
