@@ -1,8 +1,8 @@
 #pragma once
 
 #include "BloomFilter.h"
+#include "FilterTypes.h"
 #include "PreFilter.h"
-#include <array>
 #include <optional>
 #include <src/utils/SafeFileIO.h>
 #include <string>
@@ -35,6 +35,20 @@ public:
 
   std::optional<T> getMostCommonValue() const override {
     return _most_common_value;
+  }
+
+  std::optional<FilterStats> getStats() const override {
+    FilterStats fs;
+    fs.type = "bloom";
+    if (_bloom_filter) {
+      fs.size_bits = _bloom_filter->size();
+      fs.size_bytes = (_bloom_filter->size() + 7) / 8;
+      fs.num_hashes = _bloom_filter->numHashes();
+    } else {
+      fs.size_bytes = 0;
+    }
+    fs.num_elements = 0;
+    return fs;
   }
 
   void save(const std::string &filename) const {
@@ -100,24 +114,4 @@ private:
 
 } // namespace caramel
 
-CEREAL_REGISTER_TYPE(caramel::BloomPreFilter<uint32_t>)
-CEREAL_REGISTER_POLYMORPHIC_RELATION(caramel::PreFilter<uint32_t>,
-                                     caramel::BloomPreFilter<uint32_t>)
-
-CEREAL_REGISTER_TYPE(caramel::BloomPreFilter<uint64_t>)
-CEREAL_REGISTER_POLYMORPHIC_RELATION(caramel::PreFilter<uint64_t>,
-                                     caramel::BloomPreFilter<uint64_t>)
-
-using arr10 = std::array<char, 10>;
-CEREAL_REGISTER_TYPE(caramel::BloomPreFilter<arr10>)
-CEREAL_REGISTER_POLYMORPHIC_RELATION(caramel::PreFilter<arr10>,
-                                     caramel::BloomPreFilter<arr10>)
-
-CEREAL_REGISTER_TYPE(caramel::BloomPreFilter<std::string>)
-CEREAL_REGISTER_POLYMORPHIC_RELATION(caramel::PreFilter<std::string>,
-                                     caramel::BloomPreFilter<std::string>)
-
-using arr12 = std::array<char, 12>;
-CEREAL_REGISTER_TYPE(caramel::BloomPreFilter<std::array<char, 12>>)
-CEREAL_REGISTER_POLYMORPHIC_RELATION(caramel::PreFilter<arr12>,
-                                     caramel::BloomPreFilter<arr12>)
+CARAMEL_REGISTER_PREFILTER(BloomPreFilter)

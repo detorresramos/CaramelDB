@@ -98,7 +98,7 @@ constructAndSolveSubsystem(const std::vector<__uint128_t> &key_signatures,
 // 12% more memory, we can omit lazy gaussian elimination and set delta
 // to 1.23. This delta also depends on the number of hashes we use per
 // equation. This delta is for 3 hashes but for 4 it would be different.
-static const double DELTA = 1.089;
+static constexpr double DELTA = 1.089;
 
 static constexpr uint64_t TARGET_EQUATIONS_PER_BUCKET = 3500;
 
@@ -133,18 +133,24 @@ constructCsf(const std::vector<std::string> &keys, const std::vector<T> &values,
 
   Timer timer;
 
-  std::vector<std::string> filtered_keys = keys;
-  std::vector<T> filtered_values = values;
+  std::vector<std::string> filtered_keys_storage;
+  std::vector<T> filtered_values_storage;
 
   PreFilterPtr<T> filter = nullptr;
   if (filter_config) {
+    filtered_keys_storage = keys;
+    filtered_values_storage = values;
     filter = FilterFactory::makeFilter<T>(filter_config);
-    filter->apply(filtered_keys, filtered_values, DELTA, verbose);
+    filter->apply(filtered_keys_storage, filtered_values_storage, DELTA,
+                  verbose);
   }
+
+  const auto &active_keys = filter_config ? filtered_keys_storage : keys;
+  const auto &active_values = filter_config ? filtered_values_storage : values;
 
   // If all keys were filtered out (all values were most common), create empty
   // CSF. Query will always go through filter and return most common value.
-  if (filtered_keys.empty()) {
+  if (active_keys.empty()) {
     std::vector<SubsystemSolutionSeedPair> empty_solutions;
     std::vector<uint32_t> empty_code_length_counts;
     std::vector<T> empty_ordered_symbols;
@@ -156,9 +162,9 @@ constructCsf(const std::vector<std::string> &keys, const std::vector<T> &values,
     std::cout << "Creating codebook...";
   }
 
-  HuffmanOutput<T> huffman = cannonicalHuffman<T>(filtered_values);
+  HuffmanOutput<T> huffman = canonicalHuffman<T>(active_values);
 
-  uint64_t num_buckets = targetBucketCount(filtered_values, huffman.codedict);
+  uint64_t num_buckets = targetBucketCount(active_values, huffman.codedict);
 
   if (verbose) {
     std::cout << " finished in " << timer.seconds() << " seconds." << std::endl;
@@ -166,7 +172,7 @@ constructCsf(const std::vector<std::string> &keys, const std::vector<T> &values,
   }
 
   BucketedHashStore<T> hash_store =
-      partitionToBuckets<T>(filtered_keys, filtered_values, num_buckets);
+      partitionToBuckets<T>(active_keys, active_values, num_buckets);
 
   if (verbose) {
     std::cout << " finished in " << timer.seconds() << " seconds." << std::endl;

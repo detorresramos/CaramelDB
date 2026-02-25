@@ -9,13 +9,15 @@
 
 namespace caramel {
 
-#define BLOCK_SIZE 64
+static constexpr uint32_t BLOCK_SIZE = 64;
 
-/* array index for block containing bit */
-#define BIT_BLOCK(bit) ((bit) / BLOCK_SIZE)
+inline constexpr uint64_t BIT_BLOCK(uint64_t bit) {
+  return bit / BLOCK_SIZE;
+}
 
-/* position of bit within character */
-#define BIT_IN_BLOCK(bit) (1ULL << (BLOCK_SIZE - 1ULL - (bit % BLOCK_SIZE)))
+inline constexpr uint64_t BIT_IN_BLOCK(uint64_t bit) {
+  return 1ULL << (BLOCK_SIZE - 1ULL - (bit % BLOCK_SIZE));
+}
 
 class BitArray;
 using BitArrayPtr = std::shared_ptr<BitArray>;

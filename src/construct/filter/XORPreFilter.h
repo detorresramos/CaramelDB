@@ -1,8 +1,8 @@
 #pragma once
 
+#include "FilterTypes.h"
 #include "PreFilter.h"
 #include "XorFilter.h"
-#include <array>
 #include <optional>
 #include <src/utils/SafeFileIO.h>
 #include <string>
@@ -34,6 +34,20 @@ public:
 
   std::optional<T> getMostCommonValue() const override {
     return _most_common_value;
+  }
+
+  std::optional<FilterStats> getStats() const override {
+    FilterStats fs;
+    fs.type = "xor";
+    if (_xor_filter) {
+      fs.size_bytes = _xor_filter->size();
+      fs.num_elements = _xor_filter->numElements();
+      fs.fingerprint_bits = _xor_filter->fingerprintWidth();
+    } else {
+      fs.size_bytes = 0;
+      fs.num_elements = 0;
+    }
+    return fs;
   }
 
   void save(const std::string &filename) const {
@@ -84,24 +98,4 @@ private:
 
 } // namespace caramel
 
-CEREAL_REGISTER_TYPE(caramel::XORPreFilter<uint32_t>)
-CEREAL_REGISTER_POLYMORPHIC_RELATION(caramel::PreFilter<uint32_t>,
-                                     caramel::XORPreFilter<uint32_t>)
-
-CEREAL_REGISTER_TYPE(caramel::XORPreFilter<uint64_t>)
-CEREAL_REGISTER_POLYMORPHIC_RELATION(caramel::PreFilter<uint64_t>,
-                                     caramel::XORPreFilter<uint64_t>)
-
-using arr10 = std::array<char, 10>;
-CEREAL_REGISTER_TYPE(caramel::XORPreFilter<arr10>)
-CEREAL_REGISTER_POLYMORPHIC_RELATION(caramel::PreFilter<arr10>,
-                                     caramel::XORPreFilter<arr10>)
-
-CEREAL_REGISTER_TYPE(caramel::XORPreFilter<std::string>)
-CEREAL_REGISTER_POLYMORPHIC_RELATION(caramel::PreFilter<std::string>,
-                                     caramel::XORPreFilter<std::string>)
-
-using arr12 = std::array<char, 12>;
-CEREAL_REGISTER_TYPE(caramel::XORPreFilter<std::array<char, 12>>)
-CEREAL_REGISTER_POLYMORPHIC_RELATION(caramel::PreFilter<arr12>,
-                                     caramel::XORPreFilter<arr12>)
+CARAMEL_REGISTER_PREFILTER(XORPreFilter)

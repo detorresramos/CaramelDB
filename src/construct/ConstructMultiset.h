@@ -24,21 +24,28 @@ constructMultisetCsf(const std::vector<std::string> &keys,
   // it wasn't by much, < 10%, in which case its probably not super worthwhile
   // to figure out the optimal condition for adding parallelism.
   for (size_t i = 0; i < num_columns; i++) {
-    std::vector<std::string> filtered_keys = keys;
-    std::vector<T> filtered_values = values[i];
+    std::vector<std::string> filtered_keys_storage;
+    std::vector<T> filtered_values_storage;
 
     PreFilterPtr<T> filter = nullptr;
     if (filter_config) {
+      filtered_keys_storage = keys;
+      filtered_values_storage = values[i];
       filter = FilterFactory::makeFilter<T>(filter_config);
-      filter->apply(filtered_keys, filtered_values, DELTA, verbose);
+      filter->apply(filtered_keys_storage, filtered_values_storage, DELTA,
+                    verbose);
     }
 
-    HuffmanOutput<T> huffman = cannonicalHuffman<T>(filtered_values);
+    const auto &active_keys = filter_config ? filtered_keys_storage : keys;
+    const auto &active_values =
+        filter_config ? filtered_values_storage : values[i];
 
-    uint64_t num_buckets = targetBucketCount(filtered_values, huffman.codedict);
+    HuffmanOutput<T> huffman = canonicalHuffman<T>(active_values);
+
+    uint64_t num_buckets = targetBucketCount(active_values, huffman.codedict);
 
     BucketedHashStore<T> hash_store =
-        partitionToBuckets<T>(filtered_keys, filtered_values, num_buckets);
+        partitionToBuckets<T>(active_keys, active_values, num_buckets);
 
     std::exception_ptr exception = nullptr;
     std::vector<SubsystemSolutionSeedPair> solutions_and_seeds(

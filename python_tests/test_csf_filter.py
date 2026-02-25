@@ -81,8 +81,8 @@ def test_filter_custom_num_hashes():
         verbose=True,
     )
 
-    bf = csf.get_filter().get_bloom_filter()
-    assert bf.num_hashes() == 10
+    stats = csf.get_filter().get_stats()
+    assert stats.num_hashes == 10
 
 
 def test_get_bloom_filter():
