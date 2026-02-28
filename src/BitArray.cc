@@ -25,6 +25,15 @@ BitArray::BitArray(uint32_t num_bits) : _num_bits(num_bits), _owns_data(true) {
 
 BitArray::BitArray(const BitArray &other) { copyFrom(other); }
 
+BitArray::BitArray(BitArray &&other) noexcept
+    : _num_bits(other._num_bits), _num_blocks(other._num_blocks),
+      _owns_data(other._owns_data), _backing_array(other._backing_array) {
+  other._backing_array = nullptr;
+  other._owns_data = false;
+  other._num_bits = 0;
+  other._num_blocks = 0;
+}
+
 BitArray::BitArray(uint64_t *backing_array, uint64_t num_bits,
                    uint64_t num_blocks)
     : _num_bits(num_bits), _num_blocks(num_blocks), _owns_data(false),
@@ -152,6 +161,23 @@ BitArray &BitArray::operator=(const BitArray &other) {
   return *this;
 }
 
+BitArray &BitArray::operator=(BitArray &&other) noexcept {
+  if (this != &other) {
+    if (_owns_data) {
+      delete[] _backing_array;
+    }
+    _num_bits = other._num_bits;
+    _num_blocks = other._num_blocks;
+    _owns_data = other._owns_data;
+    _backing_array = other._backing_array;
+    other._backing_array = nullptr;
+    other._owns_data = false;
+    other._num_bits = 0;
+    other._num_blocks = 0;
+  }
+  return *this;
+}
+
 bool BitArray::operator==(const BitArray &other) const {
   if (_num_bits != other.numBits()) {
     return false;
@@ -159,6 +185,10 @@ bool BitArray::operator==(const BitArray &other) const {
 
   return std::equal(_backing_array, _backing_array + _num_blocks,
                      other._backing_array);
+}
+
+bool BitArray::operator!=(const BitArray &other) const {
+  return !(*this == other);
 }
 
 std::optional<uint32_t> BitArray::find() const {
@@ -197,9 +227,23 @@ bool BitArray::scalarProduct(const BitArray &bitarray1,
         "scalarProduct recieved two bitarrays of different sizes.");
   }
 
-  auto temp_result = bitarray1 & bitarray2;
+  uint64_t parity = 0;
+  for (size_t i = 0; i < bitarray1._num_blocks; i++) {
+    parity ^= bitarray1._backing_array[i] & bitarray2._backing_array[i];
+  }
+  return __builtin_popcountll(parity) & 1;
+}
 
-  return temp_result.numSetBits() % 2;
+std::optional<uint32_t> BitArray::findFirstCommonBit(const BitArray &a,
+                                                      const BitArray &b) {
+  uint32_t num_blocks = std::min(a._num_blocks, b._num_blocks);
+  for (uint32_t block = 0; block < num_blocks; block++) {
+    uint64_t common = a._backing_array[block] & b._backing_array[block];
+    if (common != 0) {
+      return (block * BLOCK_SIZE) + __builtin_clzll(common);
+    }
+  }
+  return std::nullopt;
 }
 
 std::string BitArray::str() const {

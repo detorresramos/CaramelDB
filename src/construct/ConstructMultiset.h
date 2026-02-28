@@ -29,11 +29,9 @@ constructMultisetCsf(const std::vector<std::string> &keys,
 
     PreFilterPtr<T> filter = nullptr;
     if (filter_config) {
-      filtered_keys_storage = keys;
-      filtered_values_storage = values[i];
       filter = FilterFactory::makeFilter<T>(filter_config);
-      filter->apply(filtered_keys_storage, filtered_values_storage, DELTA,
-                    verbose);
+      filter->apply(keys, values[i], filtered_keys_storage,
+                    filtered_values_storage, DELTA, verbose);
     }
 
     const auto &active_keys = filter_config ? filtered_keys_storage : keys;

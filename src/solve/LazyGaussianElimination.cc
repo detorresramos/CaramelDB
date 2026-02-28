@@ -221,8 +221,8 @@ lazyGaussianElimination(const SparseSystemPtr &sparse_system,
         // We need to find the pivot - the variable_id of the only
         // remaining idle variable in the equation.
         BitArray equation = dense_system->getEquation(equation_id);
-        uint64_t variable_id = *(equation & *idle_variable_indicator)
-                                    .find(); // TODO handle optional case?
+        uint64_t variable_id =
+            *BitArray::findFirstCommonBit(equation, *idle_variable_indicator);
         solved_variable_ids.push_back(variable_id);
         solved_equation_ids.push_back(equation_id);
         // By making the weight 0, we will skip this variable_id in the

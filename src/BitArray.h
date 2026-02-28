@@ -28,6 +28,8 @@ public:
 
   BitArray(const BitArray &other);
 
+  BitArray(BitArray &&other) noexcept;
+
   BitArray(uint64_t *backing_array, uint64_t num_bits, uint64_t num_blocks);
 
   static BitArray fromNumber(uint64_t int_value, uint32_t length);
@@ -58,7 +60,11 @@ public:
 
   BitArray &operator=(const BitArray &other);
 
+  BitArray &operator=(BitArray &&other) noexcept;
+
   bool operator==(const BitArray &other) const;
+
+  bool operator!=(const BitArray &other) const;
 
   // index of first nonzero bit, std::nullopt otherwise
   std::optional<uint32_t> find() const;
@@ -80,6 +86,9 @@ public:
 
   static bool scalarProduct(const BitArray &bitarray1,
                             const BitArray &bitarray2);
+
+  static std::optional<uint32_t> findFirstCommonBit(const BitArray &a,
+                                                     const BitArray &b);
 
   inline uint64_t getuint64(uint32_t pos, uint32_t width) const {
     if (pos + width > _num_bits) {

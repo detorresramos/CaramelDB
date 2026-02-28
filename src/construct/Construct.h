@@ -138,11 +138,9 @@ constructCsf(const std::vector<std::string> &keys, const std::vector<T> &values,
 
   PreFilterPtr<T> filter = nullptr;
   if (filter_config) {
-    filtered_keys_storage = keys;
-    filtered_values_storage = values;
     filter = FilterFactory::makeFilter<T>(filter_config);
-    filter->apply(filtered_keys_storage, filtered_values_storage, DELTA,
-                  verbose);
+    filter->apply(keys, values, filtered_keys_storage,
+                  filtered_values_storage, DELTA, verbose);
   }
 
   const auto &active_keys = filter_config ? filtered_keys_storage : keys;

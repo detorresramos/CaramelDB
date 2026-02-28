@@ -15,8 +15,10 @@ namespace caramel {
 
 template <typename T> class PreFilter {
 public:
-  virtual void apply(std::vector<std::string> &keys, std::vector<T> &values,
-                     float delta, bool verbose) {
+  virtual void apply(const std::vector<std::string> &keys,
+                     const std::vector<T> &values,
+                     std::vector<std::string> &out_keys,
+                     std::vector<T> &out_values, float delta, bool verbose) {
     Timer timer;
     (void)delta; // No longer used for autotuning
 
@@ -32,21 +34,18 @@ public:
     createAndPopulateFilter(filter_size, keys, values, most_common_value,
                             verbose);
 
-    std::vector<std::string> filtered_keys;
-    filtered_keys.reserve(num_items);
-    std::vector<T> filtered_values;
-    filtered_values.reserve(num_items);
+    out_keys.clear();
+    out_keys.reserve(filter_size);
+    out_values.clear();
+    out_values.reserve(filter_size);
 
     // Keep only (key, value) pairs that the filter claims are in the CSF
     for (size_t i = 0; i < num_items; i++) {
       if (contains(keys[i])) {
-        filtered_keys.push_back(std::move(keys[i]));
-        filtered_values.push_back(std::move(values[i]));
+        out_keys.push_back(keys[i]);
+        out_values.push_back(values[i]);
       }
     }
-
-    keys = std::move(filtered_keys);
-    values = std::move(filtered_values);
 
     if (verbose) {
       std::cout << " finished in " << timer.seconds() << " seconds."
