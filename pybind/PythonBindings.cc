@@ -118,6 +118,8 @@ void bindCsf(py::module &module, const char *name, const uint32_t type_id) {
            py::arg("keys"), py::arg("values"), py::arg("prefilter") = nullptr,
            py::arg("verbose") = true)
       .def("query", &Csf<T>::query, py::arg("key"))
+      .def("benchmark_queries", &Csf<T>::benchmarkQueries, py::arg("keys"),
+           py::arg("num_iterations") = 10)
       .def("get_filter", &Csf<T>::getFilter, py::return_value_policy::reference)
       .def("get_stats", &Csf<T>::getStats)
       // Call save / load through a lambda to avoid user visibility of type_id.
