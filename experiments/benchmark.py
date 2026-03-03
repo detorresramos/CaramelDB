@@ -37,33 +37,53 @@ for n in [100_000, 10_000_000]:
 SWEEP_CONFIGS.append({"n": 100_000_000, "alpha": 0.5, "dist": "zipfian"})
 
 
-def measure_query_throughput(csf, keys, num_query_keys, warmup, measured):
-    """Measure query throughput, using C++ benchmark_queries() with Python fallback."""
-    n_sample = min(num_query_keys, len(keys))
-    rng = np.random.RandomState(SEED)
-    total_trials = warmup + measured
+FIXED_KEY_REPEATS = 1000
 
-    has_benchmark = hasattr(csf, "benchmark_queries")
 
+def _time_fixed_key(csf, key, warmup, measured):
+    """Time a single key repeated many times. Returns median ns/query."""
+    csf.query(key)
     trial_ns = []
-    for t in range(total_trials):
+    for t in range(warmup + measured):
+        start = time.perf_counter()
+        for _ in range(FIXED_KEY_REPEATS):
+            csf.query(key)
+        elapsed = time.perf_counter() - start
+        if t >= warmup:
+            trial_ns.append((elapsed / FIXED_KEY_REPEATS) * 1e9)
+    return float(np.median(trial_ns))
+
+
+def measure_query_throughput(csf, keys, values, num_query_keys, warmup, measured):
+    """Measure query throughput: random keys, fixed majority key, fixed minority key."""
+    n_sample = min(num_query_keys, len(keys))
+
+    # Random keys (different each trial = cold cache, realistic workload)
+    rng = np.random.RandomState(SEED)
+    trial_ns = []
+    for t in range(warmup + measured):
         indices = rng.choice(len(keys), size=n_sample, replace=False)
         query_keys = [keys[i] for i in indices]
-
-        if has_benchmark:
-            _, ns_per_query = csf.benchmark_queries(query_keys, num_iterations=1)
-        else:
-            # Python-level fallback for old pybind11 code
-            start = time.perf_counter()
-            for k in query_keys:
-                csf.query(k)
-            elapsed = time.perf_counter() - start
-            ns_per_query = (elapsed / n_sample) * 1e9
-
+        start = time.perf_counter()
+        for k in query_keys:
+            csf.query(k)
+        elapsed = time.perf_counter() - start
         if t >= warmup:
-            trial_ns.append(ns_per_query)
+            trial_ns.append((elapsed / n_sample) * 1e9)
+    random_ns = float(np.median(trial_ns))
 
-    return float(np.median(trial_ns))
+    # Fixed majority key (filter short-circuits, no CSF lookup)
+    majority_value = np.uint32(2**32 - 1)
+    majority_indices = np.where(values == majority_value)[0]
+    majority_key = keys[majority_indices[0]]
+    majority_ns = _time_fixed_key(csf, majority_key, warmup, measured)
+
+    # Fixed minority key (full CSF lookup path)
+    minority_indices = np.where(values != majority_value)[0]
+    minority_key = keys[minority_indices[0]]
+    minority_ns = _time_fixed_key(csf, minority_key, warmup, measured)
+
+    return random_ns, majority_ns, minority_ns
 
 
 def run_single(n, alpha, dist, verbose=True):
@@ -98,11 +118,11 @@ def run_single(n, alpha, dist, verbose=True):
     # Query throughput
     if verbose:
         print("    Querying...", end="", flush=True)
-    median_ns = measure_query_throughput(
-        csf, keys, NUM_QUERY_KEYS, WARMUP_TRIALS, MEASURE_TRIALS
+    random_ns, majority_ns, minority_ns = measure_query_throughput(
+        csf, keys, values, NUM_QUERY_KEYS, WARMUP_TRIALS, MEASURE_TRIALS
     )
     if verbose:
-        print(f" {median_ns:.1f} ns/query")
+        print(f" random={random_ns:.1f}, majority={majority_ns:.1f}, minority={minority_ns:.1f} ns/query")
 
     result = {
         "n": n,
@@ -111,7 +131,9 @@ def run_single(n, alpha, dist, verbose=True):
         "construction_s": round(construction_s, 3),
         "size_bytes": size_bytes,
         "bits_per_key": round(bits_per_key, 3),
-        "median_ns_per_query": round(median_ns, 2),
+        "random_ns": round(random_ns, 2),
+        "majority_ns": round(majority_ns, 2),
+        "minority_ns": round(minority_ns, 2),
     }
 
     if verbose:
@@ -125,13 +147,14 @@ def _results_table(results, label):
     lines = [
         f"## {label}",
         "",
-        "| N | Alpha | Distribution | Construction (s) | Inference (ns/query) | Size (bits/key) |",
-        "|--:|------:|:-------------|------------------:|---------------------:|----------------:|",
+        "| N | Alpha | Distribution | Construction (s) | Random (ns/q) | Majority (ns/q) | Minority (ns/q) | Size (bits/key) |",
+        "|--:|------:|:-------------|------------------:|--------------:|----------------:|----------------:|----------------:|",
     ]
     for r in results:
         lines.append(
             f"| {r['n']:,} | {r['alpha']} | {r['dist']} "
-            f"| {r['construction_s']:.2f} | {r['median_ns_per_query']:.1f} "
+            f"| {r['construction_s']:.2f} | {r['random_ns']:.1f} "
+            f"| {r['majority_ns']:.1f} | {r['minority_ns']:.1f} "
             f"| {r['bits_per_key']:.3f} |"
         )
     lines.append("")
@@ -156,9 +179,19 @@ def generate_table(before_path, after_path, output_path):
     lines = [
         "# Cython Migration Benchmark Results",
         "",
-        "Comparison of pybind11 (before, `121aa3f`) vs Cython (after, `c3586d8`).",
+        "Comparison of before (`121aa3f`) vs after (`c3586d8`). Changes include:",
         "",
-        f"Query measurement: {NUM_QUERY_KEYS:,} keys/trial, "
+        "1. **Python bindings**: pybind11 → Cython (reduces per-call binding overhead)",
+        "2. **Huffman lookup table**: replaced sequential `canonicalDecodeFromNumber` with O(1) table lookup",
+        "3. **Query cache**: pre-computed `BucketQueryInfo` avoids per-query indirection through solution vectors",
+        "",
+        "All inference measured via Python `query()` loop (includes binding overhead).",
+        "",
+        "- **Random**: different random keys each trial (cold cache, realistic workload)",
+        "- **Majority**: single majority-value key repeated (filter short-circuit path, hot cache)",
+        "- **Minority**: single minority-value key repeated (full CSF lookup path, hot cache)",
+        "",
+        f"Query measurement: {NUM_QUERY_KEYS:,} random keys/trial, "
         f"{WARMUP_TRIALS} warmup + {MEASURE_TRIALS} measured trials, median ns/query.",
         "",
     ]
@@ -173,9 +206,12 @@ def generate_table(before_path, after_path, output_path):
     lines += [
         "## Comparison",
         "",
-        "| N | Alpha | Distribution | Construction Speedup | Inference Speedup |",
-        "|--:|------:|:-------------|---------------------:|------------------:|",
+        "| N | Alpha | Distribution | Construction Speedup | Random Speedup | Majority Speedup | Minority Speedup |",
+        "|--:|------:|:-------------|---------------------:|---------------:|-----------------:|-----------------:|",
     ]
+
+    def _speedup(before_val, after_val):
+        return before_val / after_val if after_val > 0 else float("inf")
 
     for key in all_keys:
         b = before_map.get(key)
@@ -185,17 +221,12 @@ def generate_table(before_path, after_path, output_path):
 
         n, alpha, dist = key
 
-        con_before = b["construction_s"]
-        con_after = a["construction_s"]
-        con_speedup = con_before / con_after if con_after > 0 else float("inf")
-
-        q_before = b["median_ns_per_query"]
-        q_after = a["median_ns_per_query"]
-        q_speedup = q_before / q_after if q_after > 0 else float("inf")
-
         lines.append(
             f"| {n:,} | {alpha} | {dist} "
-            f"| {con_speedup:.2f}x | {q_speedup:.2f}x |"
+            f"| {_speedup(b['construction_s'], a['construction_s']):.2f}x "
+            f"| {_speedup(b['random_ns'], a['random_ns']):.2f}x "
+            f"| {_speedup(b['majority_ns'], a['majority_ns']):.2f}x "
+            f"| {_speedup(b['minority_ns'], a['minority_ns']):.2f}x |"
         )
 
     lines.append("")
@@ -239,12 +270,13 @@ def main():
 
     # Summary
     print("\n" + "=" * 60)
-    print(f"\n{'N':>12} {'alpha':>6} {'dist':<14} {'build(s)':>9} {'ns/q':>8} {'bits/key':>9}")
-    print("-" * 62)
+    print(f"\n{'N':>12} {'alpha':>6} {'dist':<14} {'build(s)':>9} {'random':>8} {'majority':>9} {'minority':>9} {'bits/key':>9}")
+    print("-" * 85)
     for r in results:
         print(
             f"{r['n']:>12,} {r['alpha']:>6} {r['dist']:<14} "
-            f"{r['construction_s']:>9.2f} {r['median_ns_per_query']:>8.1f} "
+            f"{r['construction_s']:>9.2f} {r['random_ns']:>8.1f} "
+            f"{r['majority_ns']:>9.1f} {r['minority_ns']:>9.1f} "
             f"{r['bits_per_key']:>9.3f}"
         )
 
