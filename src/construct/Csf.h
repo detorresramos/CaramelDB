@@ -78,13 +78,6 @@ public:
     return _queryCore(data, length);
   }
 
-  void queryBatch(const char *const *keys, const size_t *key_lengths,
-                  size_t num_keys, T *results) const {
-    for (size_t i = 0; i < num_keys; i++) {
-      results[i] = query(keys[i], key_lengths[i]);
-    }
-  }
-
   std::pair<std::vector<T>, double>
   benchmarkQueries(const std::vector<std::string> &keys,
                    uint32_t num_iterations) const {

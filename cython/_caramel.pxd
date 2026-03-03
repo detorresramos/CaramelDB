@@ -12,8 +12,10 @@ from libc.stddef cimport size_t
 cdef extern from "cython/caramel_types.h":
     cppclass Char10:
         char& operator[](size_t)
+        char* data()
     cppclass Char12:
         char& operator[](size_t)
+        char* data()
 
 
 # ── std::optional ─────────────────────────────────────────────────────────
@@ -221,7 +223,6 @@ cdef extern from "src/construct/Csf.h" namespace "caramel":
     cppclass Csf_uint32 "caramel::Csf<uint32_t>":
         unsigned int query(const char *data, size_t length) except +
         unsigned int query(const string &key) except +
-        void queryBatch(const char **keys, size_t *key_lengths, size_t num_keys, unsigned int *results) except +
         pair[vector[unsigned int], double] benchmarkQueries(const vector[string] &keys, unsigned int num_iterations) except +
         shared_ptr[PreFilter_uint32] getFilter()
         CsfStats getStats()
@@ -233,7 +234,6 @@ cdef extern from "src/construct/Csf.h" namespace "caramel":
     cppclass Csf_uint64 "caramel::Csf<uint64_t>":
         unsigned long long query(const char *data, size_t length) except +
         unsigned long long query(const string &key) except +
-        void queryBatch(const char **keys, size_t *key_lengths, size_t num_keys, unsigned long long *results) except +
         pair[vector[unsigned long long], double] benchmarkQueries(const vector[string] &keys, unsigned int num_iterations) except +
         shared_ptr[PreFilter_uint64] getFilter()
         CsfStats getStats()
@@ -245,7 +245,6 @@ cdef extern from "src/construct/Csf.h" namespace "caramel":
     cppclass Csf_Char10 "caramel::Csf<Char10>":
         Char10 query(const char *data, size_t length) except +
         Char10 query(const string &key) except +
-        void queryBatch(const char **keys, size_t *key_lengths, size_t num_keys, Char10 *results) except +
         pair[vector[Char10], double] benchmarkQueries(const vector[string] &keys, unsigned int num_iterations) except +
         shared_ptr[PreFilter_Char10] getFilter()
         CsfStats getStats()
@@ -257,7 +256,6 @@ cdef extern from "src/construct/Csf.h" namespace "caramel":
     cppclass Csf_Char12 "caramel::Csf<Char12>":
         Char12 query(const char *data, size_t length) except +
         Char12 query(const string &key) except +
-        void queryBatch(const char **keys, size_t *key_lengths, size_t num_keys, Char12 *results) except +
         pair[vector[Char12], double] benchmarkQueries(const vector[string] &keys, unsigned int num_iterations) except +
         shared_ptr[PreFilter_Char12] getFilter()
         CsfStats getStats()
@@ -269,7 +267,6 @@ cdef extern from "src/construct/Csf.h" namespace "caramel":
     cppclass Csf_string "caramel::Csf<std::string>":
         string query(const char *data, size_t length) except +
         string query(const string &key) except +
-        void queryBatch(const char **keys, size_t *key_lengths, size_t num_keys, string *results) except +
         pair[vector[string], double] benchmarkQueries(const vector[string] &keys, unsigned int num_iterations) except +
         shared_ptr[PreFilter_string] getFilter()
         CsfStats getStats()

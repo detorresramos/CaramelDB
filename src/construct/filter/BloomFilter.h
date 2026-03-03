@@ -87,8 +87,12 @@ public:
   }
 
   void add(const std::string &key) {
-    std::vector<uint64_t> hash_values = getHashValues(key);
-    for (uint64_t hash : hash_values) {
+    add(key.data(), key.size());
+  }
+
+  void add(const char *data, size_t length) {
+    for (size_t i = 0; i < _num_hashes; i++) {
+      uint64_t hash = SpookyHash::Hash64(static_cast<const void *>(data), length, i) % size();
       _bitarray->setBit(hash);
     }
   }
@@ -112,21 +116,6 @@ public:
   size_t numHashes() const { return _num_hashes; }
 
 private:
-  std::vector<uint64_t> getHashValues(const std::string &key) {
-    std::vector<uint64_t> hash_values;
-    hash_values.reserve(_num_hashes);
-    for (size_t i = 0; i < _num_hashes; i++) {
-      uint64_t hash = hashWithSeed(key, i);
-      hash_values.push_back(hash % size());
-    }
-    return hash_values;
-  }
-
-  uint64_t hashWithSeed(const std::string &key, uint64_t seed) {
-    const void *msgPtr = static_cast<const void *>(key.data());
-    size_t length = key.size();
-    return SpookyHash::Hash64(msgPtr, length, seed);
-  }
 
   // Private constructor for cereal
   BloomFilter() {}

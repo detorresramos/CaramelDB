@@ -116,7 +116,6 @@ def Caramel(
         )
     else:
         csf = CSFClass(keys, values, prefilter=prefilter, verbose=verbose)
-    csf = _wrap_backend(csf)
     return csf
 
 
@@ -135,8 +134,7 @@ def load(filename):
     """
     for csf_class in CLASS_LIST:
         try:
-            csf = csf_class.load(filename)
-            return _wrap_backend(csf)
+            return csf_class.load(filename)
         except CsfDeserializationException as e:
             continue
     raise ValueError(f"File {filename} does not contain a deserializable CSF.")
@@ -213,16 +211,6 @@ def _infer_length(values_to_infer, max_to_infer):
         return lengths[0]
     else:
         return None
-
-
-def _wrap_backend(csf):
-    """Wraps the backend CSF (e.g., to apply post-query processing)."""
-    list_to_str_classes = (CSFChar10, CSFChar12)
-
-    if isinstance(csf, list_to_str_classes):
-        csf = CSFQueryWrapper(csf, lambda x: "".join(x))
-
-    return csf
 
 
 def permute_values(values, csf_class_type):

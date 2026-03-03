@@ -89,8 +89,7 @@ public:
   }
 
   void add(const std::string &key) {
-    uint64_t hash = hashString(key);
-    _keys.push_back(hash);
+    _keys.push_back(SpookyHash::Hash64(key.data(), key.size(), 0));
   }
 
   void build() {
@@ -142,11 +141,6 @@ public:
   int fingerprintWidth() const { return _fingerprint_width; }
 
 private:
-  uint64_t hashString(const std::string &key) const {
-    const void *msgPtr = static_cast<const void *>(key.data());
-    size_t length = key.size();
-    return SpookyHash::Hash64(msgPtr, length, 0);
-  }
 
   BinaryFuseFilter()
       : _num_elements(0), _error_rate(0.0039f), _fingerprint_width(8),

@@ -55,15 +55,13 @@ def test_byte_keys():
 def test_csf_char_10():
     keys = gen_byte_keys(1000)
     values = gen_charX_values(1000, 10)
-    wrap_fn = lambda csf: carameldb.CSFQueryWrapper(csf, lambda x: "".join(x))
-    assert_build_save_load_correct(keys, values, carameldb.CSFChar10, wrap_fn)
+    assert_build_save_load_correct(keys, values, carameldb.CSFChar10)
 
 
 def test_csf_char_12():
     keys = gen_byte_keys(1000)
     values = gen_charX_values(1000, 12)
-    wrap_fn = lambda csf: carameldb.CSFQueryWrapper(csf, lambda x: "".join(x))
-    assert_build_save_load_correct(keys, values, carameldb.CSFChar12, wrap_fn)
+    assert_build_save_load_correct(keys, values, carameldb.CSFChar12)
 
 
 def test_csf_string():

@@ -4,10 +4,9 @@
 
 cimport cython
 from cpython.bytes cimport PyBytes_AS_STRING, PyBytes_GET_SIZE
-from cpython.unicode cimport PyUnicode_Check
+from cpython.unicode cimport PyUnicode_Check, PyUnicode_DecodeUTF8
 from cpython.bytes cimport PyBytes_Check
-from libc.stdlib cimport malloc, free
-from libc.stddef cimport size_t as c_size_t
+from libc.string cimport memcpy
 from libcpp.string cimport string
 from libcpp.vector cimport vector
 from libcpp.memory cimport shared_ptr, make_shared
@@ -44,6 +43,7 @@ cdef inline string _to_cpp_string(key) except *:
 
 cdef vector[string] _to_cpp_strings(keys) except *:
     cdef vector[string] result
+    result.reserve(len(keys))
     for k in keys:
         result.push_back(_to_cpp_string(k))
     return result
@@ -332,7 +332,7 @@ cdef class PreFilterChar10:
     def get_most_common_value(self):
         cdef cpp.optional[cpp.Char10] val = self._ptr.get().getMostCommonValue()
         if val.has_value():
-            return _char10_to_list(val.value())
+            return _char10_to_str(val.value())
         return None
 
     def get_stats(self):
@@ -361,7 +361,7 @@ cdef class PreFilterChar12:
     def get_most_common_value(self):
         cdef cpp.optional[cpp.Char12] val = self._ptr.get().getMostCommonValue()
         if val.has_value():
-            return _char12_to_list(val.value())
+            return _char12_to_str(val.value())
         return None
 
     def get_stats(self):
@@ -656,45 +656,41 @@ cdef class BloomFilter:
 
 cdef cpp.Char10 _str_to_char10(s) except *:
     cdef cpp.Char10 result
-    cdef bytes b
-    if isinstance(s, str):
-        b = s.encode('utf-8')
+    cdef const char* buf
+    cdef Py_ssize_t slen
+    if PyUnicode_Check(s):
+        buf = PyUnicode_AsUTF8AndSize(s, &slen)
+    elif PyBytes_Check(s):
+        buf = PyBytes_AS_STRING(s)
+        slen = PyBytes_GET_SIZE(s)
     else:
-        b = s
-    if len(b) != 10:
-        raise ValueError(f"Expected 10-byte value, got {len(b)}")
-    cdef int i
-    for i in range(10):
-        result[i] = <char>b[i]
+        raise TypeError(f"Expected str or bytes, got {type(s).__name__}")
+    if slen != 10:
+        raise ValueError(f"Expected 10-byte value, got {slen}")
+    memcpy(result.data(), buf, 10)
     return result
 
 cdef cpp.Char12 _str_to_char12(s) except *:
     cdef cpp.Char12 result
-    cdef bytes b
-    if isinstance(s, str):
-        b = s.encode('utf-8')
+    cdef const char* buf
+    cdef Py_ssize_t slen
+    if PyUnicode_Check(s):
+        buf = PyUnicode_AsUTF8AndSize(s, &slen)
+    elif PyBytes_Check(s):
+        buf = PyBytes_AS_STRING(s)
+        slen = PyBytes_GET_SIZE(s)
     else:
-        b = s
-    if len(b) != 12:
-        raise ValueError(f"Expected 12-byte value, got {len(b)}")
-    cdef int i
-    for i in range(12):
-        result[i] = <char>b[i]
+        raise TypeError(f"Expected str or bytes, got {type(s).__name__}")
+    if slen != 12:
+        raise ValueError(f"Expected 12-byte value, got {slen}")
+    memcpy(result.data(), buf, 12)
     return result
 
-cdef list _char10_to_list(cpp.Char10 c):
-    cdef list result = []
-    cdef int i
-    for i in range(10):
-        result.append(chr(c[i]))
-    return result
+cdef inline str _char10_to_str(cpp.Char10 c):
+    return PyUnicode_DecodeUTF8(c.data(), 10, NULL)
 
-cdef list _char12_to_list(cpp.Char12 c):
-    cdef list result = []
-    cdef int i
-    for i in range(12):
-        result.append(chr(c[i]))
-    return result
+cdef inline str _char12_to_str(cpp.Char12 c):
+    return PyUnicode_DecodeUTF8(c.data(), 12, NULL)
 
 
 # ── CSF wrappers ───────────────────────────────────────────────────────────
@@ -706,9 +702,16 @@ cdef class CSFUint32:
         cdef vector[string] cpp_keys = _to_cpp_strings(keys)
         cdef vector[unsigned int] cpp_values
         cdef shared_ptr[cpp.PreFilterConfig] filter_config
+        cdef Py_ssize_t n = len(values)
 
-        for v in values:
-            cpp_values.push_back(<unsigned int>v)
+        if isinstance(values, np.ndarray):
+            arr_u32 = np.ascontiguousarray(values, dtype=np.uint32)
+            cpp_values.resize(n)
+            memcpy(cpp_values.data(), (<np.ndarray>arr_u32).data, n * sizeof(unsigned int))
+        else:
+            cpp_values.reserve(n)
+            for v in values:
+                cpp_values.push_back(<unsigned int>v)
 
         if prefilter is not None and isinstance(prefilter, PreFilterConfig):
             filter_config = (<PreFilterConfig>prefilter)._ptr
@@ -767,9 +770,16 @@ cdef class CSFUint64:
         cdef vector[string] cpp_keys = _to_cpp_strings(keys)
         cdef vector[unsigned long long] cpp_values
         cdef shared_ptr[cpp.PreFilterConfig] filter_config
+        cdef Py_ssize_t n = len(values)
 
-        for v in values:
-            cpp_values.push_back(<unsigned long long>v)
+        if isinstance(values, np.ndarray):
+            arr_u64 = np.ascontiguousarray(values, dtype=np.uint64)
+            cpp_values.resize(n)
+            memcpy(cpp_values.data(), (<np.ndarray>arr_u64).data, n * sizeof(unsigned long long))
+        else:
+            cpp_values.reserve(n)
+            for v in values:
+                cpp_values.push_back(<unsigned long long>v)
 
         if prefilter is not None and isinstance(prefilter, PreFilterConfig):
             filter_config = (<PreFilterConfig>prefilter)._ptr
@@ -829,6 +839,7 @@ cdef class CSFChar10:
         cdef vector[cpp.Char10] cpp_values
         cdef shared_ptr[cpp.PreFilterConfig] filter_config
 
+        cpp_values.reserve(len(values))
         for v in values:
             cpp_values.push_back(_str_to_char10(v))
 
@@ -842,7 +853,7 @@ cdef class CSFChar10:
         cdef Py_ssize_t length
         _key_to_buf(key, &buf, &length)
         cdef cpp.Char10 result = self._ptr.get().query(buf, length)
-        return _char10_to_list(result)
+        return _char10_to_str(result)
 
     def query_batch(self, list keys):
         cdef Py_ssize_t n = len(keys)
@@ -853,7 +864,7 @@ cdef class CSFChar10:
         for i in range(n):
             _key_to_buf(keys[i], &buf, &length)
             r = self._ptr.get().query(buf, length)
-            py_results.append(_char10_to_list(r))
+            py_results.append(_char10_to_str(r))
         return py_results
 
     def benchmark_queries(self, list keys, unsigned int num_iterations=10):
@@ -861,7 +872,7 @@ cdef class CSFChar10:
         cdef pair[vector[cpp.Char10], double] result = self._ptr.get().benchmarkQueries(cpp_keys, num_iterations)
         py_results = []
         for i in range(result.first.size()):
-            py_results.append(_char10_to_list(result.first[i]))
+            py_results.append(_char10_to_str(result.first[i]))
         return (py_results, result.second)
 
     def get_filter(self):
@@ -895,6 +906,7 @@ cdef class CSFChar12:
         cdef vector[cpp.Char12] cpp_values
         cdef shared_ptr[cpp.PreFilterConfig] filter_config
 
+        cpp_values.reserve(len(values))
         for v in values:
             cpp_values.push_back(_str_to_char12(v))
 
@@ -908,7 +920,7 @@ cdef class CSFChar12:
         cdef Py_ssize_t length
         _key_to_buf(key, &buf, &length)
         cdef cpp.Char12 result = self._ptr.get().query(buf, length)
-        return _char12_to_list(result)
+        return _char12_to_str(result)
 
     def query_batch(self, list keys):
         cdef Py_ssize_t n = len(keys)
@@ -919,7 +931,7 @@ cdef class CSFChar12:
         for i in range(n):
             _key_to_buf(keys[i], &buf, &length)
             r = self._ptr.get().query(buf, length)
-            py_results.append(_char12_to_list(r))
+            py_results.append(_char12_to_str(r))
         return py_results
 
     def benchmark_queries(self, list keys, unsigned int num_iterations=10):
@@ -927,7 +939,7 @@ cdef class CSFChar12:
         cdef pair[vector[cpp.Char12], double] result = self._ptr.get().benchmarkQueries(cpp_keys, num_iterations)
         py_results = []
         for i in range(result.first.size()):
-            py_results.append(_char12_to_list(result.first[i]))
+            py_results.append(_char12_to_str(result.first[i]))
         return (py_results, result.second)
 
     def get_filter(self):
@@ -961,6 +973,7 @@ cdef class CSFString:
         cdef vector[string] cpp_values
         cdef shared_ptr[cpp.PreFilterConfig] filter_config
 
+        cpp_values.reserve(len(values))
         for v in values:
             if isinstance(v, str):
                 cpp_values.push_back((<str>v).encode('utf-8'))
@@ -1031,10 +1044,17 @@ cdef class MultisetCSFUint32:
         cdef shared_ptr[cpp.PreFilterConfig] filter_config
 
         cdef vector[unsigned int] col_vec
+        cpp_values.reserve(len(values))
         for col in values:
-            col_vec.clear()
-            for v in col:
-                col_vec.push_back(<unsigned int>v)
+            if isinstance(col, np.ndarray):
+                arr_col = np.ascontiguousarray(col, dtype=np.uint32)
+                col_vec.resize(len(col))
+                memcpy(col_vec.data(), (<np.ndarray>arr_col).data, len(col) * sizeof(unsigned int))
+            else:
+                col_vec.clear()
+                col_vec.reserve(len(col))
+                for v in col:
+                    col_vec.push_back(<unsigned int>v)
             cpp_values.push_back(col_vec)
 
         if prefilter is not None and isinstance(prefilter, PreFilterConfig):
@@ -1074,10 +1094,17 @@ cdef class MultisetCSFUint64:
         cdef shared_ptr[cpp.PreFilterConfig] filter_config
 
         cdef vector[unsigned long long] col_vec
+        cpp_values.reserve(len(values))
         for col in values:
-            col_vec.clear()
-            for v in col:
-                col_vec.push_back(<unsigned long long>v)
+            if isinstance(col, np.ndarray):
+                arr_col = np.ascontiguousarray(col, dtype=np.uint64)
+                col_vec.resize(len(col))
+                memcpy(col_vec.data(), (<np.ndarray>arr_col).data, len(col) * sizeof(unsigned long long))
+            else:
+                col_vec.clear()
+                col_vec.reserve(len(col))
+                for v in col:
+                    col_vec.push_back(<unsigned long long>v)
             cpp_values.push_back(col_vec)
 
         if prefilter is not None and isinstance(prefilter, PreFilterConfig):
@@ -1117,6 +1144,7 @@ cdef class MultisetCSFChar10:
         cdef shared_ptr[cpp.PreFilterConfig] filter_config
 
         cdef vector[cpp.Char10] col_vec
+        cpp_values.reserve(len(values))
         for col in values:
             col_vec.clear()
             for v in col:
@@ -1135,7 +1163,7 @@ cdef class MultisetCSFChar10:
         cdef vector[cpp.Char10] result = self._ptr.get().query(buf, length, parallel)
         py_results = []
         for i in range(result.size()):
-            py_results.append(_char10_to_list(result[i]))
+            py_results.append(_char10_to_str(result[i]))
         return py_results
 
     def save(self, str filename):
@@ -1164,6 +1192,7 @@ cdef class MultisetCSFChar12:
         cdef shared_ptr[cpp.PreFilterConfig] filter_config
 
         cdef vector[cpp.Char12] col_vec
+        cpp_values.reserve(len(values))
         for col in values:
             col_vec.clear()
             for v in col:
@@ -1182,7 +1211,7 @@ cdef class MultisetCSFChar12:
         cdef vector[cpp.Char12] result = self._ptr.get().query(buf, length, parallel)
         py_results = []
         for i in range(result.size()):
-            py_results.append(_char12_to_list(result[i]))
+            py_results.append(_char12_to_str(result[i]))
         return py_results
 
     def save(self, str filename):
@@ -1211,6 +1240,7 @@ cdef class MultisetCSFString:
         cdef shared_ptr[cpp.PreFilterConfig] filter_config
 
         cdef vector[string] col_vec
+        cpp_values.reserve(len(values))
         for col in values:
             col_vec.clear()
             for v in col:
