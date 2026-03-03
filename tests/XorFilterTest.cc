@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 #include <fstream>
+#include <sstream>
+#include <unistd.h>
 #include <cereal/archives/binary.hpp>
 #include <src/construct/filter/XorFilter.h>
 
@@ -43,7 +45,9 @@ TEST(XorFilterTest, SimpleAddAndCheck) {
 }
 
 TEST(XorFilterTest, SaveAndLoad) {
-  std::string test_file = "/tmp/xor_filter_test.bin";
+  std::ostringstream filename;
+  filename << "/tmp/xor_filter_test_" << getpid() << ".bin";
+  std::string test_file = filename.str();
 
   // Create and populate a xor filter
   auto xf_original = XorFilter::make(100);

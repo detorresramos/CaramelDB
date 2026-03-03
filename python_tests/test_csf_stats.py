@@ -6,10 +6,7 @@ from carameldb import (
     BloomFilterConfig,
     XORFilterConfig,
 )
-
-
-def gen_str_keys(n):
-    return [f"key{i}" for i in range(n)]
+from conftest import gen_str_keys
 
 
 def test_csf_stats_basic():

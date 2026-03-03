@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 #include <random>
 #include <fstream>
+#include <sstream>
+#include <unistd.h>
 #include <cereal/archives/binary.hpp>
 #include <cereal/types/memory.hpp>
 #include <src/construct/filter/BloomFilter.h>
@@ -155,7 +157,9 @@ TEST(BloomFilterTest, VerifyOptimalNumHashes) {
 }
 
 TEST(BloomFilterTest, SaveAndLoad) {
-  std::string test_file = "/tmp/bloom_filter_test.bin";
+  std::ostringstream filename;
+  filename << "/tmp/bloom_filter_test_" << getpid() << ".bin";
+  std::string test_file = filename.str();
 
   // Create and populate a bloom filter
   auto bf_original = BloomFilter::makeAutotuned(100, 0.01, false);

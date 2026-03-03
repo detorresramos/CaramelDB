@@ -16,6 +16,7 @@ set(CARAMEL_TESTS
     XorFilterTest
     BitPackedXorFilterTest
     BinaryFuseFilterTest
+    BitPackedArrayTest
     FilterSizeComparisonTest)
 
 foreach(CARAMEL_TEST IN LISTS CARAMEL_TESTS)
