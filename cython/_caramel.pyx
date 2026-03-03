@@ -1038,23 +1038,28 @@ cdef class CSFString:
 cdef class MultisetCSFUint32:
     cdef shared_ptr[cpp.MultisetCsf_uint32] _ptr
 
-    def __init__(self, list keys, values, prefilter=None, bint verbose=True):
+    def __init__(self, list keys, values, prefilter=None, bint permute=False, bint verbose=True):
         cdef vector[string] cpp_keys = _to_cpp_strings(keys)
         cdef vector[vector[unsigned int]] cpp_values
         cdef shared_ptr[cpp.PreFilterConfig] filter_config
 
+        values = np.ascontiguousarray(values, dtype=np.uint32)
+        if values.ndim != 2:
+            raise ValueError("MultisetCSF values must be a 2D array.")
+
+        if permute:
+            cpp.entropyPermutation_uint32(
+                <unsigned int*>(<np.ndarray>values).data,
+                values.shape[0], values.shape[1])
+
+        cdef int num_rows = values.shape[0]
+        cdef int num_cols = values.shape[1]
         cdef vector[unsigned int] col_vec
-        cpp_values.reserve(len(values))
-        for col in values:
-            if isinstance(col, np.ndarray):
-                arr_col = np.ascontiguousarray(col, dtype=np.uint32)
-                col_vec.resize(len(col))
-                memcpy(col_vec.data(), (<np.ndarray>arr_col).data, len(col) * sizeof(unsigned int))
-            else:
-                col_vec.clear()
-                col_vec.reserve(len(col))
-                for v in col:
-                    col_vec.push_back(<unsigned int>v)
+        cpp_values.reserve(num_cols)
+        for col_idx in range(num_cols):
+            arr_col = np.ascontiguousarray(values[:, col_idx])
+            col_vec.resize(num_rows)
+            memcpy(col_vec.data(), (<np.ndarray>arr_col).data, num_rows * sizeof(unsigned int))
             cpp_values.push_back(col_vec)
 
         if prefilter is not None and isinstance(prefilter, PreFilterConfig):
@@ -1088,23 +1093,28 @@ cdef class MultisetCSFUint32:
 cdef class MultisetCSFUint64:
     cdef shared_ptr[cpp.MultisetCsf_uint64] _ptr
 
-    def __init__(self, list keys, values, prefilter=None, bint verbose=True):
+    def __init__(self, list keys, values, prefilter=None, bint permute=False, bint verbose=True):
         cdef vector[string] cpp_keys = _to_cpp_strings(keys)
         cdef vector[vector[unsigned long long]] cpp_values
         cdef shared_ptr[cpp.PreFilterConfig] filter_config
 
+        values = np.ascontiguousarray(values, dtype=np.uint64)
+        if values.ndim != 2:
+            raise ValueError("MultisetCSF values must be a 2D array.")
+
+        if permute:
+            cpp.entropyPermutation_uint64(
+                <unsigned long long*>(<np.ndarray>values).data,
+                values.shape[0], values.shape[1])
+
+        cdef int num_rows = values.shape[0]
+        cdef int num_cols = values.shape[1]
         cdef vector[unsigned long long] col_vec
-        cpp_values.reserve(len(values))
-        for col in values:
-            if isinstance(col, np.ndarray):
-                arr_col = np.ascontiguousarray(col, dtype=np.uint64)
-                col_vec.resize(len(col))
-                memcpy(col_vec.data(), (<np.ndarray>arr_col).data, len(col) * sizeof(unsigned long long))
-            else:
-                col_vec.clear()
-                col_vec.reserve(len(col))
-                for v in col:
-                    col_vec.push_back(<unsigned long long>v)
+        cpp_values.reserve(num_cols)
+        for col_idx in range(num_cols):
+            arr_col = np.ascontiguousarray(values[:, col_idx])
+            col_vec.resize(num_rows)
+            memcpy(col_vec.data(), (<np.ndarray>arr_col).data, num_rows * sizeof(unsigned long long))
             cpp_values.push_back(col_vec)
 
         if prefilter is not None and isinstance(prefilter, PreFilterConfig):
@@ -1138,16 +1148,27 @@ cdef class MultisetCSFUint64:
 cdef class MultisetCSFChar10:
     cdef shared_ptr[cpp.MultisetCsf_Char10] _ptr
 
-    def __init__(self, list keys, values, prefilter=None, bint verbose=True):
+    def __init__(self, list keys, values, prefilter=None, bint permute=False, bint verbose=True):
         cdef vector[string] cpp_keys = _to_cpp_strings(keys)
         cdef vector[vector[cpp.Char10]] cpp_values
         cdef shared_ptr[cpp.PreFilterConfig] filter_config
 
+        values = np.asarray(values)
+        if values.ndim != 2:
+            raise ValueError("MultisetCSF values must be a 2D array.")
+
+        if permute:
+            values = np.ascontiguousarray(values.astype("|S10"))
+            cpp.entropyPermutation_Char10(
+                <cpp.Char10*>(<np.ndarray>values).data,
+                values.shape[0], values.shape[1])
+
+        cdef int num_cols = values.shape[1]
         cdef vector[cpp.Char10] col_vec
-        cpp_values.reserve(len(values))
-        for col in values:
+        cpp_values.reserve(num_cols)
+        for col_idx in range(num_cols):
             col_vec.clear()
-            for v in col:
+            for v in values[:, col_idx]:
                 col_vec.push_back(_str_to_char10(v))
             cpp_values.push_back(col_vec)
 
@@ -1186,16 +1207,27 @@ cdef class MultisetCSFChar10:
 cdef class MultisetCSFChar12:
     cdef shared_ptr[cpp.MultisetCsf_Char12] _ptr
 
-    def __init__(self, list keys, values, prefilter=None, bint verbose=True):
+    def __init__(self, list keys, values, prefilter=None, bint permute=False, bint verbose=True):
         cdef vector[string] cpp_keys = _to_cpp_strings(keys)
         cdef vector[vector[cpp.Char12]] cpp_values
         cdef shared_ptr[cpp.PreFilterConfig] filter_config
 
+        values = np.asarray(values)
+        if values.ndim != 2:
+            raise ValueError("MultisetCSF values must be a 2D array.")
+
+        if permute:
+            values = np.ascontiguousarray(values.astype("|S12"))
+            cpp.entropyPermutation_Char12(
+                <cpp.Char12*>(<np.ndarray>values).data,
+                values.shape[0], values.shape[1])
+
+        cdef int num_cols = values.shape[1]
         cdef vector[cpp.Char12] col_vec
-        cpp_values.reserve(len(values))
-        for col in values:
+        cpp_values.reserve(num_cols)
+        for col_idx in range(num_cols):
             col_vec.clear()
-            for v in col:
+            for v in values[:, col_idx]:
                 col_vec.push_back(_str_to_char12(v))
             cpp_values.push_back(col_vec)
 
@@ -1234,16 +1266,24 @@ cdef class MultisetCSFChar12:
 cdef class MultisetCSFString:
     cdef shared_ptr[cpp.MultisetCsf_string] _ptr
 
-    def __init__(self, list keys, values, prefilter=None, bint verbose=True):
+    def __init__(self, list keys, values, prefilter=None, bint permute=False, bint verbose=True):
         cdef vector[string] cpp_keys = _to_cpp_strings(keys)
         cdef vector[vector[string]] cpp_values
         cdef shared_ptr[cpp.PreFilterConfig] filter_config
 
+        if permute:
+            raise ValueError("'permute' is not supported for variable-length string values.")
+
+        values = np.asarray(values)
+        if values.ndim != 2:
+            raise ValueError("MultisetCSF values must be a 2D array.")
+
+        cdef int num_cols = values.shape[1]
         cdef vector[string] col_vec
-        cpp_values.reserve(len(values))
-        for col in values:
+        cpp_values.reserve(num_cols)
+        for col_idx in range(num_cols):
             col_vec.clear()
-            for v in col:
+            for v in values[:, col_idx]:
                 if isinstance(v, str):
                     col_vec.push_back((<str>v).encode('utf-8'))
                 else:

@@ -11,6 +11,10 @@ from setuptools import Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
 
 
+def get_build_mode():
+    return os.environ.get("CARAMEL_BUILD_MODE", "Release")
+
+
 class CMakeCythonBuild(build_ext):
     """Build caramel_lib via CMake, then compile the Cython extension against it."""
 
@@ -19,8 +23,7 @@ class CMakeCythonBuild(build_ext):
         build_dir = os.path.join(project_root, "build")
         os.makedirs(build_dir, exist_ok=True)
 
-        debug = int(os.environ.get("DEBUG", 0)) if self.debug is None else self.debug
-        cfg = "Debug" if debug else "Release"
+        cfg = get_build_mode()
 
         cmake_args = [
             f"-DCMAKE_BUILD_TYPE={cfg}",
@@ -64,14 +67,16 @@ class CMakeCythonBuild(build_ext):
 
 
 def get_compile_args():
-    args = [
-        "-std=c++17",
-        "-O3",
-        "-ffast-math",
-        "-funroll-loops",
-        "-ftree-vectorize",
-        "-DNDEBUG",
-    ]
+    mode = get_build_mode()
+    args = ["-std=c++17"]
+    if mode in ("Release", "RelWithDebInfo"):
+        args += ["-DNDEBUG", "-O3", "-ffast-math", "-funroll-loops", "-ftree-vectorize"]
+    if mode in ("Debug", "DebugWithAsan"):
+        args += ["-Og", "-g", "-fno-omit-frame-pointer"]
+    if mode == "RelWithDebInfo":
+        args += ["-g", "-fno-omit-frame-pointer"]
+    if mode == "DebugWithAsan":
+        args += ["-fsanitize=address"]
 
     # OpenMP support
     if sys.platform == "darwin":
@@ -96,6 +101,9 @@ def get_link_args():
                 break
     else:
         args += ["-lgomp"]
+
+    if get_build_mode() == "DebugWithAsan":
+        args += ["-fsanitize=address"]
 
     return args
 

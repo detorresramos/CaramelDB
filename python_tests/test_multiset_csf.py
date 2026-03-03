@@ -96,3 +96,38 @@ def test_permutation():
 
     assert values[0][0] == str(2).ljust(10).encode()
     assert values[1][0] == str(2).ljust(10).encode()
+
+
+def test_multiset_direct_constructor():
+    num_rows = 100
+    num_cols = 5
+    keys = [f"key_{i}" for i in range(num_rows)]
+    values = np.array(
+        [[j + i for j in range(num_cols)] for i in range(num_rows)], dtype=np.uint32
+    )
+
+    csf = carameldb.MultisetCSFUint32(keys, values, verbose=False)
+    for key, row in zip(keys, values):
+        assert csf.query(key) == list(row)
+
+
+def test_multiset_direct_constructor_permute():
+    num_rows = 100
+    num_cols = 5
+    keys = [f"key_{i}" for i in range(num_rows)]
+    values = np.array(
+        [[j + i for j in range(num_cols)] for i in range(num_rows)], dtype=np.uint32
+    )
+
+    csf = carameldb.MultisetCSFUint32(keys, values, permute=True, verbose=False)
+    for key, row in zip(keys, values):
+        assert csf.query(key) == list(row)
+
+
+def test_multiset_string_permute_raises():
+    keys = ["a", "b", "c"]
+    values = np.array([["x", "y"], ["a", "b"], ["c", "d"]])
+    with pytest.raises(
+        ValueError, match="'permute' is not supported for variable-length string values."
+    ):
+        carameldb.MultisetCSFString(keys, values, permute=True)

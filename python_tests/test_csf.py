@@ -127,6 +127,22 @@ def test_uint32_vs_64_values():
     assert carameldb._infer_backend(uint64_t_values) == carameldb.CSFUint64
 
 
+def test_infer_backend_negative_raises():
+    values = np.array([-1, 2, 3])
+    with pytest.raises(ValueError, match="Negative integer values are not supported"):
+        carameldb._infer_backend(values)
+
+
+def test_infer_backend_large_int64_uses_uint64():
+    values = np.array([0, 2**33])
+    assert carameldb._infer_backend(values) == carameldb.CSFUint64
+
+
+def test_infer_backend_small_int64_uses_uint32():
+    values = np.array([0, 1, 2])
+    assert carameldb._infer_backend(values) == carameldb.CSFUint32
+
+
 def test_unsolvable():
     keys = ["1", "2", "3", "4", "4"]
     values = [1, 2, 3, 4, 5]

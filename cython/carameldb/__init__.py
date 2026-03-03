@@ -98,23 +98,10 @@ def Caramel(
 
     CSFClass = _infer_backend(values, max_to_infer=max_to_infer)
     if CSFClass.is_multiset():
-        if permute:
-            values = permute_values(values, csf_class_type=CSFClass)
-
-        try:
-            values = values.T
-        except Exception:
-            raise ValueError(
-                "Error transforming values to column-wise. Make sure all values are the same length."
-            )
-
-        csf = CSFClass(
-            keys,
-            values,
-            prefilter=prefilter,
-            verbose=verbose,
-        )
+        csf = CSFClass(keys, values, prefilter=prefilter, permute=permute, verbose=verbose)
     else:
+        if permute:
+            raise ValueError("'permute' is only supported for multiset (2D) values.")
         csf = CSFClass(keys, values, prefilter=prefilter, verbose=verbose)
     return csf
 
@@ -155,6 +142,16 @@ def _infer_backend(values, max_to_infer=None):
         raise ValueError("Caramel only supports 1D and 2D arrays as values.")
 
     if np.issubdtype(type(value_to_test), np.integer):
+        if np.issubdtype(type(value_to_test), np.signedinteger):
+            flat = values.ravel()
+            if flat.min() < 0:
+                raise ValueError(
+                    f"Negative integer values are not supported. "
+                    f"Found minimum value {flat.min()}."
+                )
+            if flat.max() > np.iinfo(np.uint32).max:
+                return MultisetCSFUint64 if multiset else CSFUint64
+            return MultisetCSFUint32 if multiset else CSFUint32
         if np.issubdtype(type(value_to_test), np.uint64):
             return MultisetCSFUint64 if multiset else CSFUint64
         return MultisetCSFUint32 if multiset else CSFUint32
@@ -186,22 +183,3 @@ def _infer_length(values_to_infer, max_to_infer):
         return None
 
 
-def permute_values(values, csf_class_type):
-    if csf_class_type == MultisetCSFChar10:
-        values = values.astype("|S10")
-        permute_char10(values)
-        return values
-    elif csf_class_type == MultisetCSFChar12:
-        values = values.astype("|S12")
-        permute_char12(values)
-        return values
-    elif csf_class_type == MultisetCSFUint32:
-        values = values.astype(np.uint32)
-        permute_uint32(values)
-        return values
-    elif csf_class_type == MultisetCSFUint64:
-        values = values.astype(np.uint64)
-        permute_uint64(values)
-        return values
-    else:
-        raise ValueError("'permute' flag not supported for this multiset class type.")
