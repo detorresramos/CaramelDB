@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cassert>
 #include <cereal/access.hpp>
 #include <cstdint>
 #include <optional>
@@ -91,13 +92,7 @@ public:
                                                      const BitArray &b);
 
   inline uint64_t getuint64(uint32_t pos, uint32_t width) const {
-    if (pos + width > _num_bits) {
-      throw std::invalid_argument("Cannot get slice starting at pos " +
-                                  std::to_string(pos) + " of width " +
-                                  std::to_string(width) + " in bitarray of " +
-                                  std::to_string(_num_bits) + " bits.");
-    }
-
+    assert(pos + width <= _num_bits);
     const int l = 64 - width;
     const uint64_t start_word = pos / 64;
     const int start_bit = pos % 64;
@@ -109,6 +104,8 @@ public:
   }
 
   std::string str() const;
+
+  const uint64_t *backingArrayPtr() const { return _backing_array; }
 
   std::vector<uint64_t> backingArray() const {
     std::vector<uint64_t> vector(_backing_array, _backing_array + _num_blocks);

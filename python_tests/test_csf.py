@@ -55,15 +55,13 @@ def test_byte_keys():
 def test_csf_char_10():
     keys = gen_byte_keys(1000)
     values = gen_charX_values(1000, 10)
-    wrap_fn = lambda csf: carameldb.CSFQueryWrapper(csf, lambda x: "".join(x))
-    assert_build_save_load_correct(keys, values, carameldb.CSFChar10, wrap_fn)
+    assert_build_save_load_correct(keys, values, carameldb.CSFChar10)
 
 
 def test_csf_char_12():
     keys = gen_byte_keys(1000)
     values = gen_charX_values(1000, 12)
-    wrap_fn = lambda csf: carameldb.CSFQueryWrapper(csf, lambda x: "".join(x))
-    assert_build_save_load_correct(keys, values, carameldb.CSFChar12, wrap_fn)
+    assert_build_save_load_correct(keys, values, carameldb.CSFChar12)
 
 
 def test_csf_string():
@@ -127,6 +125,22 @@ def test_uint32_vs_64_values():
     assert carameldb._infer_backend(uint32_t_values) == carameldb.CSFUint32
     uint64_t_values = np.array([1, 2, 3], dtype=np.uint64)
     assert carameldb._infer_backend(uint64_t_values) == carameldb.CSFUint64
+
+
+def test_infer_backend_negative_raises():
+    values = np.array([-1, 2, 3])
+    with pytest.raises(ValueError, match="Negative integer values are not supported"):
+        carameldb._infer_backend(values)
+
+
+def test_infer_backend_large_int64_uses_uint64():
+    values = np.array([0, 2**33])
+    assert carameldb._infer_backend(values) == carameldb.CSFUint64
+
+
+def test_infer_backend_small_int64_uses_uint32():
+    values = np.array([0, 1, 2])
+    assert carameldb._infer_backend(values) == carameldb.CSFUint32
 
 
 def test_unsolvable():

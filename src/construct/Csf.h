@@ -14,6 +14,7 @@
 #include <cereal/types/optional.hpp>
 #include <cereal/types/utility.hpp>
 #include <cereal/types/vector.hpp>
+#include <chrono>
 #include <limits>
 #include <memory>
 #include <src/BitArray.h>
@@ -35,6 +36,12 @@ public:
       : std::runtime_error("Cannot deserialize CSF: " + message) {};
 };
 
+struct BucketQueryInfo {
+  const uint64_t *data;
+  uint32_t num_variables;
+  uint32_t seed;
+};
+
 template <typename T> class Csf {
 public:
   Csf(const std::vector<SubsystemSolutionSeedPair> &solutions_and_seeds,
@@ -44,7 +51,9 @@ public:
       : _solutions_and_seeds(solutions_and_seeds),
         _code_length_counts(code_length_counts),
         _ordered_symbols(ordered_symbols), _hash_store_seed(hash_store_seed),
-        _filter(filter), _max_codelength(_code_length_counts.size() - 1) {}
+        _filter(filter), _max_codelength(_code_length_counts.size() - 1) {
+    _buildQueryCache();
+  }
 
   static CsfPtr<T>
   make(const std::vector<SubsystemSolutionSeedPair> &solutions_and_seeds,
@@ -59,34 +68,38 @@ public:
     if (_filter && !_filter->contains(key)) {
       return *_filter->getMostCommonValue();
     }
+    return _queryCore(key.data(), key.size());
+  }
 
-    // If CSF has no solutions (all values were filtered), return most common
-    if (_solutions_and_seeds.empty()) {
-      if (_filter && _filter->getMostCommonValue()) {
-        return *_filter->getMostCommonValue();
-      }
-      throw std::runtime_error("Cannot query empty CSF without filter");
+  T query(const char *data, size_t length) const {
+    if (_filter && !_filter->contains(data, length)) {
+      return *_filter->getMostCommonValue();
+    }
+    return _queryCore(data, length);
+  }
+
+  std::pair<std::vector<T>, double>
+  benchmarkQueries(const std::vector<std::string> &keys,
+                   uint32_t num_iterations) const {
+    std::vector<T> results(keys.size());
+    // Warmup
+    for (const auto &key : keys) {
+      query(key);
     }
 
-    __uint128_t signature = hashKey(key, _hash_store_seed);
+    auto start = std::chrono::high_resolution_clock::now();
+    for (uint32_t iter = 0; iter < num_iterations; iter++) {
+      for (size_t i = 0; i < keys.size(); i++) {
+        results[i] = query(keys[i]);
+      }
+    }
+    auto end = std::chrono::high_resolution_clock::now();
 
-    uint32_t bucket_id =
-        getBucketID(signature, /* num_buckets= */ _solutions_and_seeds.size());
-
-    auto &[solution, construction_seed] = _solutions_and_seeds.at(bucket_id);
-
-    uint32_t solution_size = solution->numBits();
-
-    uint64_t e[3];
-    signatureToEquation(signature, construction_seed,
-                        solution_size - _max_codelength, e);
-
-    uint64_t encoded_value = solution->getuint64(e[0], _max_codelength) ^
-                             solution->getuint64(e[1], _max_codelength) ^
-                             solution->getuint64(e[2], _max_codelength);
-
-    return canonicalDecodeFromNumber(encoded_value, _code_length_counts,
-                                      _ordered_symbols, _max_codelength);
+    double total_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                          end - start)
+                          .count();
+    double ns_per_query = total_ns / (keys.size() * num_iterations);
+    return {results, ns_per_query};
   }
 
   void save(const std::string &filename, const uint32_t type_id = 0) const {
@@ -200,13 +213,66 @@ private:
     return _filter->getStats();
   }
 
+  T _queryCore(const char *data, size_t length) const {
+    if (_bucket_info.empty()) {
+      if (_filter && _filter->getMostCommonValue()) {
+        return *_filter->getMostCommonValue();
+      }
+      throw std::runtime_error("Cannot query empty CSF without filter");
+    }
+
+    __uint128_t signature = hashKey(data, length, _hash_store_seed);
+
+    uint32_t bucket_id =
+        getBucketID(signature, _num_buckets);
+
+    const auto &info = _bucket_info[bucket_id];
+
+    uint64_t e[3];
+    signatureToEquation(signature, info.seed, info.num_variables, e);
+
+    const uint64_t *arr = info.data;
+    const int l = 64 - _max_codelength;
+    auto getbits = [arr, l](uint32_t pos) __attribute__((always_inline)) {
+      const uint64_t w = pos / 64;
+      const int b = pos % 64;
+      if (b <= l)
+        return arr[w] << b >> l;
+      return arr[w] << b >> l | arr[w + 1] >> (128 - (-l + 64) - b);
+    };
+
+    uint64_t encoded_value = getbits(e[0]) ^ getbits(e[1]) ^ getbits(e[2]);
+
+    return _lookup_table.decode(encoded_value);
+  }
+
   // Private constructor for cereal
   Csf() {}
 
+  void _buildQueryCache() {
+    _num_buckets = _solutions_and_seeds.size();
+    if (!_code_length_counts.empty() && _max_codelength > 0) {
+      _lookup_table = HuffmanLookupTable<T>(
+          _code_length_counts, _ordered_symbols, _max_codelength);
+    }
+    _bucket_info.resize(_num_buckets);
+    for (uint32_t i = 0; i < _num_buckets; i++) {
+      auto &[solution, seed] = _solutions_and_seeds[i];
+      _bucket_info[i] = {solution->backingArrayPtr(),
+                         solution->numBits() - _max_codelength, seed};
+    }
+  }
+
   friend class cereal::access;
-  template <class Archive> void serialize(Archive &archive) {
+  template <class Archive> void save(Archive &archive) const {
     archive(_solutions_and_seeds, _code_length_counts, _ordered_symbols,
             _hash_store_seed, _filter, _max_codelength);
+  }
+
+  template <class Archive> void load(Archive &archive) {
+    archive(_solutions_and_seeds, _code_length_counts, _ordered_symbols,
+            _hash_store_seed, _filter, _max_codelength);
+    _buildQueryCache();
   }
 
   std::vector<SubsystemSolutionSeedPair> _solutions_and_seeds;
@@ -215,6 +281,11 @@ private:
   uint32_t _hash_store_seed;
   PreFilterPtr<T> _filter = nullptr;
   uint32_t _max_codelength;
+
+  // Query cache (built from _solutions_and_seeds, not serialized)
+  uint32_t _num_buckets = 0;
+  std::vector<BucketQueryInfo> _bucket_info;
+  HuffmanLookupTable<T> _lookup_table;
 };
 
 } // namespace caramel

@@ -88,8 +88,7 @@ public:
   }
 
   void add(const std::string &key) {
-    uint64_t hash = hashString(key);
-    _keys.push_back(hash);
+    _keys.push_back(SpookyHash::Hash64(key.data(), key.size(), 0));
   }
 
   void build() {
@@ -111,11 +110,15 @@ public:
   }
 
   bool contains(const std::string &key) {
+    return contains(key.data(), key.size());
+  }
+
+  bool contains(const char *data, size_t length) {
     if (!_is_built || !_xor_filter) {
       return false;
     }
 
-    uint64_t hash = hashString(key);
+    uint64_t hash = SpookyHash::Hash64(static_cast<const void *>(data), length, 0);
     auto status = _xor_filter->Contain(hash);
     return status == XorStatus::Ok;
   }
@@ -129,12 +132,6 @@ public:
   int fingerprintWidth() const { return _fingerprint_width; }
 
 private:
-  uint64_t hashString(const std::string &key) const {
-    const void *msgPtr = static_cast<const void *>(key.data());
-    size_t length = key.size();
-    return SpookyHash::Hash64(msgPtr, length, 0);
-  }
-
   XorFilter()
       : _num_elements(0), _error_rate(0.0039f), _fingerprint_width(8),
         _is_built(false) {}

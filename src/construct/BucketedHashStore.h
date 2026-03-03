@@ -22,13 +22,15 @@ inline uint32_t getBucketID(const __uint128_t &signature,
   return bucket_id;
 }
 
-inline __uint128_t hashKey(const std::string &key, uint64_t seed) {
-  const void *msgPtr = static_cast<const void *>(key.data());
-  size_t length = key.size();
+inline __uint128_t hashKey(const char *data, size_t length, uint64_t seed) {
   uint64_t hash1 = seed;
   uint64_t hash2 = seed;
-  SpookyHash::Hash128(msgPtr, length, &hash1, &hash2);
+  SpookyHash::Hash128(static_cast<const void *>(data), length, &hash1, &hash2);
   return (static_cast<__uint128_t>(hash1) << 64) | hash2;
+}
+
+inline __uint128_t hashKey(const std::string &key, uint64_t seed) {
+  return hashKey(key.data(), key.size(), seed);
 }
 
 template <typename T> struct BucketedHashStore {

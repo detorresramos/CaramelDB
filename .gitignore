@@ -50,6 +50,9 @@ tests/*.cmake
 *.a
 *.so
 
+# Cython generated C++
+cython/_caramel.cpp
+
 # Dependencies
 deps/
 *.tar.gz
