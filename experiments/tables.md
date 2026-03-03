@@ -16,6 +16,31 @@ All inference measured via Python `query()` loop (includes binding overhead).
 
 Query measurement: 250 random keys/trial, 3 warmup + 10 measured trials, median ns/query.
 
+## Comparison
+
+| N | Alpha | Distribution | Construction Speedup | Random Speedup | Majority Speedup | Minority Speedup |
+|--:|------:|:-------------|---------------------:|---------------:|-----------------:|-----------------:|
+| 100,000 | 0.2 | zipfian | 1.59x | 2.69x | 3.79x | 4.64x |
+| 100,000 | 0.2 | uniform_100 | 1.23x | 3.43x | 4.36x | 4.13x |
+| 100,000 | 0.2 | unique | 1.08x | 2.55x | 4.57x | 4.09x |
+| 100,000 | 0.5 | zipfian | 1.40x | 3.04x | 4.32x | 4.26x |
+| 100,000 | 0.5 | uniform_100 | 1.40x | 3.43x | 4.44x | 4.30x |
+| 100,000 | 0.5 | unique | 1.09x | 2.21x | 4.28x | 4.03x |
+| 100,000 | 0.9 | zipfian | 2.25x | 3.49x | 4.49x | 4.23x |
+| 100,000 | 0.9 | uniform_100 | 2.00x | 3.66x | 4.57x | 4.17x |
+| 100,000 | 0.9 | unique | 1.94x | 3.93x | 4.36x | 4.54x |
+| 10,000,000 | 0.2 | zipfian | 1.33x | 1.24x | 3.73x | 4.23x |
+| 10,000,000 | 0.2 | uniform_100 | 1.12x | 1.93x | 4.33x | 4.32x |
+| 10,000,000 | 0.2 | unique | 1.03x | 1.46x | 4.48x | 4.26x |
+| 10,000,000 | 0.5 | zipfian | 1.38x | 1.50x | 4.27x | 4.03x |
+| 10,000,000 | 0.5 | uniform_100 | 1.31x | 1.93x | 4.51x | 4.22x |
+| 10,000,000 | 0.5 | unique | 1.10x | 1.16x | 4.32x | 4.33x |
+| 10,000,000 | 0.9 | zipfian | 2.19x | 1.68x | 4.31x | 4.20x |
+| 10,000,000 | 0.9 | uniform_100 | 2.04x | 1.80x | 4.28x | 4.27x |
+| 10,000,000 | 0.9 | unique | 1.44x | 1.52x | 4.54x | 4.30x |
+| 100,000,000 | 0.5 | zipfian | 1.29x | 1.33x | 4.35x | 4.10x |
+
+
 ## Before (pybind11)
 
 | N | Alpha | Distribution | Construction (s) | Random (ns/q) | Majority (ns/q) | Minority (ns/q) | Size (bits/key) |
@@ -63,28 +88,3 @@ Query measurement: 250 random keys/trial, 3 warmup + 10 measured trials, median 
 | 10,000,000 | 0.9 | uniform_100 | 0.76 | 181.1 | 34.6 | 35.7 | 1.652 |
 | 10,000,000 | 0.9 | unique | 1.78 | 227.0 | 33.4 | 41.9 | 6.366 |
 | 100,000,000 | 0.5 | zipfian | 26.85 | 392.8 | 33.8 | 36.3 | 7.067 |
-
-## Comparison
-
-| N | Alpha | Distribution | Construction Speedup | Random Speedup | Majority Speedup | Minority Speedup |
-|--:|------:|:-------------|---------------------:|---------------:|-----------------:|-----------------:|
-| 100,000 | 0.2 | zipfian | 1.59x | 2.69x | 3.79x | 4.64x |
-| 100,000 | 0.2 | uniform_100 | 1.23x | 3.43x | 4.36x | 4.13x |
-| 100,000 | 0.2 | unique | 1.08x | 2.55x | 4.57x | 4.09x |
-| 100,000 | 0.5 | zipfian | 1.40x | 3.04x | 4.32x | 4.26x |
-| 100,000 | 0.5 | uniform_100 | 1.40x | 3.43x | 4.44x | 4.30x |
-| 100,000 | 0.5 | unique | 1.09x | 2.21x | 4.28x | 4.03x |
-| 100,000 | 0.9 | zipfian | 2.25x | 3.49x | 4.49x | 4.23x |
-| 100,000 | 0.9 | uniform_100 | 2.00x | 3.66x | 4.57x | 4.17x |
-| 100,000 | 0.9 | unique | 1.94x | 3.93x | 4.36x | 4.54x |
-| 10,000,000 | 0.2 | zipfian | 1.33x | 1.24x | 3.73x | 4.23x |
-| 10,000,000 | 0.2 | uniform_100 | 1.12x | 1.93x | 4.33x | 4.32x |
-| 10,000,000 | 0.2 | unique | 1.03x | 1.46x | 4.48x | 4.26x |
-| 10,000,000 | 0.5 | zipfian | 1.38x | 1.50x | 4.27x | 4.03x |
-| 10,000,000 | 0.5 | uniform_100 | 1.31x | 1.93x | 4.51x | 4.22x |
-| 10,000,000 | 0.5 | unique | 1.10x | 1.16x | 4.32x | 4.33x |
-| 10,000,000 | 0.9 | zipfian | 2.19x | 1.68x | 4.31x | 4.20x |
-| 10,000,000 | 0.9 | uniform_100 | 2.04x | 1.80x | 4.28x | 4.27x |
-| 10,000,000 | 0.9 | unique | 1.44x | 1.52x | 4.54x | 4.30x |
-| 100,000,000 | 0.5 | zipfian | 1.29x | 1.33x | 4.35x | 4.10x |
-
