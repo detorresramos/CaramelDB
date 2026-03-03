@@ -1,12 +1,8 @@
 #pragma once
 
-#include "BucketedHashStore.h"
 #include "Codec.h"
-#include "ConstructUtils.h"
+#include "CsfQueryCore.h"
 #include "CsfStats.h"
-#include "filter/BinaryFusePreFilter.h"
-#include "filter/BloomPreFilter.h"
-#include "filter/XORPreFilter.h"
 #include <cereal/access.hpp>
 #include <cereal/archives/binary.hpp>
 #include <cereal/types/array.hpp>
@@ -14,7 +10,6 @@
 #include <cereal/types/optional.hpp>
 #include <cereal/types/utility.hpp>
 #include <cereal/types/vector.hpp>
-#include <chrono>
 #include <limits>
 #include <memory>
 #include <src/BitArray.h>
@@ -36,11 +31,7 @@ public:
       : std::runtime_error("Cannot deserialize CSF: " + message) {};
 };
 
-struct BucketQueryInfo {
-  const uint64_t *data;
-  uint32_t num_variables;
-  uint32_t seed;
-};
+template <typename T> class MultisetCsf;
 
 template <typename T> class Csf {
 public:
@@ -76,30 +67,6 @@ public:
       return *_filter->getMostCommonValue();
     }
     return _queryCore(data, length);
-  }
-
-  std::pair<std::vector<T>, double>
-  benchmarkQueries(const std::vector<std::string> &keys,
-                   uint32_t num_iterations) const {
-    std::vector<T> results(keys.size());
-    // Warmup
-    for (const auto &key : keys) {
-      query(key);
-    }
-
-    auto start = std::chrono::high_resolution_clock::now();
-    for (uint32_t iter = 0; iter < num_iterations; iter++) {
-      for (size_t i = 0; i < keys.size(); i++) {
-        results[i] = query(keys[i]);
-      }
-    }
-    auto end = std::chrono::high_resolution_clock::now();
-
-    double total_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                          end - start)
-                          .count();
-    double ns_per_query = total_ns / (keys.size() * num_iterations);
-    return {results, ns_per_query};
   }
 
   void save(const std::string &filename, const uint32_t type_id = 0) const {
@@ -221,29 +188,8 @@ private:
       throw std::runtime_error("Cannot query empty CSF without filter");
     }
 
-    __uint128_t signature = hashKey(data, length, _hash_store_seed);
-
-    uint32_t bucket_id =
-        getBucketID(signature, _num_buckets);
-
-    const auto &info = _bucket_info[bucket_id];
-
-    uint64_t e[3];
-    signatureToEquation(signature, info.seed, info.num_variables, e);
-
-    const uint64_t *arr = info.data;
-    const int l = 64 - _max_codelength;
-    auto getbits = [arr, l](uint32_t pos) __attribute__((always_inline)) {
-      const uint64_t w = pos / 64;
-      const int b = pos % 64;
-      if (b <= l)
-        return arr[w] << b >> l;
-      return arr[w] << b >> l | arr[w + 1] >> (128 - (-l + 64) - b);
-    };
-
-    uint64_t encoded_value = getbits(e[0]) ^ getbits(e[1]) ^ getbits(e[2]);
-
-    return _lookup_table.decode(encoded_value);
+    return queryCsfCore<T>(data, length, _hash_store_seed, _bucket_info,
+                           _num_buckets, _max_codelength, _lookup_table);
   }
 
   // Private constructor for cereal
@@ -252,8 +198,8 @@ private:
   void _buildQueryCache() {
     _num_buckets = _solutions_and_seeds.size();
     if (!_code_length_counts.empty() && _max_codelength > 0) {
-      _lookup_table = HuffmanLookupTable<T>(
-          _code_length_counts, _ordered_symbols, _max_codelength);
+      _lookup_table = HuffmanLookupTable<T>(_code_length_counts,
+                                            _ordered_symbols, _max_codelength);
     }
     _bucket_info.resize(_num_buckets);
     for (uint32_t i = 0; i < _num_buckets; i++) {
@@ -264,6 +210,8 @@ private:
   }
 
   friend class cereal::access;
+  friend class MultisetCsf<T>;
+
   template <class Archive> void save(Archive &archive) const {
     archive(_solutions_and_seeds, _code_length_counts, _ordered_symbols,
             _hash_store_seed, _filter, _max_codelength);

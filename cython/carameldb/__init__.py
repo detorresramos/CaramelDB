@@ -59,6 +59,8 @@ def Caramel(
     values,
     prefilter=None,
     permute=False,
+    shared_codebook=False,
+    shared_filter=False,
     max_to_infer=None,
     verbose=True,
 ):
@@ -70,6 +72,10 @@ def Caramel(
         values: List of values to use in the CSF.
         prefilter: The type of prefilter to use.
         permute: If true, permutes rows of matrix inputs to minimize entropy.
+        shared_codebook: If true, uses a single shared Huffman codebook across
+            all columns. Only valid for multiset (2D) values.
+        shared_filter: If true, uses a single shared prefilter across all
+            columns. Only valid for multiset (2D) values. Requires prefilter.
         max_to_infer: If provided, only the first "max_to_infer" values
             will be examinied when inferring the correct CSF backend.
         verbose: Enable verbose logging
@@ -98,10 +104,18 @@ def Caramel(
 
     CSFClass = _infer_backend(values, max_to_infer=max_to_infer)
     if CSFClass.is_multiset():
-        csf = CSFClass(keys, values, prefilter=prefilter, permute=permute, verbose=verbose)
+        csf = CSFClass(
+            keys, values, prefilter=prefilter, permute=permute,
+            shared_codebook=shared_codebook, shared_filter=shared_filter,
+            verbose=verbose,
+        )
     else:
         if permute:
             raise ValueError("'permute' is only supported for multiset (2D) values.")
+        if shared_codebook:
+            raise ValueError("'shared_codebook' is only supported for multiset (2D) values.")
+        if shared_filter:
+            raise ValueError("'shared_filter' is only supported for multiset (2D) values.")
         csf = CSFClass(keys, values, prefilter=prefilter, verbose=verbose)
     return csf
 

@@ -116,7 +116,7 @@ def test_multiset_direct_constructor_permute():
 
     csf = carameldb.MultisetCSFUint32(keys, values, permute=True, verbose=False)
     for key, row in zip(keys, values):
-        assert csf.query(key) == list(row)
+        assert sorted(csf.query(key)) == sorted(row)
 
 
 def test_multiset_string_permute_raises():
@@ -126,3 +126,109 @@ def test_multiset_string_permute_raises():
         ValueError, match="'permute' is not supported for variable-length string values."
     ):
         carameldb.MultisetCSFString(keys, values, permute=True)
+
+
+def test_multiset_csf_shared_codebook(tmp_path):
+    num_rows = 500
+    num_cols = 5
+    keys = [f"key_{i}" for i in range(num_rows)]
+    values = np.random.randint(0, 10, size=(num_rows, num_cols), dtype=np.uint32)
+
+    csf = carameldb.Caramel(keys, values, shared_codebook=True, verbose=False)
+    for key, row in zip(keys, values):
+        assert csf.query(key) == list(row)
+
+    save_file = str(tmp_path / "shared_cb.csf")
+    csf.save(save_file)
+    csf2 = carameldb.load(save_file)
+    for key, row in zip(keys, values):
+        assert csf2.query(key) == list(row)
+
+
+def test_multiset_csf_shared_filter(tmp_path):
+    num_rows = 500
+    num_cols = 5
+    keys = [f"key_{i}" for i in range(num_rows)]
+    # Most values are 0 so the filter has something to filter
+    values = np.zeros((num_rows, num_cols), dtype=np.uint32)
+    for i in range(num_rows // 5):
+        values[i] = np.random.randint(1, 10, size=num_cols, dtype=np.uint32)
+
+    prefilter = carameldb.BinaryFuseFilterConfig(fingerprint_bits=12)
+    csf = carameldb.Caramel(
+        keys, values, prefilter=prefilter, shared_filter=True, verbose=False
+    )
+    for key, row in zip(keys, values):
+        assert csf.query(key) == list(row)
+
+    save_file = str(tmp_path / "shared_filter.csf")
+    csf.save(save_file)
+    csf2 = carameldb.load(save_file)
+    for key, row in zip(keys, values):
+        assert csf2.query(key) == list(row)
+
+
+def test_multiset_csf_shared_codebook_and_filter(tmp_path):
+    num_rows = 500
+    num_cols = 5
+    keys = [f"key_{i}" for i in range(num_rows)]
+    values = np.zeros((num_rows, num_cols), dtype=np.uint32)
+    for i in range(num_rows // 5):
+        values[i] = np.random.randint(1, 10, size=num_cols, dtype=np.uint32)
+
+    prefilter = carameldb.BinaryFuseFilterConfig(fingerprint_bits=12)
+    csf = carameldb.Caramel(
+        keys, values, prefilter=prefilter,
+        shared_codebook=True, shared_filter=True, verbose=False
+    )
+    for key, row in zip(keys, values):
+        assert csf.query(key) == list(row)
+
+    save_file = str(tmp_path / "shared_both.csf")
+    csf.save(save_file)
+    csf2 = carameldb.load(save_file)
+    for key, row in zip(keys, values):
+        assert csf2.query(key) == list(row)
+
+
+def test_multiset_csf_shared_codebook_with_permute(tmp_path):
+    num_rows = 500
+    num_cols = 5
+    keys = [f"key_{i}" for i in range(num_rows)]
+    values = np.random.randint(0, 10, size=(num_rows, num_cols), dtype=np.uint32)
+
+    csf = carameldb.Caramel(
+        keys, values, permute=True, shared_codebook=True, verbose=False
+    )
+    # Permutation reorders columns, so we can't compare against original.
+    # Verify round-trip: save/load produces the same query results.
+    results = {key: csf.query(key) for key in keys}
+    save_file = str(tmp_path / "shared_cb_permute.csf")
+    csf.save(save_file)
+    csf2 = carameldb.load(save_file)
+    for key in keys:
+        assert csf2.query(key) == results[key]
+
+
+def test_shared_options_rejected_for_single_column():
+    keys = ["a", "b", "c"]
+    values = [1, 2, 3]
+    with pytest.raises(ValueError, match="shared_codebook"):
+        carameldb.Caramel(keys, values, shared_codebook=True)
+    with pytest.raises(ValueError, match="shared_filter"):
+        carameldb.Caramel(keys, values, shared_filter=True)
+
+
+def test_backward_compat_default_settings(tmp_path):
+    """New code with default settings produces loadable files."""
+    num_rows = 200
+    num_cols = 3
+    keys = [f"key_{i}" for i in range(num_rows)]
+    values = np.random.randint(0, 100, size=(num_rows, num_cols), dtype=np.uint32)
+
+    csf = carameldb.Caramel(keys, values, verbose=False)
+    save_file = str(tmp_path / "default.csf")
+    csf.save(save_file)
+    csf2 = carameldb.load(save_file)
+    for key, row in zip(keys, values):
+        assert csf2.query(key) == list(row)

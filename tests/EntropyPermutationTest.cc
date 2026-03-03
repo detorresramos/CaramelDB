@@ -1,7 +1,7 @@
 #include "TestUtils.h"
 #include <gtest/gtest.h>
 #include <random>
-#include <src/construct/EntropyPermutation.h>
+#include <src/construct/multiset/EntropyPermutation.h>
 
 namespace caramel::tests {
 

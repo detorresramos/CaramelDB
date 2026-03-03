@@ -10,7 +10,6 @@ from libc.string cimport memcpy
 from libcpp.string cimport string
 from libcpp.vector cimport vector
 from libcpp.memory cimport shared_ptr, make_shared
-from libcpp.pair cimport pair
 from libcpp cimport bool as cbool
 
 cdef extern from "Python.h":
@@ -735,11 +734,6 @@ cdef class CSFUint32:
             out[i] = self._ptr.get().query(buf, length)
         return results
 
-    def benchmark_queries(self, list keys, unsigned int num_iterations=10):
-        cdef vector[string] cpp_keys = _to_cpp_strings(keys)
-        cdef pair[vector[unsigned int], double] result = self._ptr.get().benchmarkQueries(cpp_keys, num_iterations)
-        return (list(result.first), result.second)
-
     def get_filter(self):
         return PreFilterUint32._wrap(self._ptr.get().getFilter())
 
@@ -803,11 +797,6 @@ cdef class CSFUint64:
             out[i] = self._ptr.get().query(buf, length)
         return results
 
-    def benchmark_queries(self, list keys, unsigned int num_iterations=10):
-        cdef vector[string] cpp_keys = _to_cpp_strings(keys)
-        cdef pair[vector[unsigned long long], double] result = self._ptr.get().benchmarkQueries(cpp_keys, num_iterations)
-        return (list(result.first), result.second)
-
     def get_filter(self):
         return PreFilterUint64._wrap(self._ptr.get().getFilter())
 
@@ -867,14 +856,6 @@ cdef class CSFChar10:
             py_results.append(_char10_to_str(r))
         return py_results
 
-    def benchmark_queries(self, list keys, unsigned int num_iterations=10):
-        cdef vector[string] cpp_keys = _to_cpp_strings(keys)
-        cdef pair[vector[cpp.Char10], double] result = self._ptr.get().benchmarkQueries(cpp_keys, num_iterations)
-        py_results = []
-        for i in range(result.first.size()):
-            py_results.append(_char10_to_str(result.first[i]))
-        return (py_results, result.second)
-
     def get_filter(self):
         return PreFilterChar10._wrap(self._ptr.get().getFilter())
 
@@ -933,14 +914,6 @@ cdef class CSFChar12:
             r = self._ptr.get().query(buf, length)
             py_results.append(_char12_to_str(r))
         return py_results
-
-    def benchmark_queries(self, list keys, unsigned int num_iterations=10):
-        cdef vector[string] cpp_keys = _to_cpp_strings(keys)
-        cdef pair[vector[cpp.Char12], double] result = self._ptr.get().benchmarkQueries(cpp_keys, num_iterations)
-        py_results = []
-        for i in range(result.first.size()):
-            py_results.append(_char12_to_str(result.first[i]))
-        return (py_results, result.second)
 
     def get_filter(self):
         return PreFilterChar12._wrap(self._ptr.get().getFilter())
@@ -1004,12 +977,6 @@ cdef class CSFString:
             py_results.append(r.decode('utf-8'))
         return py_results
 
-    def benchmark_queries(self, list keys, unsigned int num_iterations=10):
-        cdef vector[string] cpp_keys = _to_cpp_strings(keys)
-        cdef pair[vector[string], double] result = self._ptr.get().benchmarkQueries(cpp_keys, num_iterations)
-        py_results = [result.first[i].decode('utf-8') for i in range(result.first.size())]
-        return (py_results, result.second)
-
     def get_filter(self):
         return PreFilterString._wrap(self._ptr.get().getFilter())
 
@@ -1038,19 +1005,14 @@ cdef class CSFString:
 cdef class MultisetCSFUint32:
     cdef shared_ptr[cpp.MultisetCsf_uint32] _ptr
 
-    def __init__(self, list keys, values, prefilter=None, bint permute=False, bint verbose=True):
+    def __init__(self, list keys, values, prefilter=None, bint permute=False,
+                 bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
         cdef vector[string] cpp_keys = _to_cpp_strings(keys)
         cdef vector[vector[unsigned int]] cpp_values
-        cdef shared_ptr[cpp.PreFilterConfig] filter_config
 
         values = np.ascontiguousarray(values, dtype=np.uint32)
         if values.ndim != 2:
             raise ValueError("MultisetCSF values must be a 2D array.")
-
-        if permute:
-            cpp.entropyPermutation_uint32(
-                <unsigned int*>(<np.ndarray>values).data,
-                values.shape[0], values.shape[1])
 
         cdef int num_rows = values.shape[0]
         cdef int num_cols = values.shape[1]
@@ -1062,10 +1024,15 @@ cdef class MultisetCSFUint32:
             memcpy(col_vec.data(), (<np.ndarray>arr_col).data, num_rows * sizeof(unsigned int))
             cpp_values.push_back(col_vec)
 
+        cdef cpp.MultisetConfig config
+        config.permutation = cpp.PermutationStrategy_Entropy if permute else cpp.PermutationStrategy_None
+        config.verbose = verbose
+        config.shared_codebook = shared_codebook
+        config.shared_filter = shared_filter
         if prefilter is not None and isinstance(prefilter, PreFilterConfig):
-            filter_config = (<PreFilterConfig>prefilter)._ptr
+            config.filter_config = (<PreFilterConfig>prefilter)._ptr
 
-        self._ptr = cpp.constructMultisetCsf_uint32(cpp_keys, cpp_values, filter_config, verbose)
+        self._ptr = cpp.constructMultisetCsfConfig_uint32(cpp_keys, cpp_values, config)
 
     def query(self, key, bint parallel=True):
         cdef const char* buf
@@ -1093,19 +1060,14 @@ cdef class MultisetCSFUint32:
 cdef class MultisetCSFUint64:
     cdef shared_ptr[cpp.MultisetCsf_uint64] _ptr
 
-    def __init__(self, list keys, values, prefilter=None, bint permute=False, bint verbose=True):
+    def __init__(self, list keys, values, prefilter=None, bint permute=False,
+                 bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
         cdef vector[string] cpp_keys = _to_cpp_strings(keys)
         cdef vector[vector[unsigned long long]] cpp_values
-        cdef shared_ptr[cpp.PreFilterConfig] filter_config
 
         values = np.ascontiguousarray(values, dtype=np.uint64)
         if values.ndim != 2:
             raise ValueError("MultisetCSF values must be a 2D array.")
-
-        if permute:
-            cpp.entropyPermutation_uint64(
-                <unsigned long long*>(<np.ndarray>values).data,
-                values.shape[0], values.shape[1])
 
         cdef int num_rows = values.shape[0]
         cdef int num_cols = values.shape[1]
@@ -1117,10 +1079,15 @@ cdef class MultisetCSFUint64:
             memcpy(col_vec.data(), (<np.ndarray>arr_col).data, num_rows * sizeof(unsigned long long))
             cpp_values.push_back(col_vec)
 
+        cdef cpp.MultisetConfig config
+        config.permutation = cpp.PermutationStrategy_Entropy if permute else cpp.PermutationStrategy_None
+        config.verbose = verbose
+        config.shared_codebook = shared_codebook
+        config.shared_filter = shared_filter
         if prefilter is not None and isinstance(prefilter, PreFilterConfig):
-            filter_config = (<PreFilterConfig>prefilter)._ptr
+            config.filter_config = (<PreFilterConfig>prefilter)._ptr
 
-        self._ptr = cpp.constructMultisetCsf_uint64(cpp_keys, cpp_values, filter_config, verbose)
+        self._ptr = cpp.constructMultisetCsfConfig_uint64(cpp_keys, cpp_values, config)
 
     def query(self, key, bint parallel=True):
         cdef const char* buf
@@ -1148,20 +1115,14 @@ cdef class MultisetCSFUint64:
 cdef class MultisetCSFChar10:
     cdef shared_ptr[cpp.MultisetCsf_Char10] _ptr
 
-    def __init__(self, list keys, values, prefilter=None, bint permute=False, bint verbose=True):
+    def __init__(self, list keys, values, prefilter=None, bint permute=False,
+                 bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
         cdef vector[string] cpp_keys = _to_cpp_strings(keys)
         cdef vector[vector[cpp.Char10]] cpp_values
-        cdef shared_ptr[cpp.PreFilterConfig] filter_config
 
         values = np.asarray(values)
         if values.ndim != 2:
             raise ValueError("MultisetCSF values must be a 2D array.")
-
-        if permute:
-            values = np.ascontiguousarray(values.astype("|S10"))
-            cpp.entropyPermutation_Char10(
-                <cpp.Char10*>(<np.ndarray>values).data,
-                values.shape[0], values.shape[1])
 
         cdef int num_cols = values.shape[1]
         cdef vector[cpp.Char10] col_vec
@@ -1172,10 +1133,15 @@ cdef class MultisetCSFChar10:
                 col_vec.push_back(_str_to_char10(v))
             cpp_values.push_back(col_vec)
 
+        cdef cpp.MultisetConfig config
+        config.permutation = cpp.PermutationStrategy_Entropy if permute else cpp.PermutationStrategy_None
+        config.verbose = verbose
+        config.shared_codebook = shared_codebook
+        config.shared_filter = shared_filter
         if prefilter is not None and isinstance(prefilter, PreFilterConfig):
-            filter_config = (<PreFilterConfig>prefilter)._ptr
+            config.filter_config = (<PreFilterConfig>prefilter)._ptr
 
-        self._ptr = cpp.constructMultisetCsf_Char10(cpp_keys, cpp_values, filter_config, verbose)
+        self._ptr = cpp.constructMultisetCsfConfig_Char10(cpp_keys, cpp_values, config)
 
     def query(self, key, bint parallel=True):
         cdef const char* buf
@@ -1207,20 +1173,14 @@ cdef class MultisetCSFChar10:
 cdef class MultisetCSFChar12:
     cdef shared_ptr[cpp.MultisetCsf_Char12] _ptr
 
-    def __init__(self, list keys, values, prefilter=None, bint permute=False, bint verbose=True):
+    def __init__(self, list keys, values, prefilter=None, bint permute=False,
+                 bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
         cdef vector[string] cpp_keys = _to_cpp_strings(keys)
         cdef vector[vector[cpp.Char12]] cpp_values
-        cdef shared_ptr[cpp.PreFilterConfig] filter_config
 
         values = np.asarray(values)
         if values.ndim != 2:
             raise ValueError("MultisetCSF values must be a 2D array.")
-
-        if permute:
-            values = np.ascontiguousarray(values.astype("|S12"))
-            cpp.entropyPermutation_Char12(
-                <cpp.Char12*>(<np.ndarray>values).data,
-                values.shape[0], values.shape[1])
 
         cdef int num_cols = values.shape[1]
         cdef vector[cpp.Char12] col_vec
@@ -1231,10 +1191,15 @@ cdef class MultisetCSFChar12:
                 col_vec.push_back(_str_to_char12(v))
             cpp_values.push_back(col_vec)
 
+        cdef cpp.MultisetConfig config
+        config.permutation = cpp.PermutationStrategy_Entropy if permute else cpp.PermutationStrategy_None
+        config.verbose = verbose
+        config.shared_codebook = shared_codebook
+        config.shared_filter = shared_filter
         if prefilter is not None and isinstance(prefilter, PreFilterConfig):
-            filter_config = (<PreFilterConfig>prefilter)._ptr
+            config.filter_config = (<PreFilterConfig>prefilter)._ptr
 
-        self._ptr = cpp.constructMultisetCsf_Char12(cpp_keys, cpp_values, filter_config, verbose)
+        self._ptr = cpp.constructMultisetCsfConfig_Char12(cpp_keys, cpp_values, config)
 
     def query(self, key, bint parallel=True):
         cdef const char* buf
@@ -1266,10 +1231,10 @@ cdef class MultisetCSFChar12:
 cdef class MultisetCSFString:
     cdef shared_ptr[cpp.MultisetCsf_string] _ptr
 
-    def __init__(self, list keys, values, prefilter=None, bint permute=False, bint verbose=True):
+    def __init__(self, list keys, values, prefilter=None, bint permute=False,
+                 bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
         cdef vector[string] cpp_keys = _to_cpp_strings(keys)
         cdef vector[vector[string]] cpp_values
-        cdef shared_ptr[cpp.PreFilterConfig] filter_config
 
         if permute:
             raise ValueError("'permute' is not supported for variable-length string values.")
@@ -1290,10 +1255,14 @@ cdef class MultisetCSFString:
                     col_vec.push_back(<bytes>v)
             cpp_values.push_back(col_vec)
 
+        cdef cpp.MultisetConfig config
+        config.verbose = verbose
+        config.shared_codebook = shared_codebook
+        config.shared_filter = shared_filter
         if prefilter is not None and isinstance(prefilter, PreFilterConfig):
-            filter_config = (<PreFilterConfig>prefilter)._ptr
+            config.filter_config = (<PreFilterConfig>prefilter)._ptr
 
-        self._ptr = cpp.constructMultisetCsf_string(cpp_keys, cpp_values, filter_config, verbose)
+        self._ptr = cpp.constructMultisetCsfConfig_string(cpp_keys, cpp_values, config)
 
     def query(self, key, bint parallel=True):
         cdef const char* buf
