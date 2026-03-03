@@ -111,11 +111,15 @@ public:
   }
 
   bool contains(const std::string &key) {
+    return contains(key.data(), key.size());
+  }
+
+  bool contains(const char *data, size_t length) {
     if (!_is_built || !_xor_filter) {
       return false;
     }
 
-    uint64_t hash = hashString(key);
+    uint64_t hash = SpookyHash::Hash64(static_cast<const void *>(data), length, 0);
     auto status = _xor_filter->Contain(hash);
     return status == XorStatus::Ok;
   }

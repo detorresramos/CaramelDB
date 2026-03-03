@@ -31,6 +31,13 @@ public:
     return true;
   }
 
+  bool contains(const char *data, size_t length) override {
+    if (_binary_fuse_filter) {
+      return _binary_fuse_filter->contains(data, length);
+    }
+    return true;
+  }
+
   BinaryFuseFilterPtr getBinaryFuseFilter() const {
     return _binary_fuse_filter;
   }

@@ -94,8 +94,12 @@ public:
   }
 
   bool contains(const std::string &key) {
-    std::vector<uint64_t> hash_values = getHashValues(key);
-    for (uint64_t hash : hash_values) {
+    return contains(key.data(), key.size());
+  }
+
+  bool contains(const char *data, size_t length) {
+    for (size_t i = 0; i < _num_hashes; i++) {
+      uint64_t hash = SpookyHash::Hash64(static_cast<const void *>(data), length, i) % size();
       if (!(*_bitarray)[hash]) {
         return false;
       }

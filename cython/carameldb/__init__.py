@@ -142,7 +142,7 @@ def load(filename):
     raise ValueError(f"File {filename} does not contain a deserializable CSF.")
 
 
-class CSFQueryWrapper(object):
+class CSFQueryWrapper:
     """Wraps a CSF, applying a postprocessing function to the query results."""
 
     def __init__(self, csf, postprocess_fn):
@@ -152,19 +152,20 @@ class CSFQueryWrapper(object):
     def query(self, q):
         return self._postprocess_fn(self._csf.query(q))
 
+    def query_batch(self, keys):
+        results = self._csf.query_batch(keys)
+        return [self._postprocess_fn(r) for r in results]
+
     def get_stats(self):
-        """Get CSF statistics."""
         return self._csf.get_stats()
 
     def __getattr__(self, name):
         return getattr(self._csf, name)
 
     def __dir__(self):
-        """Return the list of attributes of the wrapped object and this wrapper to aid with introspection."""
         return sorted(set(dir(self._csf) + super().__dir__()))
 
     def __repr__(self):
-        """Return a string representation of the wrapper that identifies the wrapped object."""
         return repr(self._csf)
 
 

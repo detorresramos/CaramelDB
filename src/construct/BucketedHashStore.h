@@ -31,6 +31,13 @@ inline __uint128_t hashKey(const std::string &key, uint64_t seed) {
   return (static_cast<__uint128_t>(hash1) << 64) | hash2;
 }
 
+inline __uint128_t hashKey(const char *data, size_t length, uint64_t seed) {
+  uint64_t hash1 = seed;
+  uint64_t hash2 = seed;
+  SpookyHash::Hash128(static_cast<const void *>(data), length, &hash1, &hash2);
+  return (static_cast<__uint128_t>(hash1) << 64) | hash2;
+}
+
 template <typename T> struct BucketedHashStore {
   std::vector<std::vector<__uint128_t>> key_buckets;
   std::vector<std::vector<T>> value_buckets;

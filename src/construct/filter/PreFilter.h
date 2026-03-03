@@ -54,6 +54,7 @@ public:
   }
 
   virtual bool contains(const std::string &key) = 0;
+  virtual bool contains(const char *data, size_t length) = 0;
 
   virtual std::optional<T> getMostCommonValue() const = 0;
 

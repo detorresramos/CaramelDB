@@ -31,6 +31,13 @@ public:
     return true;
   }
 
+  bool contains(const char *data, size_t length) override {
+    if (_bloom_filter) {
+      return _bloom_filter->contains(data, length);
+    }
+    return true;
+  }
+
   BloomFilterPtr getBloomFilter() const { return _bloom_filter; }
 
   std::optional<T> getMostCommonValue() const override {

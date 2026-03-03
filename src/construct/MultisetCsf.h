@@ -12,12 +12,17 @@ public:
   MultisetCsf(const std::vector<CsfPtr<T>> &csfs) : _csfs(csfs) {}
 
   std::vector<T> query(const std::string &key, bool parallelize = true) const {
+    return query(key.data(), key.size(), parallelize);
+  }
+
+  std::vector<T> query(const char *data, size_t length,
+                        bool parallelize = true) const {
     std::vector<T> outputs(_csfs.size());
 
 #pragma omp parallel for default(none)                                         \
-    shared(key, _csfs, outputs) if (parallelize)
+    shared(data, length, _csfs, outputs) if (parallelize)
     for (size_t i = 0; i < _csfs.size(); i++) {
-      outputs[i] = _csfs[i]->query(key);
+      outputs[i] = _csfs[i]->query(data, length);
     }
 
     return outputs;

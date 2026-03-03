@@ -35,7 +35,7 @@ def main():
     parser.add_argument(
         "--clean",
         action="store_true",
-        help="Remove all build artifacts before building (including pybind/build/, pybind/*.egg-info/, and build/ directories).",
+        help="Remove all build artifacts before building (including cython/build/, cython/*.egg-info/, and build/ directories).",
     )
     args = parser.parse_args()
 
@@ -46,8 +46,8 @@ def main():
     if args.clean:
         print("Cleaning build artifacts...")
         os.system("rm -rf build/")
-        os.system("rm -rf pybind/build/")
-        os.system("rm -rf pybind/*.egg-info")
+        os.system("rm -rf cython/build/")
+        os.system("rm -rf cython/*.egg-info")
 
     # Make sure build directory exists
     os.system('mkdir -p "build"')
@@ -56,7 +56,7 @@ def main():
         # Set environment variables, and run pip install
         os.environ["CARAMEL_BUILD_MODE"] = args.build_mode
 
-        os.chdir("pybind")
+        os.chdir("cython")
         checked_system_call(f"pip3 install . --verbose --force-reinstall")
         os.chdir("..")
     else:

@@ -120,11 +120,15 @@ public:
   }
 
   bool contains(const std::string &key) {
+    return contains(key.data(), key.size());
+  }
+
+  bool contains(const char *data, size_t length) {
     if (!_is_built || !_binary_fuse_filter) {
       return false;
     }
 
-    uint64_t hash = hashString(key);
+    uint64_t hash = SpookyHash::Hash64(static_cast<const void *>(data), length, 0);
     auto status = _binary_fuse_filter->Contain(hash);
     return status == BinaryFuseStatus::Ok;
   }

@@ -9,4 +9,4 @@ brew install libomp
 
 git submodule update --init --recursive
 
-pip3 install pytest numpy
+pip3 install pytest numpy cython

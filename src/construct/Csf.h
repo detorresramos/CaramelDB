@@ -68,37 +68,21 @@ public:
     if (_filter && !_filter->contains(key)) {
       return *_filter->getMostCommonValue();
     }
+    return _queryCore(key.data(), key.size());
+  }
 
-    if (_bucket_info.empty()) {
-      if (_filter && _filter->getMostCommonValue()) {
-        return *_filter->getMostCommonValue();
-      }
-      throw std::runtime_error("Cannot query empty CSF without filter");
+  T query(const char *data, size_t length) const {
+    if (_filter && !_filter->contains(data, length)) {
+      return *_filter->getMostCommonValue();
     }
+    return _queryCore(data, length);
+  }
 
-    __uint128_t signature = hashKey(key, _hash_store_seed);
-
-    uint32_t bucket_id =
-        getBucketID(signature, _num_buckets);
-
-    const auto &info = _bucket_info[bucket_id];
-
-    uint64_t e[3];
-    signatureToEquation(signature, info.seed, info.num_variables, e);
-
-    const uint64_t *arr = info.data;
-    const int l = 64 - _max_codelength;
-    auto getbits = [arr, l](uint32_t pos) __attribute__((always_inline)) {
-      const uint64_t w = pos / 64;
-      const int b = pos % 64;
-      if (b <= l)
-        return arr[w] << b >> l;
-      return arr[w] << b >> l | arr[w + 1] >> (128 - (-l + 64) - b);
-    };
-
-    uint64_t encoded_value = getbits(e[0]) ^ getbits(e[1]) ^ getbits(e[2]);
-
-    return _lookup_table.decode(encoded_value);
+  void queryBatch(const char *const *keys, const size_t *key_lengths,
+                  size_t num_keys, T *results) const {
+    for (size_t i = 0; i < num_keys; i++) {
+      results[i] = query(keys[i], key_lengths[i]);
+    }
   }
 
   std::pair<std::vector<T>, double>
@@ -234,6 +218,39 @@ private:
     if (!_filter)
       return std::nullopt;
     return _filter->getStats();
+  }
+
+  T _queryCore(const char *data, size_t length) const {
+    if (_bucket_info.empty()) {
+      if (_filter && _filter->getMostCommonValue()) {
+        return *_filter->getMostCommonValue();
+      }
+      throw std::runtime_error("Cannot query empty CSF without filter");
+    }
+
+    __uint128_t signature = hashKey(data, length, _hash_store_seed);
+
+    uint32_t bucket_id =
+        getBucketID(signature, _num_buckets);
+
+    const auto &info = _bucket_info[bucket_id];
+
+    uint64_t e[3];
+    signatureToEquation(signature, info.seed, info.num_variables, e);
+
+    const uint64_t *arr = info.data;
+    const int l = 64 - _max_codelength;
+    auto getbits = [arr, l](uint32_t pos) __attribute__((always_inline)) {
+      const uint64_t w = pos / 64;
+      const int b = pos % 64;
+      if (b <= l)
+        return arr[w] << b >> l;
+      return arr[w] << b >> l | arr[w + 1] >> (128 - (-l + 64) - b);
+    };
+
+    uint64_t encoded_value = getbits(e[0]) ^ getbits(e[1]) ^ getbits(e[2]);
+
+    return _lookup_table.decode(encoded_value);
   }
 
   // Private constructor for cereal
