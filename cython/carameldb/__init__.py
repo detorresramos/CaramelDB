@@ -140,33 +140,6 @@ def load(filename):
     raise ValueError(f"File {filename} does not contain a deserializable CSF.")
 
 
-class CSFQueryWrapper:
-    """Wraps a CSF, applying a postprocessing function to the query results."""
-
-    def __init__(self, csf, postprocess_fn):
-        self._csf = csf
-        self._postprocess_fn = postprocess_fn
-
-    def query(self, q):
-        return self._postprocess_fn(self._csf.query(q))
-
-    def query_batch(self, keys):
-        results = self._csf.query_batch(keys)
-        return [self._postprocess_fn(r) for r in results]
-
-    def get_stats(self):
-        return self._csf.get_stats()
-
-    def __getattr__(self, name):
-        return getattr(self._csf, name)
-
-    def __dir__(self):
-        return sorted(set(dir(self._csf) + super().__dir__()))
-
-    def __repr__(self):
-        return repr(self._csf)
-
-
 def _infer_backend(values, max_to_infer=None):
     """Returns a CSF class, selected based on the key / value types."""
 

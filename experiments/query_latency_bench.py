@@ -74,10 +74,7 @@ def main():
         config = BinaryFuseFilterConfig(fingerprint_bits=8)
         csf = carameldb.Caramel(keys, values, prefilter=config, verbose=False)
 
-        if isinstance(csf, carameldb.CSFQueryWrapper):
-            csf_raw = csf._csf
-        else:
-            csf_raw = csf
+        csf_raw = csf
 
         # C++ internal loop
         _, cpp_ns = csf_raw.benchmark_queries(query_keys, 10)

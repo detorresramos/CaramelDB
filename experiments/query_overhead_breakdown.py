@@ -66,10 +66,7 @@ def main():
     config = BinaryFuseFilterConfig(fingerprint_bits=8)
     csf = carameldb.Caramel(keys, values, prefilter=config, verbose=False)
 
-    if isinstance(csf, carameldb.CSFQueryWrapper):
-        csf_raw = csf._csf
-    else:
-        csf_raw = csf
+    csf_raw = csf
 
     print("=== Tight loop (best of 5 iterations) ===")
     print()
