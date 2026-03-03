@@ -6,7 +6,7 @@
 
 namespace caramel::tests {
 
-TEST(HypergraphPeelerTest, RandomSystemSolutions) {
+TEST(SolveTest, RandomSystemSolutions) {
 
   size_t num_systems = 1000; // Number of random systems to solve.
   uint32_t num_variables = 11;

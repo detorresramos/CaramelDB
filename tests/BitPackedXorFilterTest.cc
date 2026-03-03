@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 #include <fstream>
+#include <sstream>
+#include <unistd.h>
 #include <cmath>
 #include <cereal/archives/binary.hpp>
 #include <src/construct/filter/XorFilter.h>
@@ -222,7 +224,9 @@ TEST(BitPackedXorFilterTest, SixteenBitFingerprint) {
 
 // Test save and load for 1-bit fingerprints
 TEST(BitPackedXorFilterTest, SaveAndLoadOneBit) {
-  std::string test_file = "/tmp/xor_filter_1bit_test.bin";
+  std::ostringstream fn;
+  fn << "/tmp/xor_filter_1bit_test_" << getpid() << ".bin";
+  std::string test_file = fn.str();
 
   auto test_keys = getTestKeys(100);
 
@@ -261,7 +265,9 @@ TEST(BitPackedXorFilterTest, SaveAndLoadOneBit) {
 
 // Test save and load for 4-bit fingerprints
 TEST(BitPackedXorFilterTest, SaveAndLoadFourBit) {
-  std::string test_file = "/tmp/xor_filter_4bit_test.bin";
+  std::ostringstream fn;
+  fn << "/tmp/xor_filter_4bit_test_" << getpid() << ".bin";
+  std::string test_file = fn.str();
 
   auto test_keys = getTestKeys(150);
 
@@ -300,7 +306,9 @@ TEST(BitPackedXorFilterTest, SaveAndLoadFourBit) {
 
 // Test save and load for 7-bit fingerprints
 TEST(BitPackedXorFilterTest, SaveAndLoadSevenBit) {
-  std::string test_file = "/tmp/xor_filter_7bit_test.bin";
+  std::ostringstream fn;
+  fn << "/tmp/xor_filter_7bit_test_" << getpid() << ".bin";
+  std::string test_file = fn.str();
 
   auto test_keys = getTestKeys(150);
 
@@ -339,7 +347,9 @@ TEST(BitPackedXorFilterTest, SaveAndLoadSevenBit) {
 
 // Test save and load for 8-bit fingerprints
 TEST(BitPackedXorFilterTest, SaveAndLoadEightBit) {
-  std::string test_file = "/tmp/xor_filter_8bit_test.bin";
+  std::ostringstream fn;
+  fn << "/tmp/xor_filter_8bit_test_" << getpid() << ".bin";
+  std::string test_file = fn.str();
 
   auto test_keys = getTestKeys(150);
 
@@ -378,7 +388,9 @@ TEST(BitPackedXorFilterTest, SaveAndLoadEightBit) {
 
 // Test save and load for 16-bit fingerprints
 TEST(BitPackedXorFilterTest, SaveAndLoadSixteenBit) {
-  std::string test_file = "/tmp/xor_filter_16bit_test.bin";
+  std::ostringstream fn;
+  fn << "/tmp/xor_filter_16bit_test_" << getpid() << ".bin";
+  std::string test_file = fn.str();
 
   auto test_keys = getTestKeys(150);
 
