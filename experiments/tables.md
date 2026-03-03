@@ -65,7 +65,7 @@ Query measurement: 250 random keys/trial, 3 warmup + 10 measured trials, median 
 | 10,000,000 | 0.9 | unique | 2.57 | 345.2 | 151.7 | 180.0 | 6.366 |
 | 100,000,000 | 0.5 | zipfian | 34.64 | 521.8 | 147.0 | 149.0 | 7.066 |
 
-## After (Cython)
+## After (Cython + optimizations)
 
 | N | Alpha | Distribution | Construction (s) | Random (ns/q) | Majority (ns/q) | Minority (ns/q) | Size (bits/key) |
 |--:|------:|:-------------|------------------:|--------------:|----------------:|----------------:|----------------:|
