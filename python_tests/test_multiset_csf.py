@@ -168,6 +168,33 @@ def test_multiset_csf_shared_filter(tmp_path):
         assert csf2.query(key) == list(row)
 
 
+def test_multiset_csf_shared_filter_multi_group(tmp_path):
+    """Columns with different MCVs get separate filter groups."""
+    num_rows = 500
+    num_cols = 4
+    keys = [f"key_{i}" for i in range(num_rows)]
+    values = np.zeros((num_rows, num_cols), dtype=np.uint32)
+    # Columns 0,1 have MCV=0; columns 2,3 have MCV=7
+    values[:, 2:] = 7
+    # Sprinkle minority values in all columns
+    rng = np.random.default_rng(42)
+    for i in rng.choice(num_rows, size=num_rows // 5, replace=False):
+        values[i] = rng.integers(1, 10, size=num_cols, dtype=np.uint32)
+
+    prefilter = carameldb.BinaryFuseFilterConfig(fingerprint_bits=12)
+    csf = carameldb.Caramel(
+        keys, values, prefilter=prefilter, shared_filter=True, verbose=False
+    )
+    for key, row in zip(keys, values):
+        assert csf.query(key) == list(row)
+
+    save_file = str(tmp_path / "shared_filter_multi_group.csf")
+    csf.save(save_file)
+    csf2 = carameldb.load(save_file)
+    for key, row in zip(keys, values):
+        assert csf2.query(key) == list(row)
+
+
 def test_multiset_csf_shared_codebook_and_filter(tmp_path):
     num_rows = 500
     num_cols = 5

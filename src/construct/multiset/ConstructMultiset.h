@@ -28,72 +28,90 @@ void applyEntropyPermutation(std::vector<std::vector<T>> &values) {
 }
 
 template <typename T>
-struct SharedFilterResult {
+struct ColumnFilterInfo {
   PreFilterPtr<T> filter;
-  T global_mcv{};
+  T mcv{};
   std::vector<bool> is_minority_key;
 };
 
-// Builds a single filter shared across all columns. A key is "minority" (stored
-// in the CSF) if ANY of its column values differ from the global most common
-// value; majority keys are handled by the filter alone.
+// Builds per-MCV-group shared filters. Columns with the same per-column MCV
+// share a single filter; columns with different MCVs get separate groups.
 template <typename T>
-SharedFilterResult<T>
-buildSharedFilter(const std::vector<std::string> &keys,
-                  const std::vector<std::vector<T>> &values,
-                  const MultisetConfig &config) {
+std::vector<ColumnFilterInfo<T>>
+buildGroupSharedFilters(const std::vector<std::string> &keys,
+                        const std::vector<std::vector<T>> &values,
+                        PreFilterConfigPtr filter_config,
+                        bool verbose) {
   size_t num_columns = values.size();
   size_t num_keys = keys.size();
 
-  std::unordered_map<T, size_t> frequencies;
+  // Compute each column's MCV
+  std::vector<T> column_mcvs(num_columns);
   for (size_t i = 0; i < num_columns; i++) {
+    std::unordered_map<T, size_t> freq;
     for (const auto &v : values[i]) {
-      frequencies[v]++;
+      freq[v]++;
     }
-  }
-
-  T global_mcv{};
-  size_t highest_freq = 0;
-  for (const auto &[val, freq] : frequencies) {
-    if (freq >= highest_freq) {
-      highest_freq = freq;
-      global_mcv = val;
-    }
-  }
-
-  std::vector<bool> is_minority_key(num_keys, false);
-  for (size_t k = 0; k < num_keys; k++) {
-    for (size_t i = 0; i < num_columns; i++) {
-      if (values[i][k] != global_mcv) {
-        is_minority_key[k] = true;
-        break;
+    T best{};
+    size_t best_count = 0;
+    for (const auto &[val, count] : freq) {
+      if (count > best_count) {
+        best_count = count;
+        best = val;
       }
     }
+    column_mcvs[i] = best;
   }
 
-  // Build filter using synthetic values: minority keys get a sentinel,
-  // majority keys get global_mcv. This reuses PreFilter::apply() which
-  // finds MCV and adds non-MCV keys to the filter.
-  T sentinel = global_mcv;
-  for (const auto &[val, _] : frequencies) {
-    if (val != global_mcv) {
-      sentinel = val;
-      break;
+  // Group columns by MCV value
+  std::unordered_map<T, std::vector<size_t>> mcv_groups;
+  for (size_t i = 0; i < num_columns; i++) {
+    mcv_groups[column_mcvs[i]].push_back(i);
+  }
+
+  std::vector<ColumnFilterInfo<T>> result(num_columns);
+
+  for (const auto &[mcv, col_indices] : mcv_groups) {
+    // A key is minority for this group if ANY column in the group differs
+    std::vector<bool> is_minority_key(num_keys, false);
+    for (size_t k = 0; k < num_keys; k++) {
+      for (size_t ci : col_indices) {
+        if (values[ci][k] != mcv) {
+          is_minority_key[k] = true;
+          break;
+        }
+      }
+    }
+
+    // Find a sentinel value (any value != mcv) for synthetic filter input
+    T sentinel = mcv;
+    for (size_t ci : col_indices) {
+      for (const auto &v : values[ci]) {
+        if (v != mcv) {
+          sentinel = v;
+          goto found_sentinel;
+        }
+      }
+    }
+    found_sentinel:
+
+    std::vector<T> synthetic_values(num_keys);
+    for (size_t k = 0; k < num_keys; k++) {
+      synthetic_values[k] = is_minority_key[k] ? sentinel : mcv;
+    }
+
+    auto filter = FilterFactory::makeFilter<T>(filter_config);
+    std::vector<std::string> filtered_keys_out;
+    std::vector<T> filtered_values_out;
+    filter->apply(keys, synthetic_values, filtered_keys_out,
+                  filtered_values_out, DELTA, verbose);
+
+    for (size_t ci : col_indices) {
+      result[ci] = {filter, mcv, is_minority_key};
     }
   }
 
-  std::vector<T> synthetic_values(num_keys);
-  for (size_t k = 0; k < num_keys; k++) {
-    synthetic_values[k] = is_minority_key[k] ? sentinel : global_mcv;
-  }
-
-  auto filter = FilterFactory::makeFilter<T>(config.filter_config);
-  std::vector<std::string> filtered_keys_out;
-  std::vector<T> filtered_values_out;
-  filter->apply(keys, synthetic_values, filtered_keys_out,
-                filtered_values_out, DELTA, config.verbose);
-
-  return {filter, global_mcv, std::move(is_minority_key)};
+  return result;
 }
 
 template <typename T>
@@ -105,33 +123,34 @@ struct ColumnInputs {
 };
 
 // Resolves which keys/values a column's CSF needs to encode, depending on
-// whether we're using a shared filter, per-column filter, or no filter.
+// whether we're using a group filter, per-column filter, or no filter.
 template <typename T>
 ColumnInputs<T>
 resolveColumnInputs(const std::vector<std::string> &all_keys,
                     const std::vector<T> &column_values,
-                    const SharedFilterResult<T> *shared,
-                    const MultisetConfig &config) {
-  if (shared) {
+                    const ColumnFilterInfo<T> *col_filter_info,
+                    PreFilterConfigPtr filter_config,
+                    bool verbose) {
+  if (col_filter_info) {
     std::vector<std::string> keys;
     std::vector<T> values;
     keys.reserve(all_keys.size());
     values.reserve(all_keys.size());
     for (size_t k = 0; k < all_keys.size(); k++) {
-      if (shared->is_minority_key[k]) {
+      if (col_filter_info->is_minority_key[k]) {
         keys.push_back(all_keys[k]);
         values.push_back(column_values[k]);
       }
     }
-    return {shared->filter, std::move(keys), std::move(values),
-            shared->global_mcv};
+    return {col_filter_info->filter, std::move(keys), std::move(values),
+            col_filter_info->mcv};
   }
 
-  if (config.filter_config) {
-    auto filter = FilterFactory::makeFilter<T>(config.filter_config);
+  if (filter_config) {
+    auto filter = FilterFactory::makeFilter<T>(filter_config);
     std::vector<std::string> keys;
     std::vector<T> values;
-    filter->apply(all_keys, column_values, keys, values, DELTA, config.verbose);
+    filter->apply(all_keys, column_values, keys, values, DELTA, verbose);
     std::optional<T> mcv = filter->getMostCommonValue();
     return {filter, std::move(keys), std::move(values), mcv};
   }
@@ -160,19 +179,18 @@ constructMultisetCsf(const std::vector<std::string> &keys,
     shared_cb = std::make_shared<CsfCodebook<T>>(canonicalHuffman<T>(pooled));
   }
 
-  // Shared filter
-  std::unique_ptr<SharedFilterResult<T>> shared;
+  std::vector<ColumnFilterInfo<T>> group_filters;
   if (config.shared_filter && config.filter_config) {
-    shared = std::make_unique<SharedFilterResult<T>>(
-        buildSharedFilter<T>(keys, values, config));
+    group_filters = buildGroupSharedFilters<T>(keys, values, config.filter_config, config.verbose);
   }
 
   using ColumnState = typename MultisetCsf<T>::ColumnState;
   std::vector<ColumnState> columns(num_columns);
 
   for (size_t i = 0; i < num_columns; i++) {
+    auto *col_filter = group_filters.empty() ? nullptr : &group_filters[i];
     auto col_inputs = resolveColumnInputs<T>(
-        keys, values[i], shared.get(), config);
+        keys, values[i], col_filter, config.filter_config, config.verbose);
 
     bool using_filter = (col_inputs.filter != nullptr);
     const auto &active_keys = using_filter ? col_inputs.keys : keys;
