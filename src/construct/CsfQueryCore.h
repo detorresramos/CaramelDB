@@ -1,7 +1,7 @@
 #pragma once
 
 #include "BucketedHashStore.h"
-#include "Codec.h"
+#include "CsfCodebook.h"
 #include "ConstructUtils.h"
 #include <vector>
 

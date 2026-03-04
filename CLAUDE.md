@@ -65,3 +65,7 @@ This is useless and doesn't help the reader. Only add comments when:
 * we need to explain WHY something is happening or
 * its unclear what is happening already from the code.
 
+# Other Guidelines
+
+* We don't care about backwards compatibility
+

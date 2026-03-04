@@ -38,16 +38,12 @@ constructMultisetCsf(const std::vector<std::string> &keys,
 
   // Shared codebook: pool all columns' values, compute one Huffman
   std::shared_ptr<CsfCodebook<T>> shared_cb;
-  CodeDict<T> shared_codedict;
   if (config.shared_codebook) {
     std::vector<T> pooled;
     for (size_t i = 0; i < num_columns; i++) {
       pooled.insert(pooled.end(), values[i].begin(), values[i].end());
     }
-    HuffmanOutput<T> huffman = canonicalHuffman<T>(pooled);
-    shared_cb = std::make_shared<CsfCodebook<T>>(
-        CsfCodebook<T>::fromHuffman(huffman));
-    shared_codedict = std::move(huffman.codedict);
+    shared_cb = std::make_shared<CsfCodebook<T>>(canonicalHuffman<T>(pooled));
   }
 
   // Shared filter: find global MCV, build one filter for all columns
@@ -135,26 +131,18 @@ constructMultisetCsf(const std::vector<std::string> &keys,
     const auto &active_values =
         using_filter ? filtered_values_storage : values[i];
 
-    HuffmanOutput<T> huffman;
     std::shared_ptr<CsfCodebook<T>> col_codebook;
-    const CodeDict<T> *codedict_ptr;
-
     if (config.shared_codebook) {
-      // Still need per-column huffman for bucketing with the shared codedict
-      // But we use the shared codebook and shared codedict
       col_codebook = shared_cb;
-      codedict_ptr = &shared_codedict;
-      // We need a local huffman just for max_codelength reference during solve
-      huffman.codedict = shared_codedict;
-      huffman.max_codelength = shared_cb->max_codelength;
     } else {
-      huffman = canonicalHuffman<T>(active_values);
       col_codebook = std::make_shared<CsfCodebook<T>>(
-          CsfCodebook<T>::fromHuffman(huffman));
-      codedict_ptr = &huffman.codedict;
+          canonicalHuffman<T>(active_values));
     }
 
-    uint64_t num_buckets = targetBucketCount(active_values, *codedict_ptr);
+    const CodeDict<T> &codedict = col_codebook->codedict;
+    uint32_t max_cl = col_codebook->max_codelength;
+
+    uint64_t num_buckets = targetBucketCount(active_values, codedict);
 
     BucketedHashStore<T> hash_store =
         partitionToBuckets<T>(active_keys, active_values, num_buckets);
@@ -162,11 +150,10 @@ constructMultisetCsf(const std::vector<std::string> &keys,
     std::exception_ptr exception = nullptr;
     std::vector<SubsystemSolutionSeedPair> solutions_and_seeds(
         hash_store.num_buckets);
-    uint32_t shared_max_cl = huffman.max_codelength;
 
 #pragma omp parallel for default(none)                                         \
     shared(hash_store, solutions_and_seeds, exception, DELTA,                  \
-           codedict_ptr, shared_max_cl)
+           codedict, max_cl)
     for (uint32_t j = 0; j < hash_store.num_buckets; j++) {
       if (exception) {
         continue;
@@ -174,7 +161,7 @@ constructMultisetCsf(const std::vector<std::string> &keys,
       try {
         solutions_and_seeds[j] = constructAndSolveSubsystem<T>(
             hash_store.key_buckets[j], hash_store.value_buckets[j],
-            *codedict_ptr, shared_max_cl, DELTA);
+            codedict, max_cl, DELTA);
       } catch (std::exception &e) {
 #pragma omp critical
         {
@@ -201,19 +188,6 @@ constructMultisetCsf(const std::vector<std::string> &keys,
   }
 
   return std::make_shared<MultisetCsf<T>>(std::move(columns));
-}
-
-// Backward-compatible overload
-template <typename T>
-MultisetCsfPtr<T>
-constructMultisetCsf(const std::vector<std::string> &keys,
-                     const std::vector<std::vector<T>> &values,
-                     PreFilterConfigPtr filter_config = nullptr,
-                     bool verbose = true) {
-  MultisetConfig config;
-  config.filter_config = filter_config;
-  config.verbose = verbose;
-  return constructMultisetCsf<T>(keys, values, config);
 }
 
 } // namespace caramel

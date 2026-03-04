@@ -355,27 +355,6 @@ cdef extern from "src/construct/multiset/MultisetConfig.h" namespace "caramel":
 # ── ConstructMultiset free functions ───────────────────────────────────────
 
 cdef extern from "src/construct/multiset/ConstructMultiset.h" namespace "caramel":
-    shared_ptr[MultisetCsf_uint32] constructMultisetCsf_uint32 "caramel::constructMultisetCsf<uint32_t>"(
-        const vector[string] &keys, const vector[vector[unsigned int]] &values,
-        shared_ptr[PreFilterConfig] filter_config, cbool verbose) except +
-
-    shared_ptr[MultisetCsf_uint64] constructMultisetCsf_uint64 "caramel::constructMultisetCsf<uint64_t>"(
-        const vector[string] &keys, const vector[vector[unsigned long long]] &values,
-        shared_ptr[PreFilterConfig] filter_config, cbool verbose) except +
-
-    shared_ptr[MultisetCsf_Char10] constructMultisetCsf_Char10 "caramel::constructMultisetCsf<Char10>"(
-        const vector[string] &keys, const vector[vector[Char10]] &values,
-        shared_ptr[PreFilterConfig] filter_config, cbool verbose) except +
-
-    shared_ptr[MultisetCsf_Char12] constructMultisetCsf_Char12 "caramel::constructMultisetCsf<Char12>"(
-        const vector[string] &keys, const vector[vector[Char12]] &values,
-        shared_ptr[PreFilterConfig] filter_config, cbool verbose) except +
-
-    shared_ptr[MultisetCsf_string] constructMultisetCsf_string "caramel::constructMultisetCsf<std::string>"(
-        const vector[string] &keys, const vector[vector[string]] &values,
-        shared_ptr[PreFilterConfig] filter_config, cbool verbose) except +
-
-    # Config-based overloads
     shared_ptr[MultisetCsf_uint32] constructMultisetCsfConfig_uint32 "caramel::constructMultisetCsf<uint32_t>"(
         const vector[string] &keys, const vector[vector[unsigned int]] &values,
         const MultisetConfig &config) except +

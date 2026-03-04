@@ -1,7 +1,7 @@
 #pragma once
 
 #include "BucketedHashStore.h"
-#include "Codec.h"
+#include "CsfCodebook.h"
 #include "ConstructUtils.h"
 #include "Csf.h"
 #include <cmath>
@@ -160,9 +160,9 @@ constructCsf(const std::vector<std::string> &keys, const std::vector<T> &values,
     std::cout << "Creating codebook...";
   }
 
-  HuffmanOutput<T> huffman = canonicalHuffman<T>(active_values);
+  CsfCodebook<T> codebook = canonicalHuffman<T>(active_values);
 
-  uint64_t num_buckets = targetBucketCount(active_values, huffman.codedict);
+  uint64_t num_buckets = targetBucketCount(active_values, codebook.codedict);
 
   if (verbose) {
     std::cout << " finished in " << timer.seconds() << " seconds." << std::endl;
@@ -183,7 +183,7 @@ constructCsf(const std::vector<std::string> &keys, const std::vector<T> &values,
                                        /* max_steps=*/hash_store.num_buckets);
 
 #pragma omp parallel for default(none)                                         \
-    shared(hash_store, huffman, solutions_and_seeds, exception, bar, DELTA)
+    shared(hash_store, codebook, solutions_and_seeds, exception, bar, DELTA)
   for (uint32_t i = 0; i < hash_store.num_buckets; i++) {
     if (exception) {
       continue;
@@ -191,7 +191,7 @@ constructCsf(const std::vector<std::string> &keys, const std::vector<T> &values,
     try {
       solutions_and_seeds[i] = constructAndSolveSubsystem<T>(
           hash_store.key_buckets[i], hash_store.value_buckets[i],
-          huffman.codedict, huffman.max_codelength, DELTA);
+          codebook.codedict, codebook.max_codelength, DELTA);
     } catch (std::exception &e) {
 #pragma omp critical
       { exception = std::current_exception(); }
@@ -212,8 +212,8 @@ constructCsf(const std::vector<std::string> &keys, const std::vector<T> &values,
     bar->close(str);
   }
 
-  return Csf<T>::make(solutions_and_seeds, huffman.code_length_counts,
-                      huffman.ordered_symbols, hash_store.seed, filter);
+  return Csf<T>::make(solutions_and_seeds, codebook.code_length_counts,
+                      codebook.ordered_symbols, hash_store.seed, filter);
 }
 
 } // namespace caramel

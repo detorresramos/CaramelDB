@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Codec.h"
+#include "CsfCodebook.h"
 #include "CsfQueryCore.h"
 #include "CsfStats.h"
 #include <cereal/access.hpp>
