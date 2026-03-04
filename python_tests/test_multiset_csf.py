@@ -128,6 +128,29 @@ def test_multiset_string_permute_raises():
         carameldb.MultisetCSFString(keys, values, permute=True)
 
 
+def test_multiset_csf_per_column_filter(tmp_path):
+    """Per-column filter (filter_config set, shared_filter=False)."""
+    num_rows = 500
+    num_cols = 5
+    keys = [f"key_{i}" for i in range(num_rows)]
+    values = np.zeros((num_rows, num_cols), dtype=np.uint32)
+    for i in range(num_rows // 5):
+        values[i] = np.random.randint(1, 10, size=num_cols, dtype=np.uint32)
+
+    prefilter = carameldb.BinaryFuseFilterConfig(fingerprint_bits=12)
+    csf = carameldb.Caramel(
+        keys, values, prefilter=prefilter, shared_filter=False, verbose=False
+    )
+    for key, row in zip(keys, values):
+        assert csf.query(key) == list(row)
+
+    save_file = str(tmp_path / "per_col_filter.csf")
+    csf.save(save_file)
+    csf2 = carameldb.load(save_file)
+    for key, row in zip(keys, values):
+        assert csf2.query(key) == list(row)
+
+
 def test_multiset_csf_shared_codebook(tmp_path):
     num_rows = 500
     num_cols = 5
