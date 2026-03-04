@@ -65,6 +65,12 @@ This is useless and doesn't help the reader. Only add comments when:
 * we need to explain WHY something is happening or
 * its unclear what is happening already from the code.
 
+# Project Knowledge
+
+- `artifacts/papers/` — paper source, experiment code, and figures for each paper
+- `artifacts/` — performance memos, design docs, investigation notes
+- `scripts/` — benchmark scripts, tutorials, utilities
+
 # Other Guidelines
 
 * We don't care about backwards compatibility
