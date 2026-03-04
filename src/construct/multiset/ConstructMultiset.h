@@ -1,0 +1,249 @@
+#pragma once
+
+#include "src/construct/Construct.h"
+#include "src/construct/multiset/EntropyPermutation.h"
+#include "src/construct/multiset/MultisetCsf.h"
+#include "src/construct/multiset/MultisetConfig.h"
+#include "src/construct/filter/FilterFactory.h"
+
+namespace caramel {
+
+template <typename T>
+void applyEntropyPermutation(std::vector<std::vector<T>> &values) {
+  size_t num_columns = values.size();
+  size_t num_rows = values[0].size();
+
+  std::vector<T> buf(num_rows * num_columns);
+  for (size_t c = 0; c < num_columns; c++) {
+    for (size_t r = 0; r < num_rows; r++) {
+      buf[r * num_columns + c] = values[c][r];
+    }
+  }
+  entropyPermutation<T>(buf.data(), num_rows, num_columns);
+  for (size_t c = 0; c < num_columns; c++) {
+    for (size_t r = 0; r < num_rows; r++) {
+      values[c][r] = buf[r * num_columns + c];
+    }
+  }
+}
+
+template <typename T>
+struct ColumnFilterInfo {
+  PreFilterPtr<T> filter;
+  T mcv{};
+  std::vector<bool> is_minority_key;
+};
+
+// Builds per-MCV-group shared filters. Columns with the same per-column MCV
+// share a single filter; columns with different MCVs get separate groups.
+template <typename T>
+std::vector<ColumnFilterInfo<T>>
+buildGroupSharedFilters(const std::vector<std::string> &keys,
+                        const std::vector<std::vector<T>> &values,
+                        PreFilterConfigPtr filter_config,
+                        bool verbose) {
+  size_t num_columns = values.size();
+  size_t num_keys = keys.size();
+
+  // Compute each column's MCV
+  std::vector<T> column_mcvs(num_columns);
+  for (size_t i = 0; i < num_columns; i++) {
+    std::unordered_map<T, size_t> freq;
+    for (const auto &v : values[i]) {
+      freq[v]++;
+    }
+    T best{};
+    size_t best_count = 0;
+    for (const auto &[val, count] : freq) {
+      if (count > best_count) {
+        best_count = count;
+        best = val;
+      }
+    }
+    column_mcvs[i] = best;
+  }
+
+  // Group columns by MCV value
+  std::unordered_map<T, std::vector<size_t>> mcv_groups;
+  for (size_t i = 0; i < num_columns; i++) {
+    mcv_groups[column_mcvs[i]].push_back(i);
+  }
+
+  std::vector<ColumnFilterInfo<T>> result(num_columns);
+
+  for (const auto &[mcv, col_indices] : mcv_groups) {
+    // A key is minority for this group if ANY column in the group differs
+    std::vector<bool> is_minority_key(num_keys, false);
+    for (size_t k = 0; k < num_keys; k++) {
+      for (size_t ci : col_indices) {
+        if (values[ci][k] != mcv) {
+          is_minority_key[k] = true;
+          break;
+        }
+      }
+    }
+
+    // Find a sentinel value (any value != mcv) for synthetic filter input
+    T sentinel = mcv;
+    for (size_t ci : col_indices) {
+      for (const auto &v : values[ci]) {
+        if (v != mcv) {
+          sentinel = v;
+          goto found_sentinel;
+        }
+      }
+    }
+    found_sentinel:
+
+    std::vector<T> synthetic_values(num_keys);
+    for (size_t k = 0; k < num_keys; k++) {
+      synthetic_values[k] = is_minority_key[k] ? sentinel : mcv;
+    }
+
+    auto filter = FilterFactory::makeFilter<T>(filter_config);
+    std::vector<std::string> filtered_keys_out;
+    std::vector<T> filtered_values_out;
+    filter->apply(keys, synthetic_values, filtered_keys_out,
+                  filtered_values_out, DELTA, verbose);
+
+    for (size_t ci : col_indices) {
+      result[ci] = {filter, mcv, is_minority_key};
+    }
+  }
+
+  return result;
+}
+
+template <typename T>
+struct ColumnInputs {
+  PreFilterPtr<T> filter;
+  std::vector<std::string> keys;
+  std::vector<T> values;
+  std::optional<T> most_common_value;
+};
+
+// Resolves which keys/values a column's CSF needs to encode, depending on
+// whether we're using a group filter, per-column filter, or no filter.
+template <typename T>
+ColumnInputs<T>
+resolveColumnInputs(const std::vector<std::string> &all_keys,
+                    const std::vector<T> &column_values,
+                    const ColumnFilterInfo<T> *col_filter_info,
+                    PreFilterConfigPtr filter_config,
+                    bool verbose) {
+  if (col_filter_info) {
+    std::vector<std::string> keys;
+    std::vector<T> values;
+    keys.reserve(all_keys.size());
+    values.reserve(all_keys.size());
+    for (size_t k = 0; k < all_keys.size(); k++) {
+      if (col_filter_info->is_minority_key[k]) {
+        keys.push_back(all_keys[k]);
+        values.push_back(column_values[k]);
+      }
+    }
+    return {col_filter_info->filter, std::move(keys), std::move(values),
+            col_filter_info->mcv};
+  }
+
+  if (filter_config) {
+    auto filter = FilterFactory::makeFilter<T>(filter_config);
+    std::vector<std::string> keys;
+    std::vector<T> values;
+    filter->apply(all_keys, column_values, keys, values, DELTA, verbose);
+    std::optional<T> mcv = filter->getMostCommonValue();
+    return {filter, std::move(keys), std::move(values), mcv};
+  }
+
+  return {nullptr, {}, {}, std::nullopt};
+}
+
+template <typename T>
+MultisetCsfPtr<T>
+constructMultisetCsf(const std::vector<std::string> &keys,
+                     std::vector<std::vector<T>> values,
+                     const MultisetConfig &config) {
+  size_t num_columns = values.size();
+
+  if (config.permutation == PermutationStrategy::Entropy && num_columns > 1) {
+    applyEntropyPermutation(values);
+  }
+
+  // Shared codebook: pool all columns' values, compute one Huffman tree
+  std::shared_ptr<CsfCodebook<T>> shared_cb;
+  if (config.shared_codebook) {
+    std::vector<T> pooled;
+    for (size_t i = 0; i < num_columns; i++) {
+      pooled.insert(pooled.end(), values[i].begin(), values[i].end());
+    }
+    shared_cb = std::make_shared<CsfCodebook<T>>(canonicalHuffman<T>(pooled));
+  }
+
+  std::vector<ColumnFilterInfo<T>> group_filters;
+  if (config.shared_filter && config.filter_config) {
+    group_filters = buildGroupSharedFilters<T>(keys, values, config.filter_config, config.verbose);
+  }
+
+  using ColumnState = typename MultisetCsf<T>::ColumnState;
+  std::vector<ColumnState> columns(num_columns);
+
+  for (size_t i = 0; i < num_columns; i++) {
+    auto *col_filter = group_filters.empty() ? nullptr : &group_filters[i];
+    auto col_inputs = resolveColumnInputs<T>(
+        keys, values[i], col_filter, config.filter_config, config.verbose);
+
+    bool using_filter = (col_inputs.filter != nullptr);
+    const auto &active_keys = using_filter ? col_inputs.keys : keys;
+    const auto &active_values = using_filter ? col_inputs.values : values[i];
+
+    auto col_codebook = config.shared_codebook
+        ? shared_cb
+        : std::make_shared<CsfCodebook<T>>(canonicalHuffman<T>(active_values));
+
+    const CodeDict<T> &codedict = col_codebook->codedict;
+    uint32_t max_cl = col_codebook->max_codelength;
+
+    uint64_t num_buckets = targetBucketCount(active_values, codedict);
+
+    BucketedHashStore<T> hash_store =
+        partitionToBuckets<T>(active_keys, active_values, num_buckets);
+
+    std::exception_ptr exception = nullptr;
+    std::vector<SubsystemSolutionSeedPair> solutions_and_seeds(
+        hash_store.num_buckets);
+
+#pragma omp parallel for default(none)                                         \
+    shared(hash_store, solutions_and_seeds, exception, DELTA,                  \
+           codedict, max_cl)
+    for (uint32_t j = 0; j < hash_store.num_buckets; j++) {
+      if (exception) {
+        continue;
+      }
+      try {
+        solutions_and_seeds[j] = constructAndSolveSubsystem<T>(
+            hash_store.key_buckets[j], hash_store.value_buckets[j],
+            codedict, max_cl, DELTA);
+      } catch (std::exception &e) {
+#pragma omp critical
+        {
+          exception = std::current_exception();
+        }
+      }
+    }
+
+    if (exception) {
+      std::rethrow_exception(exception);
+    }
+
+    columns[i].solutions_and_seeds = std::move(solutions_and_seeds);
+    columns[i].hash_store_seed = hash_store.seed;
+    columns[i].codebook = col_codebook;
+    columns[i].filter = col_inputs.filter;
+    columns[i].most_common_value = col_inputs.most_common_value;
+    columns[i].buildQueryCache();
+  }
+
+  return std::make_shared<MultisetCsf<T>>(std::move(columns));
+}
+
+} // namespace caramel

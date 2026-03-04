@@ -3,7 +3,6 @@
 from libcpp.string cimport string
 from libcpp.vector cimport vector
 from libcpp.memory cimport shared_ptr
-from libcpp.pair cimport pair
 from libcpp cimport bool as cbool
 from libc.stddef cimport size_t
 
@@ -223,7 +222,6 @@ cdef extern from "src/construct/Csf.h" namespace "caramel":
     cppclass Csf_uint32 "caramel::Csf<uint32_t>":
         unsigned int query(const char *data, size_t length) except +
         unsigned int query(const string &key) except +
-        pair[vector[unsigned int], double] benchmarkQueries(const vector[string] &keys, unsigned int num_iterations) except +
         shared_ptr[PreFilter_uint32] getFilter()
         CsfStats getStats()
         void save(const string &filename, unsigned int type_id) except +
@@ -234,7 +232,6 @@ cdef extern from "src/construct/Csf.h" namespace "caramel":
     cppclass Csf_uint64 "caramel::Csf<uint64_t>":
         unsigned long long query(const char *data, size_t length) except +
         unsigned long long query(const string &key) except +
-        pair[vector[unsigned long long], double] benchmarkQueries(const vector[string] &keys, unsigned int num_iterations) except +
         shared_ptr[PreFilter_uint64] getFilter()
         CsfStats getStats()
         void save(const string &filename, unsigned int type_id) except +
@@ -245,7 +242,6 @@ cdef extern from "src/construct/Csf.h" namespace "caramel":
     cppclass Csf_Char10 "caramel::Csf<Char10>":
         Char10 query(const char *data, size_t length) except +
         Char10 query(const string &key) except +
-        pair[vector[Char10], double] benchmarkQueries(const vector[string] &keys, unsigned int num_iterations) except +
         shared_ptr[PreFilter_Char10] getFilter()
         CsfStats getStats()
         void save(const string &filename, unsigned int type_id) except +
@@ -256,7 +252,6 @@ cdef extern from "src/construct/Csf.h" namespace "caramel":
     cppclass Csf_Char12 "caramel::Csf<Char12>":
         Char12 query(const char *data, size_t length) except +
         Char12 query(const string &key) except +
-        pair[vector[Char12], double] benchmarkQueries(const vector[string] &keys, unsigned int num_iterations) except +
         shared_ptr[PreFilter_Char12] getFilter()
         CsfStats getStats()
         void save(const string &filename, unsigned int type_id) except +
@@ -267,7 +262,6 @@ cdef extern from "src/construct/Csf.h" namespace "caramel":
     cppclass Csf_string "caramel::Csf<std::string>":
         string query(const char *data, size_t length) except +
         string query(const string &key) except +
-        pair[vector[string], double] benchmarkQueries(const vector[string] &keys, unsigned int num_iterations) except +
         shared_ptr[PreFilter_string] getFilter()
         CsfStats getStats()
         void save(const string &filename, unsigned int type_id) except +
@@ -300,7 +294,7 @@ cdef extern from "src/construct/Construct.h" namespace "caramel":
 
 # ── MultisetCsf ───────────────────────────────────────────────────────────
 
-cdef extern from "src/construct/MultisetCsf.h" namespace "caramel":
+cdef extern from "src/construct/multiset/MultisetCsf.h" namespace "caramel":
     cppclass MultisetCsf_uint32 "caramel::MultisetCsf<uint32_t>":
         vector[unsigned int] query(const char *data, size_t length, cbool parallelize) except +
         vector[unsigned int] query(const string &key, cbool parallelize) except +
@@ -341,28 +335,45 @@ cdef extern from "src/construct/MultisetCsf.h" namespace "caramel":
         @staticmethod
         shared_ptr[MultisetCsf_string] load(const string &filename, unsigned int type_id) except +
 
+# ── MultisetConfig ────────────────────────────────────────────────────────
+
+cdef extern from "src/construct/multiset/MultisetConfig.h" namespace "caramel":
+    cppclass PermutationStrategy "caramel::PermutationStrategy":
+        pass
+
+    PermutationStrategy PermutationStrategy_None "caramel::PermutationStrategy::None"
+    PermutationStrategy PermutationStrategy_Entropy "caramel::PermutationStrategy::Entropy"
+
+    cppclass MultisetConfig:
+        MultisetConfig()
+        PermutationStrategy permutation
+        shared_ptr[PreFilterConfig] filter_config
+        cbool shared_codebook
+        cbool shared_filter
+        cbool verbose
+
 # ── ConstructMultiset free functions ───────────────────────────────────────
 
-cdef extern from "src/construct/ConstructMultiset.h" namespace "caramel":
-    shared_ptr[MultisetCsf_uint32] constructMultisetCsf_uint32 "caramel::constructMultisetCsf<uint32_t>"(
+cdef extern from "src/construct/multiset/ConstructMultiset.h" namespace "caramel":
+    shared_ptr[MultisetCsf_uint32] constructMultisetCsfConfig_uint32 "caramel::constructMultisetCsf<uint32_t>"(
         const vector[string] &keys, const vector[vector[unsigned int]] &values,
-        shared_ptr[PreFilterConfig] filter_config, cbool verbose) except +
+        const MultisetConfig &config) except +
 
-    shared_ptr[MultisetCsf_uint64] constructMultisetCsf_uint64 "caramel::constructMultisetCsf<uint64_t>"(
+    shared_ptr[MultisetCsf_uint64] constructMultisetCsfConfig_uint64 "caramel::constructMultisetCsf<uint64_t>"(
         const vector[string] &keys, const vector[vector[unsigned long long]] &values,
-        shared_ptr[PreFilterConfig] filter_config, cbool verbose) except +
+        const MultisetConfig &config) except +
 
-    shared_ptr[MultisetCsf_Char10] constructMultisetCsf_Char10 "caramel::constructMultisetCsf<Char10>"(
+    shared_ptr[MultisetCsf_Char10] constructMultisetCsfConfig_Char10 "caramel::constructMultisetCsf<Char10>"(
         const vector[string] &keys, const vector[vector[Char10]] &values,
-        shared_ptr[PreFilterConfig] filter_config, cbool verbose) except +
+        const MultisetConfig &config) except +
 
-    shared_ptr[MultisetCsf_Char12] constructMultisetCsf_Char12 "caramel::constructMultisetCsf<Char12>"(
+    shared_ptr[MultisetCsf_Char12] constructMultisetCsfConfig_Char12 "caramel::constructMultisetCsf<Char12>"(
         const vector[string] &keys, const vector[vector[Char12]] &values,
-        shared_ptr[PreFilterConfig] filter_config, cbool verbose) except +
+        const MultisetConfig &config) except +
 
-    shared_ptr[MultisetCsf_string] constructMultisetCsf_string "caramel::constructMultisetCsf<std::string>"(
+    shared_ptr[MultisetCsf_string] constructMultisetCsfConfig_string "caramel::constructMultisetCsf<std::string>"(
         const vector[string] &keys, const vector[vector[string]] &values,
-        shared_ptr[PreFilterConfig] filter_config, cbool verbose) except +
+        const MultisetConfig &config) except +
 
 # ── UnorderedMapBaseline ───────────────────────────────────────────────────
 
@@ -374,7 +385,7 @@ cdef extern from "src/baselines/UnorderedMapBaseline.h" namespace "caramel":
 
 # ── Permutation ────────────────────────────────────────────────────────────
 
-cdef extern from "src/construct/EntropyPermutation.h" namespace "caramel":
+cdef extern from "src/construct/multiset/EntropyPermutation.h" namespace "caramel":
     void entropyPermutation_uint32 "caramel::entropyPermutation<uint32_t>"(unsigned int *M, int num_rows, int num_cols) nogil
     void entropyPermutation_uint64 "caramel::entropyPermutation<uint64_t>"(unsigned long long *M, int num_rows, int num_cols) nogil
     void entropyPermutation_Char10 "caramel::entropyPermutation<Char10>"(Char10 *M, int num_rows, int num_cols) nogil
