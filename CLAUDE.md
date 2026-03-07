@@ -67,8 +67,7 @@ This is useless and doesn't help the reader. Only add comments when:
 
 # Project Knowledge
 
-- `artifacts/papers/` — paper source, experiment code, and figures for each paper
-- `artifacts/` — performance memos, design docs, investigation notes
+- `artifacts/` — papers, performance memos, design docs, investigation notes
 - `scripts/` — benchmark scripts, tutorials, utilities
 
 # Other Guidelines
