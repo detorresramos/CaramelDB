@@ -568,6 +568,8 @@ We compare AutoCSF against the following methods:
 \begin{itemize}
 \item \textbf{BCSF (Shibuya)}~\cite{shibuya2022space}. The Bloom-enhanced CSF described in Section~3. We use \citeauthor{shibuya2022space}'s heuristic cost model to set the Bloom filter parameters. This baseline isolates the effect of AutoCSF's improved parameter selection: both methods use a CSF with a pre-filter, but differ in how the filter parameters are chosen.
 
+\item \textbf{C++ Hash Table}. A standard \texttt{std::unordered\_map} storing all key-value pairs. This baseline represents the naive approach with no compression, providing a reference point for memory usage and query latency.
+
 \item \textbf{MPH Table}. A minimal perfect hash function (via Sux4J's GOV construction~\cite{genuzio2020fast}) paired with a compact value array. This is a distribution-agnostic baseline as it does not exploit value skew and its memory usage depends only on the vocabulary size.
 
 \item \textbf{Learned CSF}~\cite{hermann2025learned}. A learned static function that replaces the linear-system solver in a CSF with a small neural network trained to predict Huffman codes from keys. The model is augmented with a Bloom filter and a correction table. This method typically achieves the smallest memory footprint, but at the cost of significantly higher query latency and construction time due to model training.
@@ -624,24 +626,27 @@ Method & bpk & ns & build (s) & bpk & ns & build (s) & bpk & ns & build (s) \\
 \midrule
 \multicolumn{10}{c}{\emph{Uniform-100}} \\
 \midrule
-AutoCSF & 5.2 & \textbf{239} & 0.043 & 2.5 & 255 & \textbf{0.027} & 0.8 & \textbf{178} & \textbf{0.018} \\
-BCSF (Shibuya) & 5.5 & 319 & \textbf{0.042} & 2.7 & \textbf{250} & 0.027 & 0.8 & 214 & 0.019 \\
+AutoCSF & 5.2 & \textbf{93} & 0.032 & 2.5 & 92 & 0.015 & 0.8 & 104 & 0.007 \\
+BCSF (Shibuya) & 5.5 & 117 & 0.026 & 2.7 & \textbf{92} & 0.015 & 0.8 & \textbf{88} & 0.008 \\
+C++ Hash Table & 95.1 & 138 & \textbf{0.006} & 95.1 & 134 & \textbf{0.006} & 95.1 & 109 & \textbf{0.006} \\
 MPH Table & 35.0 & 1412 & 0.569 & 49.0 & 1505 & 0.438 & 55.9 & 1551 & 0.572 \\
 Learned CSF & \textbf{4.4} & 6435 & 5.173 & \textbf{2.2} & 6160 & 5.480 & \textbf{0.7} & 3199 & 5.733 \\
 \midrule
 \multicolumn{10}{c}{\emph{Zipfian}} \\
 \midrule
-AutoCSF & \textbf{4.6} & \textbf{265} & 0.036 & \textbf{2.3} & \textbf{239} & \textbf{0.023} & \textbf{0.8} & \textbf{180} & \textbf{0.017} \\
-BCSF (Shibuya) & 4.9 & 283 & \textbf{0.035} & 2.4 & 247 & 0.027 & 0.8 & 229 & 0.019 \\
+AutoCSF & \textbf{4.6} & 97 & 0.025 & \textbf{2.3} & 97 & 0.013 & \textbf{0.8} & \textbf{79} & \textbf{0.006} \\
+BCSF (Shibuya) & 4.9 & \textbf{97} & 0.024 & 2.4 & \textbf{94} & 0.014 & 0.8 & 88 & 0.008 \\
+C++ Hash Table & 95.1 & 177 & \textbf{0.007} & 95.1 & 111 & \textbf{0.006} & 95.1 & 107 & \textbf{0.006} \\
 MPH Table & 35.4 & 1195 & 0.569 & 49.2 & 1344 & 0.490 & 56.0 & 1323 & 0.470 \\
-Learned CSF & 4.9 & 76811 & 32.064 & 2.4 & 39387 & 22.474 & 1.4 & 13530 & 13.284 \\
+Learned CSF & 5.8 & 76811 & 32.064 & 2.9 & 39387 & 22.474 & 1.6 & 13530 & 13.284 \\
 \midrule
 \multicolumn{10}{c}{\emph{Unique}} \\
 \midrule
-AutoCSF & 26.3 & \textbf{372} & \textbf{0.081} & 10.6 & \textbf{282} & \textbf{0.047} & \textbf{2.7} & \textbf{188} & \textbf{0.025} \\
-BCSF (Shibuya) & 27.3 & 400 & 0.084 & 11.0 & 341 & 0.051 & 2.7 & 236 & 0.026 \\
+AutoCSF & \textbf{26.3} & 117 & 0.062 & \textbf{10.6} & 109 & 0.031 & \textbf{2.7} & \textbf{79} & 0.011 \\
+BCSF (Shibuya) & 27.3 & \textbf{102} & 0.055 & 11.0 & \textbf{99} & 0.027 & 2.7 & 89 & 0.012 \\
+C++ Hash Table & 95.1 & 116 & \textbf{0.007} & 95.1 & 143 & \textbf{0.006} & 95.1 & 104 & \textbf{0.006} \\
 MPH Table & 43.9 & 1363 & 0.496 & 52.2 & 1236 & 0.487 & 56.4 & 1390 & 0.472 \\
-Learned CSF & \textbf{11.4} & 3997545 & 983.000 & \textbf{6.9} & 1431918 & 359.657 & 3.5 & 243241 & 85.772 \\
+Learned CSF & 35.4 & 3997545 & 793.065 & 16.5 & 1431918 & 359.657 & 5.9 & 243241 & 85.772 \\
 \bottomrule
 \end{tabular}
 \caption{Synthetic benchmark results ($N = 100{,}000$). Memory in bits/key (bpk), query latency in nanoseconds (ns), and construction time in seconds. \textbf{Bold} indicates best in each column.}
@@ -658,22 +663,23 @@ Table~\ref{tab:genomics} reports results on the three genomics datasets. The dat
  & \multicolumn{3}{c}{E.\ coli ($n$=5.3M, $\alpha$=0.97)} & \multicolumn{3}{c}{SRR ($n$=9.8M, $\alpha$=0.20)} & \multicolumn{3}{c}{C.\ elegans ($n$=69.7M, $\alpha$=0.82)} \\
 Method & bpk & ns & build (s) & bpk & ns & build (s) & bpk & ns & build (s) \\
 \midrule
-AutoCSF & \textbf{0.30} & \textbf{335} & \textbf{0.7} & 4.20 & \textbf{458} & \textbf{4.3} & \textbf{1.23} & 394 & \textbf{13.7} \\
-BCSF (Shibuya) & 0.34 & 432 & 0.9 & 4.23 & 594 & 4.4 & 1.36 & \textbf{386} & 15.1 \\
+AutoCSF & \textbf{0.31} & \textbf{92} & \textbf{0.2} & 4.21 & 443 & 2.3 & \textbf{1.26} & 466 & 6.6 \\
+BCSF (Shibuya) & 0.35 & 126 & 0.3 & 4.24 & \textbf{355} & 2.3 & 1.39 & \textbf{274} & \textbf{7.0} \\
+C++ Hash Table & 152.00 & 488 & 0.8 & 152.00 & 742 & \textbf{1.5} & 152.00 & 1034 & 15.2 \\
 MPH Table & 11.55 & 1666 & 8.1 & 11.55 & 1716 & 13.6 & 11.55 & 2054 & 136.3 \\
-Learned CSF & 0.33 & 1725 & 127.4 & \textbf{3.49} & 8312 & 501.4 & --- & --- & --- \\
+Learned CSF & 0.33 & 1615 & 102.9 & \textbf{3.49} & 7911 & 448.7 & 1.75 & 30512 & 7417.6 \\
 \bottomrule
 \end{tabular}
-\caption{Genomics benchmark results. Memory in bits/key (bpk), query latency in nanoseconds (ns), and construction time in seconds. ``---'' indicates we did not complete the experiment due to lack of time. \textbf{Bold} indicates best in each column.}
+\caption{Genomics benchmark results. Memory in bits/key (bpk), query latency in nanoseconds (ns), and construction time in seconds. \textbf{Bold} indicates best in each column.}
 \label{tab:genomics}
 \end{table*}
 
-On E.\ coli, where $\alpha = 0.97$, AutoCSF achieves 0.30~bpk, less than one-third of a bit per key to index 5.3 million $k$-mers. This is $38\times$ smaller than MPH Table (11.55~bpk). Learned CSF is competitive in memory (0.33~bpk) but requires 127 seconds to build versus AutoCSF's 0.7 seconds ($182\times$ slower) and has $5.1\times$ higher query latency.
+On E.\ coli, where $\alpha = 0.97$, AutoCSF achieves 0.31~bpk, less than one-third of a bit per key to index 5.3 million $k$-mers. This is $37\times$ smaller than MPH Table (11.55~bpk). Learned CSF is competitive in memory (0.33~bpk) but requires 103 seconds to build versus AutoCSF's 0.2 seconds ($515\times$ slower) and has $18\times$ higher query latency (1615~ns vs.\ 92~ns).
 
-The SRR dataset ($\alpha = 0.20$) represents a case where filter augmentation is not beneficial. AutoCSF correctly defaults to a plain CSF, achieving 4.20~bpk with the fastest query latency (458~ns). Learned CSF achieves the best memory (3.49~bpk) but at a cost: 501 seconds to build ($117\times$ slower than AutoCSF) and $18\times$ higher query latency (8312~ns vs.\ 458~ns).
+The SRR dataset ($\alpha = 0.20$) represents a case where filter augmentation is not beneficial. AutoCSF correctly defaults to a plain CSF, achieving 4.21~bpk with 443~ns query latency. Learned CSF achieves the best memory (3.49~bpk) but at a cost: 449 seconds to build ($195\times$ slower than AutoCSF) and $18\times$ higher query latency (7911~ns vs.\ 443~ns).
 
 
-On C.\ elegans ($n = 69.7$M, $\alpha = 0.82$), AutoCSF scales to the largest dataset while maintaining its advantages: 1.23~bpk with 394~ns latency and a 13.7-second build time. For context, this means the entire 70-million-entry $k$-mer count table is indexed in approximately 10.7~MB of memory. MPH Table would require 100.6~MB for the same data. We did not complete our experiments for Learned CSF on this dataset (due to lack of time).
+On C.\ elegans ($n = 69.7$M, $\alpha = 0.82$), AutoCSF scales to the largest dataset while maintaining its advantages: 1.26~bpk with 466~ns latency and a 6.6-second build time. For context, this means the entire 70-million-entry $k$-mer count table is indexed in approximately 11~MB of memory. MPH Table would require 100.6~MB for the same data. Learned CSF uses 1.75~bpk (39\% more memory than AutoCSF) with 30{,}512~ns latency ($65\times$ slower) and requires over 2 hours to build.
 
 \subsection{Discussion}
 
