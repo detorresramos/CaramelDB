@@ -50,4 +50,6 @@ struct BinaryFusePreFilterConfig : public PreFilterConfig {
   int fingerprint_bits;
 };
 
+struct AutoPreFilterConfig : public PreFilterConfig {};
+
 } // namespace caramel

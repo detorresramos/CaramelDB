@@ -3,6 +3,7 @@ enable_testing()
 include(GoogleTest)
 
 set(CARAMEL_TESTS
+    AutoFilterSelectionTest
     BitArrayTest
     BucketedHashStoreTest
     CodecTest

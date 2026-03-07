@@ -1,6 +1,7 @@
 import numpy as np
 
 from ._caramel import (
+    AutoFilterConfig,
     EntropyPermutationConfig,
     GlobalSortPermutationConfig,
     BinaryFuseFilterConfig,
@@ -59,7 +60,7 @@ CLASS_LIST = [
 def Caramel(
     keys,
     values,
-    prefilter=None,
+    prefilter=AutoFilterConfig(),
     permutation=None,
     shared_codebook=False,
     shared_filter=False,

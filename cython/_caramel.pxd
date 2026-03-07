@@ -78,6 +78,9 @@ cdef extern from "src/construct/filter/FilterConfig.h" namespace "caramel":
         BinaryFusePreFilterConfig(int fingerprint_bits) except +
         int fingerprint_bits
 
+    cppclass AutoPreFilterConfig(PreFilterConfig):
+        AutoPreFilterConfig() except +
+
 # ── PreFilter ──────────────────────────────────────────────────────────────
 
 cdef extern from "src/construct/filter/PreFilter.h" namespace "caramel":

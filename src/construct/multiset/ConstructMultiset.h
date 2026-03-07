@@ -104,14 +104,21 @@ buildGroupSharedFilters(const std::vector<std::string> &keys,
       synthetic_values[k] = is_minority_key[k] ? sentinel : mcv;
     }
 
-    auto filter = FilterFactory::makeFilter<T>(filter_config);
-    std::vector<std::string> filtered_keys_out;
-    std::vector<T> filtered_values_out;
-    filter->apply(keys, synthetic_values, filtered_keys_out,
-                  filtered_values_out, DELTA, verbose);
+    auto actual_config = filter_config;
+    if (std::dynamic_pointer_cast<AutoPreFilterConfig>(filter_config)) {
+      actual_config = selectBestFilter<T>(synthetic_values);
+    }
 
-    for (size_t ci : col_indices) {
-      result[ci] = {filter, mcv, is_minority_key};
+    if (actual_config) {
+      auto filter = FilterFactory::makeFilter<T>(actual_config);
+      std::vector<std::string> filtered_keys_out;
+      std::vector<T> filtered_values_out;
+      filter->apply(keys, synthetic_values, filtered_keys_out,
+                    filtered_values_out, DELTA, verbose);
+
+      for (size_t ci : col_indices) {
+        result[ci] = {filter, mcv, is_minority_key};
+      }
     }
   }
 
@@ -151,12 +158,18 @@ resolveColumnInputs(const std::vector<std::string> &all_keys,
   }
 
   if (filter_config) {
-    auto filter = FilterFactory::makeFilter<T>(filter_config);
-    std::vector<std::string> keys;
-    std::vector<T> values;
-    filter->apply(all_keys, column_values, keys, values, DELTA, verbose);
-    std::optional<T> mcv = filter->getMostCommonValue();
-    return {filter, std::move(keys), std::move(values), mcv};
+    auto actual_config = filter_config;
+    if (std::dynamic_pointer_cast<AutoPreFilterConfig>(filter_config)) {
+      actual_config = selectBestFilter<T>(column_values);
+    }
+    if (actual_config) {
+      auto filter = FilterFactory::makeFilter<T>(actual_config);
+      std::vector<std::string> keys;
+      std::vector<T> values;
+      filter->apply(all_keys, column_values, keys, values, DELTA, verbose);
+      std::optional<T> mcv = filter->getMostCommonValue();
+      return {filter, std::move(keys), std::move(values), mcv};
+    }
   }
 
   return {nullptr, {}, {}, std::nullopt};

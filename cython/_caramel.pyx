@@ -253,6 +253,11 @@ cdef class BinaryFuseFilterConfig(PreFilterConfig):
     def fingerprint_bits(self, int value):
         self._fingerprint_bits = value
 
+cdef class AutoFilterConfig(PreFilterConfig):
+    """Automatically selects optimal filter type and parameters."""
+    def __init__(self):
+        self._ptr = <shared_ptr[cpp.PreFilterConfig]>make_shared[cpp.AutoPreFilterConfig]()
+
 
 # ── PermutationConfig wrappers ─────────────────────────────────────────────
 
