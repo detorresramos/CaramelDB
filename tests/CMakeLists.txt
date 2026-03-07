@@ -8,6 +8,7 @@ set(CARAMEL_TESTS
     CodecTest
     ConstructCsfTest
     EntropyPermutationTest
+    GlobalSortPermutationTest
     GaussianEliminationTest
     HypergraphPeelerTest
     LazyGaussianEliminationTest

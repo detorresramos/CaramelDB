@@ -1,15 +1,18 @@
 #pragma once
 
 #include "src/construct/Construct.h"
-#include "src/construct/multiset/EntropyPermutation.h"
+#include "src/construct/multiset/permute/EntropyPermutation.h"
+#include "src/construct/multiset/permute/GlobalSortPermutation.h"
 #include "src/construct/multiset/MultisetCsf.h"
 #include "src/construct/multiset/MultisetConfig.h"
 #include "src/construct/filter/FilterFactory.h"
 
 namespace caramel {
 
-template <typename T>
-void applyEntropyPermutation(std::vector<std::vector<T>> &values) {
+// Converts column-major values to a row-major flat buffer, applies the given
+// permutation function, then converts back.
+template <typename T, typename PermFn>
+void applyPermutation(std::vector<std::vector<T>> &values, PermFn fn) {
   size_t num_columns = values.size();
   size_t num_rows = values[0].size();
 
@@ -19,13 +22,14 @@ void applyEntropyPermutation(std::vector<std::vector<T>> &values) {
       buf[r * num_columns + c] = values[c][r];
     }
   }
-  entropyPermutation<T>(buf.data(), num_rows, num_columns);
+  fn(buf.data(), num_rows, num_columns);
   for (size_t c = 0; c < num_columns; c++) {
     for (size_t r = 0; r < num_rows; r++) {
       values[c][r] = buf[r * num_columns + c];
     }
   }
 }
+
 
 template <typename T>
 struct ColumnFilterInfo {
@@ -137,7 +141,7 @@ resolveColumnInputs(const std::vector<std::string> &all_keys,
     keys.reserve(all_keys.size());
     values.reserve(all_keys.size());
     for (size_t k = 0; k < all_keys.size(); k++) {
-      if (col_filter_info->is_minority_key[k]) {
+      if (col_filter_info->filter->contains(all_keys[k])) {
         keys.push_back(all_keys[k]);
         values.push_back(column_values[k]);
       }
@@ -165,8 +169,18 @@ constructMultisetCsf(const std::vector<std::string> &keys,
                      const MultisetConfig &config) {
   size_t num_columns = values.size();
 
-  if (config.permutation == PermutationStrategy::Entropy && num_columns > 1) {
-    applyEntropyPermutation(values);
+  if (config.permutation_config && num_columns > 1) {
+    if (std::dynamic_pointer_cast<EntropyPermutationConfig>(
+            config.permutation_config)) {
+      applyPermutation(values, entropyPermutation<T>);
+    } else if (auto cfg =
+                   std::dynamic_pointer_cast<GlobalSortPermutationConfig>(
+                       config.permutation_config)) {
+      int iters = cfg->refinement_iterations;
+      applyPermutation(values, [iters](T *M, int nr, int nc) {
+        globalSortPermutation<T>(M, nr, nc, iters);
+      });
+    }
   }
 
   // Shared codebook: pool all columns' values, compute one Huffman tree
