@@ -253,6 +253,32 @@ cdef class BinaryFuseFilterConfig(PreFilterConfig):
     def fingerprint_bits(self, int value):
         self._fingerprint_bits = value
 
+cdef class AutoFilterConfig(PreFilterConfig):
+    """Automatically selects optimal filter type and parameters."""
+    def __init__(self):
+        self._ptr = <shared_ptr[cpp.PreFilterConfig]>make_shared[cpp.AutoPreFilterConfig]()
+
+
+# ── PermutationConfig wrappers ─────────────────────────────────────────────
+
+cdef class PermutationConfig:
+    cdef shared_ptr[cpp.PermutationConfig] _ptr
+
+cdef class EntropyPermutationConfig(PermutationConfig):
+    def __init__(self):
+        self._ptr = <shared_ptr[cpp.PermutationConfig]>make_shared[cpp.EntropyPermutationConfig]()
+
+cdef class GlobalSortPermutationConfig(PermutationConfig):
+    cdef int _refinement_iterations
+
+    def __init__(self, int refinement_iterations=5):
+        self._ptr = <shared_ptr[cpp.PermutationConfig]>make_shared[cpp.GlobalSortPermutationConfig](refinement_iterations)
+        self._refinement_iterations = refinement_iterations
+
+    @property
+    def refinement_iterations(self):
+        return self._refinement_iterations
+
 
 # ── PreFilter wrappers ─────────────────────────────────────────────────────
 
@@ -1005,7 +1031,7 @@ cdef class CSFString:
 cdef class MultisetCSFUint32:
     cdef shared_ptr[cpp.MultisetCsf_uint32] _ptr
 
-    def __init__(self, list keys, values, prefilter=None, bint permute=False,
+    def __init__(self, list keys, values, prefilter=None, permutation=None,
                  bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
         cdef vector[string] cpp_keys = _to_cpp_strings(keys)
         cdef vector[vector[unsigned int]] cpp_values
@@ -1025,7 +1051,8 @@ cdef class MultisetCSFUint32:
             cpp_values.push_back(col_vec)
 
         cdef cpp.MultisetConfig config
-        config.permutation = cpp.PermutationStrategy_Entropy if permute else cpp.PermutationStrategy_None
+        if permutation is not None and isinstance(permutation, PermutationConfig):
+            config.permutation_config = (<PermutationConfig>permutation)._ptr
         config.verbose = verbose
         config.shared_codebook = shared_codebook
         config.shared_filter = shared_filter
@@ -1060,7 +1087,7 @@ cdef class MultisetCSFUint32:
 cdef class MultisetCSFUint64:
     cdef shared_ptr[cpp.MultisetCsf_uint64] _ptr
 
-    def __init__(self, list keys, values, prefilter=None, bint permute=False,
+    def __init__(self, list keys, values, prefilter=None, permutation=None,
                  bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
         cdef vector[string] cpp_keys = _to_cpp_strings(keys)
         cdef vector[vector[unsigned long long]] cpp_values
@@ -1080,7 +1107,8 @@ cdef class MultisetCSFUint64:
             cpp_values.push_back(col_vec)
 
         cdef cpp.MultisetConfig config
-        config.permutation = cpp.PermutationStrategy_Entropy if permute else cpp.PermutationStrategy_None
+        if permutation is not None and isinstance(permutation, PermutationConfig):
+            config.permutation_config = (<PermutationConfig>permutation)._ptr
         config.verbose = verbose
         config.shared_codebook = shared_codebook
         config.shared_filter = shared_filter
@@ -1115,7 +1143,7 @@ cdef class MultisetCSFUint64:
 cdef class MultisetCSFChar10:
     cdef shared_ptr[cpp.MultisetCsf_Char10] _ptr
 
-    def __init__(self, list keys, values, prefilter=None, bint permute=False,
+    def __init__(self, list keys, values, prefilter=None, permutation=None,
                  bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
         cdef vector[string] cpp_keys = _to_cpp_strings(keys)
         cdef vector[vector[cpp.Char10]] cpp_values
@@ -1134,7 +1162,8 @@ cdef class MultisetCSFChar10:
             cpp_values.push_back(col_vec)
 
         cdef cpp.MultisetConfig config
-        config.permutation = cpp.PermutationStrategy_Entropy if permute else cpp.PermutationStrategy_None
+        if permutation is not None and isinstance(permutation, PermutationConfig):
+            config.permutation_config = (<PermutationConfig>permutation)._ptr
         config.verbose = verbose
         config.shared_codebook = shared_codebook
         config.shared_filter = shared_filter
@@ -1173,7 +1202,7 @@ cdef class MultisetCSFChar10:
 cdef class MultisetCSFChar12:
     cdef shared_ptr[cpp.MultisetCsf_Char12] _ptr
 
-    def __init__(self, list keys, values, prefilter=None, bint permute=False,
+    def __init__(self, list keys, values, prefilter=None, permutation=None,
                  bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
         cdef vector[string] cpp_keys = _to_cpp_strings(keys)
         cdef vector[vector[cpp.Char12]] cpp_values
@@ -1192,7 +1221,8 @@ cdef class MultisetCSFChar12:
             cpp_values.push_back(col_vec)
 
         cdef cpp.MultisetConfig config
-        config.permutation = cpp.PermutationStrategy_Entropy if permute else cpp.PermutationStrategy_None
+        if permutation is not None and isinstance(permutation, PermutationConfig):
+            config.permutation_config = (<PermutationConfig>permutation)._ptr
         config.verbose = verbose
         config.shared_codebook = shared_codebook
         config.shared_filter = shared_filter
@@ -1231,13 +1261,13 @@ cdef class MultisetCSFChar12:
 cdef class MultisetCSFString:
     cdef shared_ptr[cpp.MultisetCsf_string] _ptr
 
-    def __init__(self, list keys, values, prefilter=None, bint permute=False,
+    def __init__(self, list keys, values, prefilter=None, permutation=None,
                  bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
         cdef vector[string] cpp_keys = _to_cpp_strings(keys)
         cdef vector[vector[string]] cpp_values
 
-        if permute:
-            raise ValueError("'permute' is not supported for variable-length string values.")
+        if permutation is not None:
+            raise ValueError("'permutation' is not supported for variable-length string values.")
 
         values = np.asarray(values)
         if values.ndim != 2:
@@ -1315,26 +1345,42 @@ cdef class UnorderedMapBaseline:
 
 # ── Permutation functions ─────────────────────────────────────────────────
 
-def permute_uint32(np.ndarray[np.uint32_t, ndim=2] array not None):
+def permute_uint32(np.ndarray[np.uint32_t, ndim=2] array not None, config=None):
     cdef int num_rows = array.shape[0]
     cdef int num_cols = array.shape[1]
-    cpp.entropyPermutation_uint32(<unsigned int*>array.data, num_rows, num_cols)
+    if isinstance(config, GlobalSortPermutationConfig):
+        cpp.globalSortPermutation_uint32(<unsigned int*>array.data, num_rows, num_cols,
+                                         (<GlobalSortPermutationConfig>config)._refinement_iterations)
+    else:
+        cpp.entropyPermutation_uint32(<unsigned int*>array.data, num_rows, num_cols)
 
-def permute_uint64(np.ndarray[np.uint64_t, ndim=2] array not None):
+def permute_uint64(np.ndarray[np.uint64_t, ndim=2] array not None, config=None):
     cdef int num_rows = array.shape[0]
     cdef int num_cols = array.shape[1]
-    cpp.entropyPermutation_uint64(<unsigned long long*>array.data, num_rows, num_cols)
+    if isinstance(config, GlobalSortPermutationConfig):
+        cpp.globalSortPermutation_uint64(<unsigned long long*>array.data, num_rows, num_cols,
+                                         (<GlobalSortPermutationConfig>config)._refinement_iterations)
+    else:
+        cpp.entropyPermutation_uint64(<unsigned long long*>array.data, num_rows, num_cols)
 
-def permute_char10(np.ndarray array not None):
+def permute_char10(np.ndarray array not None, config=None):
     if array.ndim != 2:
         raise RuntimeError("Input should be a 2D numpy array.")
     cdef int num_rows = array.shape[0]
     cdef int num_cols = array.shape[1]
-    cpp.entropyPermutation_Char10(<cpp.Char10*>array.data, num_rows, num_cols)
+    if isinstance(config, GlobalSortPermutationConfig):
+        cpp.globalSortPermutation_Char10(<cpp.Char10*>array.data, num_rows, num_cols,
+                                         (<GlobalSortPermutationConfig>config)._refinement_iterations)
+    else:
+        cpp.entropyPermutation_Char10(<cpp.Char10*>array.data, num_rows, num_cols)
 
-def permute_char12(np.ndarray array not None):
+def permute_char12(np.ndarray array not None, config=None):
     if array.ndim != 2:
         raise RuntimeError("Input should be a 2D numpy array.")
     cdef int num_rows = array.shape[0]
     cdef int num_cols = array.shape[1]
-    cpp.entropyPermutation_Char12(<cpp.Char12*>array.data, num_rows, num_cols)
+    if isinstance(config, GlobalSortPermutationConfig):
+        cpp.globalSortPermutation_Char12(<cpp.Char12*>array.data, num_rows, num_cols,
+                                         (<GlobalSortPermutationConfig>config)._refinement_iterations)
+    else:
+        cpp.entropyPermutation_Char12(<cpp.Char12*>array.data, num_rows, num_cols)

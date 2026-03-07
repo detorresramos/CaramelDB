@@ -6,6 +6,7 @@
 #include "Csf.h"
 #include <cmath>
 #include <src/Modulo2System.h>
+#include <src/construct/filter/AutoFilterSelection.h>
 #include <src/construct/filter/FilterFactory.h>
 #include <src/solve/Solve.h>
 #include <src/utils/ProgressBar.h>
@@ -138,13 +139,19 @@ constructCsf(const std::vector<std::string> &keys, const std::vector<T> &values,
 
   PreFilterPtr<T> filter = nullptr;
   if (filter_config) {
-    filter = FilterFactory::makeFilter<T>(filter_config);
-    filter->apply(keys, values, filtered_keys_storage,
-                  filtered_values_storage, DELTA, verbose);
+    auto actual_config = filter_config;
+    if (std::dynamic_pointer_cast<AutoPreFilterConfig>(filter_config)) {
+      actual_config = selectBestFilter<T>(values, verbose);
+    }
+    if (actual_config) {
+      filter = FilterFactory::makeFilter<T>(actual_config);
+      filter->apply(keys, values, filtered_keys_storage,
+                    filtered_values_storage, DELTA, verbose);
+    }
   }
 
-  const auto &active_keys = filter_config ? filtered_keys_storage : keys;
-  const auto &active_values = filter_config ? filtered_values_storage : values;
+  const auto &active_keys = filter ? filtered_keys_storage : keys;
+  const auto &active_values = filter ? filtered_values_storage : values;
 
   // If all keys were filtered out (all values were most common), create empty
   // CSF. Query will always go through filter and return most common value.

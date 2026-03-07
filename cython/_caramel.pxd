@@ -78,6 +78,9 @@ cdef extern from "src/construct/filter/FilterConfig.h" namespace "caramel":
         BinaryFusePreFilterConfig(int fingerprint_bits) except +
         int fingerprint_bits
 
+    cppclass AutoPreFilterConfig(PreFilterConfig):
+        AutoPreFilterConfig() except +
+
 # ── PreFilter ──────────────────────────────────────────────────────────────
 
 cdef extern from "src/construct/filter/PreFilter.h" namespace "caramel":
@@ -337,16 +340,22 @@ cdef extern from "src/construct/multiset/MultisetCsf.h" namespace "caramel":
 
 # ── MultisetConfig ────────────────────────────────────────────────────────
 
-cdef extern from "src/construct/multiset/MultisetConfig.h" namespace "caramel":
-    cppclass PermutationStrategy "caramel::PermutationStrategy":
+cdef extern from "src/construct/multiset/permute/PermutationConfig.h" namespace "caramel":
+    cppclass PermutationConfig:
         pass
 
-    PermutationStrategy PermutationStrategy_None "caramel::PermutationStrategy::None"
-    PermutationStrategy PermutationStrategy_Entropy "caramel::PermutationStrategy::Entropy"
+    cppclass EntropyPermutationConfig(PermutationConfig):
+        EntropyPermutationConfig()
 
+    cppclass GlobalSortPermutationConfig(PermutationConfig):
+        GlobalSortPermutationConfig() except +
+        GlobalSortPermutationConfig(int refinement_iterations) except +
+        int refinement_iterations
+
+cdef extern from "src/construct/multiset/MultisetConfig.h" namespace "caramel":
     cppclass MultisetConfig:
         MultisetConfig()
-        PermutationStrategy permutation
+        shared_ptr[PermutationConfig] permutation_config
         shared_ptr[PreFilterConfig] filter_config
         cbool shared_codebook
         cbool shared_filter
@@ -385,8 +394,14 @@ cdef extern from "src/baselines/UnorderedMapBaseline.h" namespace "caramel":
 
 # ── Permutation ────────────────────────────────────────────────────────────
 
-cdef extern from "src/construct/multiset/EntropyPermutation.h" namespace "caramel":
+cdef extern from "src/construct/multiset/permute/EntropyPermutation.h" namespace "caramel":
     void entropyPermutation_uint32 "caramel::entropyPermutation<uint32_t>"(unsigned int *M, int num_rows, int num_cols) nogil
     void entropyPermutation_uint64 "caramel::entropyPermutation<uint64_t>"(unsigned long long *M, int num_rows, int num_cols) nogil
     void entropyPermutation_Char10 "caramel::entropyPermutation<Char10>"(Char10 *M, int num_rows, int num_cols) nogil
     void entropyPermutation_Char12 "caramel::entropyPermutation<Char12>"(Char12 *M, int num_rows, int num_cols) nogil
+
+cdef extern from "src/construct/multiset/permute/GlobalSortPermutation.h" namespace "caramel":
+    void globalSortPermutation_uint32 "caramel::globalSortPermutation<uint32_t>"(unsigned int *M, int num_rows, int num_cols, int refinement_iterations) nogil
+    void globalSortPermutation_uint64 "caramel::globalSortPermutation<uint64_t>"(unsigned long long *M, int num_rows, int num_cols, int refinement_iterations) nogil
+    void globalSortPermutation_Char10 "caramel::globalSortPermutation<Char10>"(Char10 *M, int num_rows, int num_cols, int refinement_iterations) nogil
+    void globalSortPermutation_Char12 "caramel::globalSortPermutation<Char12>"(Char12 *M, int num_rows, int num_cols, int refinement_iterations) nogil

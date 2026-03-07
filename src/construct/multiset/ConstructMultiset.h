@@ -1,15 +1,18 @@
 #pragma once
 
 #include "src/construct/Construct.h"
-#include "src/construct/multiset/EntropyPermutation.h"
+#include "src/construct/multiset/permute/EntropyPermutation.h"
+#include "src/construct/multiset/permute/GlobalSortPermutation.h"
 #include "src/construct/multiset/MultisetCsf.h"
 #include "src/construct/multiset/MultisetConfig.h"
 #include "src/construct/filter/FilterFactory.h"
 
 namespace caramel {
 
-template <typename T>
-void applyEntropyPermutation(std::vector<std::vector<T>> &values) {
+// Converts column-major values to a row-major flat buffer, applies the given
+// permutation function, then converts back.
+template <typename T, typename PermFn>
+void applyPermutation(std::vector<std::vector<T>> &values, PermFn fn) {
   size_t num_columns = values.size();
   size_t num_rows = values[0].size();
 
@@ -19,13 +22,14 @@ void applyEntropyPermutation(std::vector<std::vector<T>> &values) {
       buf[r * num_columns + c] = values[c][r];
     }
   }
-  entropyPermutation<T>(buf.data(), num_rows, num_columns);
+  fn(buf.data(), num_rows, num_columns);
   for (size_t c = 0; c < num_columns; c++) {
     for (size_t r = 0; r < num_rows; r++) {
       values[c][r] = buf[r * num_columns + c];
     }
   }
 }
+
 
 template <typename T>
 struct ColumnFilterInfo {
@@ -100,14 +104,21 @@ buildGroupSharedFilters(const std::vector<std::string> &keys,
       synthetic_values[k] = is_minority_key[k] ? sentinel : mcv;
     }
 
-    auto filter = FilterFactory::makeFilter<T>(filter_config);
-    std::vector<std::string> filtered_keys_out;
-    std::vector<T> filtered_values_out;
-    filter->apply(keys, synthetic_values, filtered_keys_out,
-                  filtered_values_out, DELTA, verbose);
+    auto actual_config = filter_config;
+    if (std::dynamic_pointer_cast<AutoPreFilterConfig>(filter_config)) {
+      actual_config = selectBestFilter<T>(synthetic_values);
+    }
 
-    for (size_t ci : col_indices) {
-      result[ci] = {filter, mcv, is_minority_key};
+    if (actual_config) {
+      auto filter = FilterFactory::makeFilter<T>(actual_config);
+      std::vector<std::string> filtered_keys_out;
+      std::vector<T> filtered_values_out;
+      filter->apply(keys, synthetic_values, filtered_keys_out,
+                    filtered_values_out, DELTA, verbose);
+
+      for (size_t ci : col_indices) {
+        result[ci] = {filter, mcv, is_minority_key};
+      }
     }
   }
 
@@ -137,7 +148,7 @@ resolveColumnInputs(const std::vector<std::string> &all_keys,
     keys.reserve(all_keys.size());
     values.reserve(all_keys.size());
     for (size_t k = 0; k < all_keys.size(); k++) {
-      if (col_filter_info->is_minority_key[k]) {
+      if (col_filter_info->filter->contains(all_keys[k])) {
         keys.push_back(all_keys[k]);
         values.push_back(column_values[k]);
       }
@@ -147,12 +158,18 @@ resolveColumnInputs(const std::vector<std::string> &all_keys,
   }
 
   if (filter_config) {
-    auto filter = FilterFactory::makeFilter<T>(filter_config);
-    std::vector<std::string> keys;
-    std::vector<T> values;
-    filter->apply(all_keys, column_values, keys, values, DELTA, verbose);
-    std::optional<T> mcv = filter->getMostCommonValue();
-    return {filter, std::move(keys), std::move(values), mcv};
+    auto actual_config = filter_config;
+    if (std::dynamic_pointer_cast<AutoPreFilterConfig>(filter_config)) {
+      actual_config = selectBestFilter<T>(column_values);
+    }
+    if (actual_config) {
+      auto filter = FilterFactory::makeFilter<T>(actual_config);
+      std::vector<std::string> keys;
+      std::vector<T> values;
+      filter->apply(all_keys, column_values, keys, values, DELTA, verbose);
+      std::optional<T> mcv = filter->getMostCommonValue();
+      return {filter, std::move(keys), std::move(values), mcv};
+    }
   }
 
   return {nullptr, {}, {}, std::nullopt};
@@ -165,8 +182,18 @@ constructMultisetCsf(const std::vector<std::string> &keys,
                      const MultisetConfig &config) {
   size_t num_columns = values.size();
 
-  if (config.permutation == PermutationStrategy::Entropy && num_columns > 1) {
-    applyEntropyPermutation(values);
+  if (config.permutation_config && num_columns > 1) {
+    if (std::dynamic_pointer_cast<EntropyPermutationConfig>(
+            config.permutation_config)) {
+      applyPermutation(values, entropyPermutation<T>);
+    } else if (auto cfg =
+                   std::dynamic_pointer_cast<GlobalSortPermutationConfig>(
+                       config.permutation_config)) {
+      int iters = cfg->refinement_iterations;
+      applyPermutation(values, [iters](T *M, int nr, int nc) {
+        globalSortPermutation<T>(M, nr, nc, iters);
+      });
+    }
   }
 
   // Shared codebook: pool all columns' values, compute one Huffman tree
