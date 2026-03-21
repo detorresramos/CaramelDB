@@ -456,7 +456,7 @@ which, as expected, is greater than 0.
 \includegraphics[width=\textwidth]{vldb2026/figures/theory_validation/alpha_sweep_uniform_100.png}
 \end{center}
 
-\caption{Results of sweeping $\alpha$ for each distribution across all five filter types.}
+\caption{Results of sweeping $\alpha$ for each distribution across all four filter types. Each panel plots the lower bound (blue dashed), best empirical savings (red dashed), and the upper bound at the theory-guided and empirical-best parameters (light and dark blue solid). The vertical dashed line marks where the lower bound crosses zero.}
 \label{fig:alpha_sweep}
 \end{figure*}
 
@@ -466,7 +466,7 @@ The AutoCSF algorithm is based on three theoretical claims:
     \item The sign of the lower bound provides a reliable decision criterion for when filtering is beneficial.
     \item Maximizing the lower bound over the filter's parameter space yields the parameter with the largest provable space savings.
 \end{enumerate}
-In this section, we evaluate each of these claims empirically. Our goal is to determine whether the bounds are tight enough to be practically useful, whether the decision criterion produces false positives or false negatives, and how much regret (if any) the theory-guided parameter incurs relative to an exhaustive search over all discrete parameter settings.
+In this section, we evaluate each of these claims empirically. Our goal is to determine whether the bounds are tight enough to be practically useful, whether the decision criterion produces false positives or false negatives, and how much space the theory-guided parameter sacrifices, if any, relative to an exhaustive search over all discrete parameter settings.
 
 We construct synthetic key-value datasets that sweep the majority fraction $\alpha$ from 0.50 to 0.99 and evaluate three minority value distributions that span a range of minority entropy.
 \begin{itemize}
@@ -474,9 +474,9 @@ We construct synthetic key-value datasets that sweep the majority fraction $\alp
     \item \textbf{Zipfian}: power-law with exponent $s = 1.5$.
     \item \textbf{Uniform-100}: values drawn uniformly from 100 symbols.
 \end{itemize}
-We evaluated five types of filters: XOR filter, binary fuse filter, and Bloom filters with $k \in \{1, 2, 3\}$ hash functions.
+We evaluated four types of filters: XOR filter, binary fuse filter, and Bloom filters with $k \in \{1, 3\}$ hash functions.
 
-Figure ~\ref{fig:alpha_sweep} shows the results of sweeping $\alpha$ for each distribution across all five filter types. In each panel, the shaded region represents the gap between our lower bound (Theorem 5.2) and upper bound (Theorem 5.4), the green curve shows the empirical savings achieved by the theory-guided parameter, and the red curve shows the best empirical savings found via exhaustive search.
+Figure~\ref{fig:alpha_sweep} shows the results of sweeping $\alpha$ for each distribution across all four filter types. Each panel plots four curves: the lower bound (blue dashed), best empirical savings (red dashed), and the upper bound evaluated at the theory-guided parameter (light blue solid) and at the empirical-best parameter (dark blue solid). A vertical dashed line marks where the lower bound crosses zero.
 
 \begin{figure*}[!t]
 \begin{center}
@@ -507,14 +507,14 @@ Figure ~\ref{fig:alpha_sweep} shows the results of sweeping $\alpha$ for each di
 \end{center}
 
 
-\caption{Results of sweeping $\epsilon$ for each distribution across all five filter types.}
+\caption{Results of sweeping $\epsilon$ for each distribution across all four filter types.}
 \label{fig:epsilon_sweep}
 \end{figure*}
 
 
 \subsection{Bound Tightness}
 
-Figure~\ref{fig:alpha_sweep} shows four curves per panel. The \emph{lower bound} (blue dashed) is Theorem~5.2 evaluated at the discrete parameter $\varepsilon_{\mathrm{LB}}$ that maximizes the lower bound. The \emph{best empirical} curve (red) is the measured bits/key saved at the discrete parameter $\varepsilon_{\mathrm{emp}}$ that yields the largest savings, found by exhaustive filter-parameter search  measured over real AutoCSF objects. We also plot the upper bound (Theorem~5.4) evaluated at two $\varepsilon$ values: $\varepsilon_{\mathrm{LB}}$ and $\varepsilon_{\mathrm{emp}}$.
+Figure~\ref{fig:alpha_sweep} shows four curves per panel. The \emph{lower bound} (blue dashed) is Theorem~5.2 evaluated at the discrete parameter $\varepsilon_{\mathrm{LB}}$ that maximizes the lower bound. The \emph{best empirical} curve (red dashed) is the measured bits/key saved at the discrete parameter $\varepsilon_{\mathrm{emp}}$ that yields the largest savings, found by exhaustive search over discrete filter parameters. The \emph{UB at $\varepsilon_{\mathrm{LB}}$} curve (light blue solid) is the upper bound (Theorem~5.4) evaluated at the theory-guided parameter, and the \emph{UB at $\varepsilon_{\mathrm{emp}}$} curve (dark blue solid) is the upper bound at the empirical-best parameter. A vertical dashed line marks the $\alpha$ value where the lower bound crosses zero, indicating the decision boundary for filter augmentation.
 
 We observe that across all filter-distribution combinations and all 50 values of $\alpha$, the empirical savings consistently fall between the lower bound and the upper bound at $\varepsilon_{\mathrm{emp}}$. We note that this is not a formal proof of correctness. The bounds assume a continuous $\varepsilon$ while the experiments operate over discrete filter parameters, and the measured space includes implementation overheads (metadata, alignment) not captured by the theory. Nonetheless, empirical values stay within the predicted range across all configurations, which provides strong evidence that the bounds are practically valid.
 
@@ -527,7 +527,7 @@ To further validate AutoCSF, we sweep the false positive rate $\varepsilon$ acro
 
 \textbf{Decision criterion.} The lower bound crossing zero provides a decision boundary: when $\text{LB} > 0$ at the theory-optimal $\varepsilon^*$, AutoCSF recommends filtering; otherwise, it defaults to a plain CSF. Across all filter types, distributions, and $\alpha$ values in the alpha sweep, we find that whenever the lower bound recommends filtering, the empirical savings are positive, i.e. the criterion never recommends a filter that increases space. The criterion is conservative, however, for the unique distribution: there is a range of $\alpha$ values (roughly $0.71$--$0.80$ for XOR) where filtering produces small empirical savings (${\sim}0.05$--$0.2$ bits/key) but the lower bound remains negative. This gap is driven by the $n/N$ term, which is large for the unique distribution where $n \approx N(1-\alpha)$. For zipfian and uniform-100, where $n/N \approx 0$, the lower bound crossing aligns closely with the point at which filtering first becomes empirically helpful.
 
-\textbf{Parameter selection.} In practice, AutoCSF does not need to solve for the continuous optimum $\varepsilon^*$. Instead, it enumerates all discrete filter configurations (e.g., fingerprint\_bits $\in \{1, \ldots, 8\}$ for XOR filters, or all $(k, \text{bpe})$ pairs for Bloom filters) and selects the configuration whose lower bound is largest. This discrete search is inexpensive. The parameter space is small and sidesteps any mismatch between the continuous optimum and the nearest discrete parameter. To evaluate how well the lower bound serves as a proxy for actual savings, we compare the parameter selected by the lower bound against the empirically optimal parameter found by exhaustive search. The two agree in the large majority of cases, and when they disagree it is always by a single discrete step, with the theory-guided parameter saving at most $0.02$ bits/key less than the empirical optimum.
+\textbf{Parameter selection.} In practice, each filter type admits only a small set of discrete configurations (e.g., fingerprint\_bits $\in \{1, \ldots, 8\}$ for XOR filters, or all $(k, \text{bpe})$ pairs for Bloom filters), each corresponding to a specific $\varepsilon$. AutoCSF evaluates the lower bound at each available $\varepsilon$ and selects the configuration whose lower bound is largest. This search is inexpensive since the parameter space is small, and it avoids any mismatch between a continuous optimum and the discrete $\varepsilon$ values that filters can actually realize. To evaluate how well the lower bound serves as a proxy for actual savings, we compare the parameter selected by the lower bound against the empirically optimal parameter found by exhaustive search. The two agree in the large majority of cases, and when they disagree it is always by a single discrete step, with the theory-guided parameter saving at most $0.02$ bits/key less than the empirical optimum.
 
 \subsection{Comparison with Prior Work}
 
@@ -542,7 +542,7 @@ The closest prior work to AutoCSF is the Bloom-enhanced CSF (BCSF) of Shibuya et
 To compare the two approaches, we restrict AutoCSF to Bloom filters only (selecting the best $(k, \text{bpe})$ pair via the lower bound) and measure the resulting bits per key across all three distributions. Figure~\ref{fig:shibuya_bpk} shows the measured bits per key for each method alongside a no-filter baseline.
 
 
-The comparison reveals a clear difference in the \emph{decision} to filter. At low $\alpha$, the heuristic recommends filter configurations that \emph{increase} space usage relative to a plain CSF, with the heuristic curve exceeding the no-filter baseline by up to 1 bit/key for the unique distribution at $\alpha = 0.50$. This gap persists across all three distributions up to $\alpha \approx 0.7$--$0.8$ depending on the minority entropy. AutoCSF avoids this by defaulting to a plain CSF whenever the lower bound is negative. When filtering \emph{is} beneficial (roughly $\alpha \gtrsim 0.8$), both methods achieve comparable space usage, with AutoCSF matching or slightly improving upon the heuristic. These results confirm that AutoCSF improves upon the heuristic both in the decision of when to apply a filter and in the selection of filter parameters.
+The comparison reveals a clear difference in the \emph{decision} to filter. At low $\alpha$, the heuristic recommends filter configurations that \emph{increase} space usage relative to a plain CSF, with the heuristic curve exceeding the no-filter baseline by up to 1 bit/key for the unique distribution at $\alpha = 0.50$. This gap persists across all three distributions up to $\alpha \approx 0.7$--$0.8$ depending on the minority entropy. AutoCSF avoids this by defaulting to a plain CSF whenever the lower bound is negative. When filtering \emph{is} beneficial (roughly $\alpha \gtrsim 0.8$), both methods achieve comparable space usage, with AutoCSF matching or improving upon the heuristic. These results confirm that AutoCSF improves upon the heuristic both in the decision of when to apply a filter and in the selection of filter parameters.
 
 
 
@@ -561,7 +561,7 @@ We restrict both methods to Bloom filters in this comparison for fairness, since
 \section{Experiments}
 
 
-The previous section validates AutoCSF's theoretical bounds and decision criterion in isolation. We now evaluate AutoCSF as a complete, end-to-end index and compare it against four baselines that span the landscape of practical approaches to static key-value indexing. Our goal is to answer three questions: (1)~Does AutoCSF's theory-guided filter selection translate into real space savings over competing methods? (2)~What is the latency cost, if any, of filter-augmented CSFs? (3)~How do these trade-offs change on real-world genomics workloads where the value distributions are not synthetically controlled?
+The previous section validates AutoCSF's theoretical bounds and decision criterion in isolation. We now evaluate AutoCSF as a complete, end-to-end index and compare it against four baselines that span the landscape of practical approaches to static key-value indexing. Our goal is to answer three questions: (1)~Does AutoCSF's theory-guided filter selection translate into real space savings over competing methods? (2)~What are the latency and construction costs, if any, of filter-augmented CSFs? (3)~How do these trade-offs change on real-world workloads where the value distributions are not synthetically controlled?
 
 \subsection{Baselines}
 
@@ -570,16 +570,16 @@ We compare AutoCSF against the following methods:
 \begin{itemize}
 \item \textbf{BCSF (Shibuya)}~\cite{shibuya2022space}. The Bloom-enhanced CSF described in Section~3. We use \citeauthor{shibuya2022space}'s heuristic cost model to set the Bloom filter parameters. This baseline isolates the effect of AutoCSF's improved parameter selection: both methods use a CSF with a pre-filter, but differ in how the filter parameters are chosen.
 
-\item \textbf{Sux4J CSF}~\cite{genuzio2020fast}. The standalone CSF implementation in Java. This is the CSF without any filter augmentation, representing the ``plain CSF'' baseline that AutoCSF improves upon when $\alpha$ is sufficiently large. 
+\item \textbf{C++ Hash Table}. A standard \texttt{std::unordered\_map} storing all key-value pairs. This baseline represents the naive approach with no compression, providing a reference point for memory usage and query latency.
 
 \item \textbf{MPH Table}. A minimal perfect hash function (via Sux4J's GOV construction~\cite{genuzio2020fast}) paired with a compact value array. This is a distribution-agnostic baseline as it does not exploit value skew and its memory usage depends only on the vocabulary size.
 
-\item \textbf{Learned CSF}~\cite{hermann2025learned}. A learned static function that replaces the linear-system solver in a CSF with a small neural network trained to predict Huffman codes from keys. The model is augmented with a Bloom filter and a correction table. This method typically achieves the smallest memory footprint, but at the cost of significantly higher query latency and construction time due to model training.
+\item \textbf{Learned CSF}~\cite{hermann2025learned}. A learned static function that replaces the linear-system solver in a CSF with a small neural network trained to predict Huffman codes from keys. The model is augmented with a Bloom filter and a correction table. On low-entropy distributions this method can achieve a smaller memory footprint than AutoCSF, but at the cost of  higher query latency and construction time due to model training.
 \end{itemize}
 
 \subsection{Setup}
 
-\textbf{Synthetic datasets.} We generate key-value datasets with $N = 100{,}000$ keys, sweeping the majority fraction $\alpha$ from 0.50 to 0.99. The majority value is assigned to an $\alpha$-fraction of keys uniformly at random; the remaining $(1-\alpha)N$ minority keys draw values from one of three distributions: \emph{Uniform-100} (100 equally likely symbols), \emph{Zipfian} (power-law with exponent $s = 1.5$), and \emph{Unique} (every minority key has a distinct value). These distributions span a wide range of minority entropy, from low (Uniform-100) to maximal (Unique), and stress-test different aspects of each method's compression strategy.
+\textbf{Synthetic datasets.} We generate key-value datasets with $N = 100{,}000$ keys, sweeping the majority fraction $\alpha$ from 0.50 to 0.99. The majority value is assigned to an $\alpha$-fraction of keys uniformly at random; the remaining $(1-\alpha)N$ minority keys draw values from one of three distributions: \emph{Uniform-100} (100 equally likely symbols), \emph{Zipfian} (power-law with exponent $s = 1.5$), and \emph{Unique} (every minority key has a distinct value). These distributions span a wide range of minority entropy and stress-test different aspects of each method's compression strategy.
 
 \textbf{Genomics datasets.} We evaluate on the three real $k$-mer count datasets used in \cite{shibuya2022space} derived from whole-genome sequencing data, using $k = 15$:
 \begin{itemize}
@@ -589,7 +589,7 @@ We compare AutoCSF against the following methods:
 \end{itemize}
 These datasets exhibit the diversity of real genomics workloads: E.\ coli has extreme skew ($\alpha = 0.97$) with very few distinct values, SRR has low skew ($\alpha = 0.20$) with moderate vocabulary, and C.\ elegans is a large-scale dataset (70M keys) with intermediate skew.
 
-\textbf{Metrics.} We report three metrics: \emph{memory} in bits per key (bpk), \emph{query latency} as the mean inference time per key in nanoseconds, and \emph{construction time} in seconds. For AutoCSF and BCSF, we use binary fuse filters~\cite{graf2020xor}, which offer lower false positive rates per bit than Bloom filters. All experiments are run on an M4 Macbook Pro.
+\textbf{Metrics.} We report three metrics: \emph{memory} in bits per key (bpk), \emph{query latency} as the mean inference time per key in nanoseconds, and \emph{construction time} in seconds. For AutoCSF and BCSF, we use binary fuse filters~\cite{graf2020xor}, which offer lower false positive rates per bit than Bloom filters. 
 
 \subsection{Synthetic Benchmarks}
 
@@ -603,21 +603,12 @@ These datasets exhibit the diversity of real genomics workloads: E.\ coli has ex
 \end{figure*}
 
 
-Several patterns emerge from the Pareto plot. AutoCSF and BCSF consistently occupy the lower-left corner of the Pareto frontier---low memory \emph{and} low latency---across all three distributions. Sux4J CSF uses comparable memory at low $\alpha$ but carries a latency penalty of 30--90\% over AutoCSF (due to our faster C++ implementation), and its memory advantage disappears at high $\alpha$ where it cannot exploit the majority value. MPH Table uses 5--20$\times$ more memory than AutoCSF and its latency is 4--7$\times$ higher. Learned CSF achieves the tightest memory on several operating points, most notably on the Unique distribution, where its learned model captures per-key structure that analytical methods cannot exploit (e.g., 6.9~bpk vs.\ AutoCSF's 10.6~bpk at $\alpha = 0.8$). However, this memory advantage comes at a steep cost in query latency: 1--4 orders of magnitude higher than AutoCSF, ranging from 6$\mu$s on Uniform-100 to 77$\mu$s on Zipfian at $\alpha = 0.5$ and up to 4 \emph{seconds} per query on Unique at $\alpha = 0.5$. The log-log scale in Figure~\ref{fig:pareto} is necessary to display these extremes on the same axes.
-
-\textbf{Memory scaling with $\alpha$.} Figure~\ref{fig:mem_alpha} isolates the memory dimension by plotting bits per key against $\alpha$ for each distribution. As $\alpha$ increases, all CSF-based methods improve because there is less minority entropy to encode. AutoCSF and BCSF track each other closely, with AutoCSF achieving a 5--10\% memory advantage due to better filter parameter selection. Sux4J CSF is competitive at low $\alpha$ (e.g., 5.0 vs.\ 5.2~bpk at $\alpha = 0.5$, Uniform-100) but diverges at high $\alpha$: at $\alpha = 0.99$, Sux4J uses 1.4~bpk versus AutoCSF's 0.2~bpk, a 7$\times$ gap, because it cannot filter out the majority value. MPH Table's memory \emph{increases} with $\alpha$ (from 35 to 58~bpk) because its per-key cost is fixed by the vocabulary size, not the frequency distribution.
-
-\begin{figure*}[t]
-\centering
-\includegraphics[width=\textwidth]{vldb2026/figures/theory_validation/paper_memory_vs_alpha.png}
-\caption{Memory (bits/key) vs.\ majority fraction $\alpha$ for the three synthetic distributions. AutoCSF and BCSF exploit increasing skew; Sux4J CSF improves more slowly; MPH Table is distribution-agnostic.}
-\label{fig:mem_alpha}
-\end{figure*}
+Several patterns emerge from the Pareto plot. AutoCSF and BCSF consistently occupy the lower-left corner of the Pareto frontier---low memory \emph{and} low latency---across all three distributions. The hash table offers competitive latency (107--204~ns) but does not compress the data. MPH Table uses 7--70$\times$ more memory than AutoCSF and its latency is 10--20$\times$ higher. Learned CSF achieves the tightest memory on Uniform-100 (e.g., 4.4 vs.\ 5.2~bpk at $\alpha = 0.5$), but on Zipfian and Unique, AutoCSF matches or outperforms it in memory while maintaining 2--4 orders of magnitude lower query latency. On Unique, Learned CSF uses 35.4~bpk versus AutoCSF's 26.3~bpk at $\alpha = 0.5$, with query latency of 4.1 \emph{seconds} compared to AutoCSF's 116~ns. The log-log scale in Figure~\ref{fig:pareto} is necessary to display these extremes on the same axes.
 
 
-The Unique distribution is the hardest case for all methods: at $\alpha = 0.5$, half the keys have distinct values, so the CSF must store nearly $\log_2(N/2) \approx 16$ bits of entropy per minority key. AutoCSF (26.3~bpk) outperforms Sux4J CSF (41.9~bpk) by 37\%  due to implementation differences in our C++ package. Learned CSF achieves the best memory on this distribution (11.4~bpk at $\alpha = 0.5$), as the learned model can exploit per-key patterns that are invisible to Huffman coding. However, as Table~\ref{tab:synthetic} shows, this memory advantage comes at higher latency (4M~ns) and construction time (16 minutes). At higher skew ($\alpha = 0.95$), AutoCSF closes the gap to 2.7~bpk vs.\ Learned CSF's 3.5~bpk, with $1{,}300\times$ faster queries.
+The Unique distribution is the hardest case for all methods: at $\alpha = 0.5$, half the keys have distinct values, so the CSF must store nearly $\log_2(N/2) \approx 16$ bits of entropy per minority key. AutoCSF achieves 26.3~bpk, outperforming Learned CSF (35.4~bpk) by 26\% while being $35{,}000\times$ faster in query latency (116~ns vs.\ 4.1M~ns) and $15{,}000\times$ faster to construct (0.067~s vs.\ 1{,}011~s). At higher skew ($\alpha = 0.95$), AutoCSF widens the gap to 2.7~bpk vs.\ Learned CSF's 5.9~bpk, with $2{,}800\times$ faster queries.
 
-\textbf{Construction time.} Table~\ref{tab:synthetic} reports memory, latency, and construction time for all five methods at $\alpha \in \{0.5, 0.8, 0.95\}$. AutoCSF and BCSF build in under 0.1 seconds across all configurations. Sux4J CSF is 5--10$\times$ slower due to implementation improvements (our implementation in C++). MPH Table is comparable to Sux4J in construction time. Learned CSF is the most expensive to build: 5--983 seconds depending on distribution complexity, with the Unique distribution requiring over 16 minutes at $\alpha = 0.5$ due to the large number of distinct values the model must learn. At $\alpha = 0.95$ on Uniform-100, where Learned CSF's memory advantage over AutoCSF is only 0.1~bpk, it takes 320$\times$ longer to construct.
+\textbf{Construction time.} Table~\ref{tab:synthetic} reports memory, latency, and construction time for all five methods at $\alpha \in \{0.5, 0.8, 0.95\}$. AutoCSF and BCSF build in under 0.1 seconds across all configurations. C++ Hash Table is the fastest to construct (${\sim}0.006$~s). MPH Table builds in 0.4--0.6 seconds. Learned CSF is the most expensive to build: 7--1{,}011 seconds depending on distribution complexity, with the Unique distribution requiring over 16 minutes at $\alpha = 0.5$ due to the large number of distinct values the model must learn. At $\alpha = 0.95$ on Uniform-100, where Learned CSF's memory advantage over AutoCSF is only 0.1~bpk, it takes 719$\times$ longer to construct.
 
 \begin{table*}[t]
 \centering
@@ -628,27 +619,27 @@ Method & bpk & ns & build (s) & bpk & ns & build (s) & bpk & ns & build (s) \\
 \midrule
 \multicolumn{10}{c}{\emph{Uniform-100}} \\
 \midrule
-AutoCSF & 5.2 & \textbf{239} & 0.043 & 2.5 & 255 & \textbf{0.027} & 0.8 & \textbf{178} & \textbf{0.018} \\
-BCSF (Shibuya) & 5.5 & 319 & \textbf{0.042} & 2.7 & \textbf{250} & 0.027 & 0.8 & 214 & 0.019 \\
-Sux4J CSF & 5.0 & 346 & 0.415 & 2.8 & 337 & 0.184 & 1.7 & 326 & 0.189 \\
+AutoCSF & 5.2 & \textbf{92} & 0.030 & 2.5 & \textbf{116} & 0.030 & 0.8 & \textbf{78} & 0.013 \\
+BCSF (Shibuya) & 5.5 & 95 & 0.028 & 2.7 & 120 & 0.020 & 0.8 & 87 & 0.008 \\
+C++ Hash Table & 95.1 & 150 & \textbf{0.006} & 95.1 & 121 & \textbf{0.006} & 95.1 & 157 & \textbf{0.007} \\
 MPH Table & 35.0 & 1412 & 0.569 & 49.0 & 1505 & 0.438 & 55.9 & 1551 & 0.572 \\
-Learned CSF & \textbf{4.4} & 6435 & 5.173 & \textbf{2.2} & 6160 & 5.480 & \textbf{0.7} & 3199 & 5.733 \\
+Learned CSF & \textbf{4.4} & 6153 & 6.977 & \textbf{2.2} & 6708 & 8.562 & \textbf{0.7} & 3779 & 9.348 \\
 \midrule
 \multicolumn{10}{c}{\emph{Zipfian}} \\
 \midrule
-AutoCSF & \textbf{4.6} & \textbf{265} & 0.036 & \textbf{2.3} & \textbf{239} & \textbf{0.023} & \textbf{0.8} & \textbf{180} & \textbf{0.017} \\
-BCSF (Shibuya) & 4.9 & 283 & \textbf{0.035} & 2.4 & 247 & 0.027 & 0.8 & 229 & 0.019 \\
-Sux4J CSF & 5.0 & 397 & 0.291 & 2.9 & 355 & 0.185 & 1.8 & 333 & 0.169 \\
+AutoCSF & \textbf{4.6} & 98 & 0.025 & \textbf{2.3} & 95 & 0.014 & \textbf{0.8} & \textbf{78} & 0.007 \\
+BCSF (Shibuya) & 4.9 & \textbf{93} & 0.026 & 2.4 & \textbf{90} & 0.013 & 0.8 & 94 & 0.008 \\
+C++ Hash Table & 95.1 & 111 & \textbf{0.006} & 95.1 & 142 & \textbf{0.006} & 95.1 & 107 & \textbf{0.006} \\
 MPH Table & 35.4 & 1195 & 0.569 & 49.2 & 1344 & 0.490 & 56.0 & 1323 & 0.470 \\
-Learned CSF & 4.9 & 76811 & 32.064 & 2.4 & 39387 & 22.474 & 1.4 & 13530 & 13.284 \\
+Learned CSF & 5.8 & 81357 & 38.283 & 2.9 & 38756 & 28.065 & 1.6 & 13190 & 16.711 \\
 \midrule
 \multicolumn{10}{c}{\emph{Unique}} \\
 \midrule
-AutoCSF & 26.3 & \textbf{372} & \textbf{0.081} & 10.6 & \textbf{282} & \textbf{0.047} & \textbf{2.7} & \textbf{188} & \textbf{0.025} \\
-BCSF (Shibuya) & 27.3 & 400 & 0.084 & 11.0 & 341 & 0.051 & 2.7 & 236 & 0.026 \\
-Sux4J CSF & 41.9 & 667 & 0.559 & 17.2 & 377 & 0.339 & 5.1 & 330 & 0.198 \\
+AutoCSF & \textbf{26.3} & 116 & 0.067 & \textbf{10.6} & 103 & 0.032 & \textbf{2.7} & \textbf{79} & 0.012 \\
+BCSF (Shibuya) & 27.3 & \textbf{101} & 0.057 & 11.0 & \textbf{93} & 0.026 & 2.7 & 88 & 0.012 \\
+C++ Hash Table & 95.1 & 114 & \textbf{0.007} & 95.1 & 204 & \textbf{0.006} & 95.1 & 171 & \textbf{0.006} \\
 MPH Table & 43.9 & 1363 & 0.496 & 52.2 & 1236 & 0.487 & 56.4 & 1390 & 0.472 \\
-Learned CSF & \textbf{11.4} & 3997545 & 983.000 & \textbf{6.9} & 1431918 & 359.657 & 3.5 & 243241 & 85.772 \\
+Learned CSF & 35.4 & 4123112 & 1011.367 & 16.5 & 1440552 & 381.668 & 5.9 & 223807 & 69.562 \\
 \bottomrule
 \end{tabular}
 \caption{Synthetic benchmark results ($N = 100{,}000$). Memory in bits/key (bpk), query latency in nanoseconds (ns), and construction time in seconds. \textbf{Bold} indicates best in each column.}
@@ -665,29 +656,28 @@ Table~\ref{tab:genomics} reports results on the three genomics datasets. The dat
  & \multicolumn{3}{c}{E.\ coli ($n$=5.3M, $\alpha$=0.97)} & \multicolumn{3}{c}{SRR ($n$=9.8M, $\alpha$=0.20)} & \multicolumn{3}{c}{C.\ elegans ($n$=69.7M, $\alpha$=0.82)} \\
 Method & bpk & ns & build (s) & bpk & ns & build (s) & bpk & ns & build (s) \\
 \midrule
-AutoCSF & \textbf{0.30} & \textbf{335} & \textbf{0.7} & 4.20 & \textbf{458} & \textbf{4.3} & \textbf{1.23} & 394 & \textbf{13.7} \\
-BCSF (Shibuya) & 0.34 & 432 & 0.9 & 4.23 & 594 & 4.4 & 1.36 & \textbf{386} & 15.1 \\
-Sux4J CSF & 1.24 & 598 & 1.3 & 3.59 & 621 & 4.6 & 1.59 & 853 & 17.8 \\
+AutoCSF & \textbf{0.31} & \textbf{92} & \textbf{0.2} & 4.21 & 443 & 2.3 & \textbf{1.26} & 466 & \textbf{6.6} \\
+BCSF (Shibuya) & 0.35 & 126 & 0.3 & 4.24 & \textbf{355} & 2.3 & 1.39 & \textbf{274} & 7.0 \\
+C++ Hash Table & 152.00 & 488 & 0.8 & 152.00 & 742 & \textbf{1.5} & 152.00 & 1034 & 15.2 \\
 MPH Table & 11.55 & 1666 & 8.1 & 11.55 & 1716 & 13.6 & 11.55 & 2054 & 136.3 \\
-Learned CSF & 0.33 & 1725 & 127.4 & \textbf{3.49} & 8312 & 501.4 & --- & --- & --- \\
+Learned CSF & 0.32 & 7843 & 161.0 & \textbf{3.49} & 31811 & 676.9 & 1.68 & 29558 & 4573.5 \\
 \bottomrule
 \end{tabular}
-\caption{Genomics benchmark results. Memory in bits/key (bpk), query latency in nanoseconds (ns), and construction time in seconds. ``---'' indicates we did not complete the experiment due to lack of time. \textbf{Bold} indicates best in each column.}
+\caption{Genomics benchmark results. Memory in bits/key (bpk), query latency in nanoseconds (ns), and construction time in seconds. \textbf{Bold} indicates best in each column.}
 \label{tab:genomics}
 \end{table*}
 
-On E.\ coli, where $\alpha = 0.97$, AutoCSF achieves 0.30~bpk, less than one-third of a bit per key to index 5.3 million $k$-mers. This is $4.1\times$ smaller than Sux4J CSF (1.24~bpk), which cannot exploit the extreme majority dominance, and $38\times$ smaller than MPH Table (11.55~bpk). Learned CSF is competitive in memory (0.33~bpk) but requires 127 seconds to build versus AutoCSF's 0.7 seconds ($182\times$ slower) and has $5.1\times$ higher query latency.
+On E.\ coli, where $\alpha = 0.97$, AutoCSF achieves 0.31~bpk, less than one-third of a bit per key to index 5.3 million $k$-mers. This is $37\times$ smaller than MPH Table (11.55~bpk). Learned CSF is competitive in memory (0.32~bpk) but requires 161 seconds to build versus AutoCSF's 0.2 seconds ($805\times$ slower) and has $85\times$ higher query latency (7{,}843~ns vs.\ 92~ns).
 
-The SRR dataset ($\alpha = 0.20$) represents a case where filter augmentation is not beneficial. Here, Sux4J CSF achieves the best memory (3.59~bpk) among non-learned methods. AutoCSF (4.20~bpk) uses slightly more memory than Sux4J due to differences in our underlying CSF implementation rather than filter overhead. Despite this, AutoCSF achieves the fastest query latency (458~ns vs.\ Sux4J's 621~ns). Learned CSF achieves the best memory (3.49~bpk) but at a cost: 501 seconds to build ($117\times$ slower than AutoCSF) and $18\times$ higher query latency (8312~ns vs.\ 458~ns).
+The SRR dataset ($\alpha = 0.20$) represents a case where filter augmentation is not beneficial. AutoCSF correctly defaults to a plain CSF, achieving 4.21~bpk with 443~ns query latency. Learned CSF achieves the best memory (3.49~bpk) but at a cost: 677 seconds to build ($294\times$ slower than AutoCSF) and $72\times$ higher query latency (31{,}811~ns vs.\ 443~ns).
 
-
-On C.\ elegans ($n = 69.7$M, $\alpha = 0.82$), AutoCSF scales to the largest dataset while maintaining its advantages: 1.23~bpk with 394~ns latency and a 13.7-second build time. For context, this means the entire 70-million-entry $k$-mer count table is indexed in approximately 10.7~MB of memory. MPH Table would require 100.6~MB for the same data, and Sux4J CSF uses 13.8~MB. We did not complete our experiments for Learned CSF on this dataset (due to lack of time).
+On C.\ elegans ($n = 69.7$M, $\alpha = 0.82$), AutoCSF scales to the largest dataset while maintaining its advantages: 1.26~bpk with 466~ns latency and a 6.6-second build time. For context, this means the entire 70-million-entry $k$-mer count table is indexed in approximately 11~MB of memory. MPH Table would require 100.6~MB for the same data. Learned CSF uses 1.68~bpk (33\% more memory than AutoCSF) with 29{,}558~ns latency ($63\times$ slower) and requires over 76 minutes to build.
 
 \subsection{Discussion}
 
-Across all experiments, a consistent picture emerges. AutoCSF dominates the Pareto frontier of memory versus latency whenever the majority fraction $\alpha$ is moderate to high ($\gtrsim 0.7$), which is precisely the regime where filter augmentation is most beneficial and where many real-world workloads---especially in genomics---operate. The margin over heuristic construction is modest (5--13\% in memory) but systematic, confirming that the theory-guided parameter selection from Section~4 translates to measurable improvements in practice over the heuristic approach.
+Across all experiments, a consistent picture emerges. AutoCSF dominates the Pareto frontier of memory versus latency, especially when the majority fraction $\alpha$ is moderate to high ($\gtrsim 0.7$). The margin over heuristic construction is modest (up to 11\% in memory) but systematic, confirming that the theory-guided parameter selection from Section~4 translates to measurable improvements in practice over the heuristic approach.
 
-The comparison with Learned CSF is particularly instructive. Learned CSF occasionally achieves slightly lower memory than AutoCSF (by 0.1--0.5~bpk), but this comes at the cost of latency and construction time. These results suggest that for practical deployments where query latency and build time matter, the marginal memory savings of learned approaches do not justify the overhead, especially when AutoCSF achieves comparable compression through a principled analytical framework that requires no model training.
+The comparison with Learned CSF is particularly instructive. On low-entropy distributions (Uniform-100), Learned CSF achieves modestly lower memory than AutoCSF, but on higher-entropy distributions (Zipfian, Unique), AutoCSF matches or substantially outperforms Learned CSF in memory while maintaining 2--4 orders of magnitude lower query latency. These results suggest that for practical deployments where query latency and build time matter, learned approaches provide limited benefit over a principled analytical framework that requires no model training.
 
 \section{Conclusion}
 
