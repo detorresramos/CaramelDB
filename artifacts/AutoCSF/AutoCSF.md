@@ -146,7 +146,9 @@ Key-value stores are indispensable components of modern data infrastructure. As 
 
 Amongst these succinct retrieval methods, \emph{compressed static functions} (CSFs) achieve space usage proportional to the empirical entropy of the value set. Thus, when the set of values in the index is highly repetitive, CSFs can achieve significantly improved compression rates compared to distribution-agnostic methods, typically within a constant factor of the information-theoretic lower bound.
 
-However, one limitation of CSFs is that, by construction, the index must use a lower bound of at least 1 bit per key. Consequently, if the value distribution is highly skewed, namely when a single entity is associated with the majority of the keys, CSFs fall short of achieving optimal compression rates. This barrier is especially prominent in computational genomics where long read $k$-mer count tables, which map keys of $k$-length nucleotide substrings to their frequency of occurrence in a given genome, often exhibit extreme skew with over 90\% of $k$-mers having a value of 0. This challenge was previously identified in the literature by \citet{shibuya2022space} who proposed a new index called a ``Bloom-enhanced Compressed Static Function" (BCSF) which augments a CSF with a Bloom filter to handle the dominating value. In particular, a BCSF index first inserts all keys not associated with the dominating value into a Bloom filter.  Additionally, since Bloom filters admit false positives, the BCSF index will insert the false positive keys associated with the dominating value into the CSF. At query time, given a key $k$, a BCSF first checks if $k$ is in the Bloom filter. If the filter returns false, then we can conclude that the associated value must be the dominating entity and simply return that value. If the filter returns true, we query the CSF and return the output. This construction guarantees correctness while eliminating the need to index the dominating value directly. Inspired in part by this work, \citet{hermann2025learned} also leverage this idea of filter augmentation to develop a \emph{learned} CSF index that allows for improved compression via machine learning.
+However, one limitation of CSFs is that, by construction, the index must use a lower bound of at least 1 bit per key. Consequently, if the value distribution is highly skewed, namely when a single entity is associated with the majority of the keys, CSFs fall short of achieving optimal compression rates. This barrier is especially prominent in computational genomics where long read $k$-mer count tables, which map keys of $k$-length nucleotide substrings to their frequency of occurrence in a given genome, often exhibit extreme skew with over 90\% of $k$-mers having a value of 0. 
+
+This challenge was previously identified in the literature by \citet{shibuya2022space} who proposed a new index called a \textit{Bloom-enhanced Compressed Static Function} (BCSF) which augments a CSF with a Bloom filter to handle the dominating value. In particular, a BCSF index first inserts all keys not associated with the dominating value into a Bloom filter.  Additionally, since Bloom filters admit false positives, the BCSF index will insert the false positive keys associated with the dominating value into the CSF. At query time, given a key $k$, a BCSF first checks if $k$ is in the Bloom filter. If the filter returns false, then we can conclude that the associated value must be the dominating entity and simply return that value. If the filter returns true, we query the CSF and return the output. This construction guarantees correctness while eliminating the need to index the dominating value directly. Inspired in part by this work, \citet{hermann2025learned} also leverage this idea of filter augmentation to develop a \emph{learned} CSF index that allows for improved compression via machine learning.
 
 Despite the effectiveness of filter-augmented CSFs, as demonstrated in these prior works in the literature, these data structure compositions introduce additional complexity. In particular, it is not completely clear which key-value distributions might benefit from filter-augmented CSFs or how to set the false positive rate of the filter to minimize the overall space usage. Unlike standalone approximate set membership data structures, which maintain a monotonic relationship between the false positive rate and the size of the resulting data structure, the relationship between the false positive rate and the overall index size in filter-augmented CSFs is complex to model. As an illustrative example, increasing the false positive rate of a filter might allow more values to pass through to the CSF, causing the value frequency distribution to be more closely-aligned to powers of 2 and thus more highly compressible by Huffman codes. While the work of \cite{shibuya2022space} present a set of criteria for making these parameter choices in a BCSF, we note that they are heuristic-driven as opposed to mathematically principled and, as we will demonstrate in this paper, can be misleading and result in suboptimal decisions. Motivated by these shortcomings, we ask the following research questions:
 
@@ -454,7 +456,7 @@ which, as expected, is greater than 0.
 \includegraphics[width=\textwidth]{vldb2026/figures/theory_validation/alpha_sweep_uniform_100.png}
 \end{center}
 
-\caption{Results of sweeping $\alpha$ for each distribution across all four filter types. Each panel plots the lower bound (blue dashed), best empirical savings (red solid with dots), and the upper bound at the theory-guided and empirical-best parameters (light and dark blue solid). The vertical dashed line marks where the lower bound crosses zero.}
+\caption{Results of sweeping $\alpha$ for each distribution across all five filter types.}
 \label{fig:alpha_sweep}
 \end{figure*}
 
@@ -472,9 +474,9 @@ We construct synthetic key-value datasets that sweep the majority fraction $\alp
     \item \textbf{Zipfian}: power-law with exponent $s = 1.5$.
     \item \textbf{Uniform-100}: values drawn uniformly from 100 symbols.
 \end{itemize}
-We evaluated four types of filters: XOR filter, binary fuse filter, and Bloom filters with $k \in \{1, 3\}$ hash functions.
+We evaluated five types of filters: XOR filter, binary fuse filter, and Bloom filters with $k \in \{1, 2, 3\}$ hash functions.
 
-Figure~\ref{fig:alpha_sweep} shows the results of sweeping $\alpha$ for each distribution across all four filter types. Each panel plots four curves: the lower bound (blue dashed), best empirical savings (red solid with dots), and the upper bound evaluated at the theory-guided parameter (light blue solid) and at the empirical-best parameter (dark blue solid). A vertical dashed line marks where the lower bound crosses zero.
+Figure ~\ref{fig:alpha_sweep} shows the results of sweeping $\alpha$ for each distribution across all five filter types. In each panel, the shaded region represents the gap between our lower bound (Theorem 5.2) and upper bound (Theorem 5.4), the green curve shows the empirical savings achieved by the theory-guided parameter, and the red curve shows the best empirical savings found via exhaustive search.
 
 \begin{figure*}[!t]
 \begin{center}
@@ -505,14 +507,14 @@ Figure~\ref{fig:alpha_sweep} shows the results of sweeping $\alpha$ for each dis
 \end{center}
 
 
-\caption{Results of sweeping $\epsilon$ for each distribution across all four filter types.}
+\caption{Results of sweeping $\epsilon$ for each distribution across all five filter types.}
 \label{fig:epsilon_sweep}
 \end{figure*}
 
 
 \subsection{Bound Tightness}
 
-Figure~\ref{fig:alpha_sweep} shows four curves per panel. The \emph{lower bound} (blue dashed) is Theorem~5.2 evaluated at the discrete parameter $\varepsilon_{\mathrm{LB}}$ that maximizes the lower bound. The \emph{best empirical} curve (red solid with dots) is the measured bits/key saved at the discrete parameter $\varepsilon_{\mathrm{emp}}$ that yields the largest savings, found by exhaustive search over discrete filter parameters. The \emph{UB at $\varepsilon_{\mathrm{LB}}$} curve (light blue solid) is the upper bound (Theorem~5.4) evaluated at the theory-guided parameter, and the \emph{UB at $\varepsilon_{\mathrm{emp}}$} curve (dark blue solid) is the upper bound at the empirical-best parameter. A vertical dashed line marks the $\alpha$ value where the lower bound crosses zero, indicating the decision boundary for filter augmentation.
+Figure~\ref{fig:alpha_sweep} shows four curves per panel. The \emph{lower bound} (blue dashed) is Theorem~5.2 evaluated at the discrete parameter $\varepsilon_{\mathrm{LB}}$ that maximizes the lower bound. The \emph{best empirical} curve (red) is the measured bits/key saved at the discrete parameter $\varepsilon_{\mathrm{emp}}$ that yields the largest savings, found by exhaustive filter-parameter search  measured over real AutoCSF objects. We also plot the upper bound (Theorem~5.4) evaluated at two $\varepsilon$ values: $\varepsilon_{\mathrm{LB}}$ and $\varepsilon_{\mathrm{emp}}$.
 
 We observe that across all filter-distribution combinations and all 50 values of $\alpha$, the empirical savings consistently fall between the lower bound and the upper bound at $\varepsilon_{\mathrm{emp}}$. We note that this is not a formal proof of correctness. The bounds assume a continuous $\varepsilon$ while the experiments operate over discrete filter parameters, and the measured space includes implementation overheads (metadata, alignment) not captured by the theory. Nonetheless, empirical values stay within the predicted range across all configurations, which provides strong evidence that the bounds are practically valid.
 
@@ -568,7 +570,7 @@ We compare AutoCSF against the following methods:
 \begin{itemize}
 \item \textbf{BCSF (Shibuya)}~\cite{shibuya2022space}. The Bloom-enhanced CSF described in Section~3. We use \citeauthor{shibuya2022space}'s heuristic cost model to set the Bloom filter parameters. This baseline isolates the effect of AutoCSF's improved parameter selection: both methods use a CSF with a pre-filter, but differ in how the filter parameters are chosen.
 
-\item \textbf{C++ Hash Table}. A standard \texttt{std::unordered\_map} storing all key-value pairs. This baseline represents the naive approach with no compression, providing a reference point for memory usage and query latency.
+\item \textbf{Sux4J CSF}~\cite{genuzio2020fast}. The standalone CSF implementation in Java. This is the CSF without any filter augmentation, representing the ``plain CSF'' baseline that AutoCSF improves upon when $\alpha$ is sufficiently large. 
 
 \item \textbf{MPH Table}. A minimal perfect hash function (via Sux4J's GOV construction~\cite{genuzio2020fast}) paired with a compact value array. This is a distribution-agnostic baseline as it does not exploit value skew and its memory usage depends only on the vocabulary size.
 
@@ -601,21 +603,21 @@ These datasets exhibit the diversity of real genomics workloads: E.\ coli has ex
 \end{figure*}
 
 
-Several patterns emerge from the Pareto plot. AutoCSF and BCSF consistently occupy the lower-left corner of the Pareto frontier---low memory \emph{and} low latency---across all three distributions. MPH Table uses 5--20$\times$ more memory than AutoCSF and its latency is 4--7$\times$ higher. Learned CSF achieves the tightest memory on several operating points, most notably on the Unique distribution, where its learned model captures per-key structure that analytical methods cannot exploit (e.g., 6.9~bpk vs.\ AutoCSF's 10.6~bpk at $\alpha = 0.8$). However, this memory advantage comes at a steep cost in query latency: 1--4 orders of magnitude higher than AutoCSF, ranging from 6$\mu$s on Uniform-100 to 77$\mu$s on Zipfian at $\alpha = 0.5$ and up to 4 \emph{seconds} per query on Unique at $\alpha = 0.5$. The log-log scale in Figure~\ref{fig:pareto} is necessary to display these extremes on the same axes.
+Several patterns emerge from the Pareto plot. AutoCSF and BCSF consistently occupy the lower-left corner of the Pareto frontier---low memory \emph{and} low latency---across all three distributions. Sux4J CSF uses comparable memory at low $\alpha$ but carries a latency penalty of 30--90\% over AutoCSF (due to our faster C++ implementation), and its memory advantage disappears at high $\alpha$ where it cannot exploit the majority value. MPH Table uses 5--20$\times$ more memory than AutoCSF and its latency is 4--7$\times$ higher. Learned CSF achieves the tightest memory on several operating points, most notably on the Unique distribution, where its learned model captures per-key structure that analytical methods cannot exploit (e.g., 6.9~bpk vs.\ AutoCSF's 10.6~bpk at $\alpha = 0.8$). However, this memory advantage comes at a steep cost in query latency: 1--4 orders of magnitude higher than AutoCSF, ranging from 6$\mu$s on Uniform-100 to 77$\mu$s on Zipfian at $\alpha = 0.5$ and up to 4 \emph{seconds} per query on Unique at $\alpha = 0.5$. The log-log scale in Figure~\ref{fig:pareto} is necessary to display these extremes on the same axes.
 
-\textbf{Memory scaling with $\alpha$.} Figure~\ref{fig:mem_alpha} isolates the memory dimension by plotting bits per key against $\alpha$ for each distribution. As $\alpha$ increases, all CSF-based methods improve because there is less minority entropy to encode. AutoCSF and BCSF track each other closely, with AutoCSF achieving a 5--10\% memory advantage due to better filter parameter selection. MPH Table's memory \emph{increases} with $\alpha$ (from 35 to 58~bpk) because its per-key cost is fixed by the vocabulary size, not the frequency distribution.
+\textbf{Memory scaling with $\alpha$.} Figure~\ref{fig:mem_alpha} isolates the memory dimension by plotting bits per key against $\alpha$ for each distribution. As $\alpha$ increases, all CSF-based methods improve because there is less minority entropy to encode. AutoCSF and BCSF track each other closely, with AutoCSF achieving a 5--10\% memory advantage due to better filter parameter selection. Sux4J CSF is competitive at low $\alpha$ (e.g., 5.0 vs.\ 5.2~bpk at $\alpha = 0.5$, Uniform-100) but diverges at high $\alpha$: at $\alpha = 0.99$, Sux4J uses 1.4~bpk versus AutoCSF's 0.2~bpk, a 7$\times$ gap, because it cannot filter out the majority value. MPH Table's memory \emph{increases} with $\alpha$ (from 35 to 58~bpk) because its per-key cost is fixed by the vocabulary size, not the frequency distribution.
 
 \begin{figure*}[t]
 \centering
 \includegraphics[width=\textwidth]{vldb2026/figures/theory_validation/paper_memory_vs_alpha.png}
-\caption{Memory (bits/key) vs.\ majority fraction $\alpha$ for the three synthetic distributions. AutoCSF and BCSF exploit increasing skew; C++ Hash Table and MPH Table are distribution-agnostic; Learned CSF tracks AutoCSF on low-entropy distributions but diverges on Unique.}
+\caption{Memory (bits/key) vs.\ majority fraction $\alpha$ for the three synthetic distributions. AutoCSF and BCSF exploit increasing skew; Sux4J CSF improves more slowly; MPH Table is distribution-agnostic.}
 \label{fig:mem_alpha}
 \end{figure*}
 
 
-The Unique distribution is the hardest case for all methods: at $\alpha = 0.5$, half the keys have distinct values, so the CSF must store nearly $\log_2(N/2) \approx 16$ bits of entropy per minority key. Learned CSF achieves the best memory on this distribution (11.4~bpk at $\alpha = 0.5$), as the learned model can exploit per-key patterns that are invisible to Huffman coding. However, as Table~\ref{tab:synthetic} shows, this memory advantage comes at higher latency (4M~ns) and construction time (16 minutes). At higher skew ($\alpha = 0.95$), AutoCSF closes the gap to 2.7~bpk vs.\ Learned CSF's 3.5~bpk, with $1{,}300\times$ faster queries.
+The Unique distribution is the hardest case for all methods: at $\alpha = 0.5$, half the keys have distinct values, so the CSF must store nearly $\log_2(N/2) \approx 16$ bits of entropy per minority key. AutoCSF (26.3~bpk) outperforms Sux4J CSF (41.9~bpk) by 37\%  due to implementation differences in our C++ package. Learned CSF achieves the best memory on this distribution (11.4~bpk at $\alpha = 0.5$), as the learned model can exploit per-key patterns that are invisible to Huffman coding. However, as Table~\ref{tab:synthetic} shows, this memory advantage comes at higher latency (4M~ns) and construction time (16 minutes). At higher skew ($\alpha = 0.95$), AutoCSF closes the gap to 2.7~bpk vs.\ Learned CSF's 3.5~bpk, with $1{,}300\times$ faster queries.
 
-\textbf{Construction time.} Table~\ref{tab:synthetic} reports memory, latency, and construction time for all five methods at $\alpha \in \{0.5, 0.8, 0.95\}$. AutoCSF and BCSF build in under 0.1 seconds across all configurations. MPH Table builds in 0.4--0.6 seconds. Learned CSF is the most expensive to build: 5--983 seconds depending on distribution complexity, with the Unique distribution requiring over 16 minutes at $\alpha = 0.5$ due to the large number of distinct values the model must learn. At $\alpha = 0.95$ on Uniform-100, where Learned CSF's memory advantage over AutoCSF is only 0.1~bpk, it takes 320$\times$ longer to construct.
+\textbf{Construction time.} Table~\ref{tab:synthetic} reports memory, latency, and construction time for all five methods at $\alpha \in \{0.5, 0.8, 0.95\}$. AutoCSF and BCSF build in under 0.1 seconds across all configurations. Sux4J CSF is 5--10$\times$ slower due to implementation improvements (our implementation in C++). MPH Table is comparable to Sux4J in construction time. Learned CSF is the most expensive to build: 5--983 seconds depending on distribution complexity, with the Unique distribution requiring over 16 minutes at $\alpha = 0.5$ due to the large number of distinct values the model must learn. At $\alpha = 0.95$ on Uniform-100, where Learned CSF's memory advantage over AutoCSF is only 0.1~bpk, it takes 320$\times$ longer to construct.
 
 \begin{table*}[t]
 \centering
@@ -626,27 +628,27 @@ Method & bpk & ns & build (s) & bpk & ns & build (s) & bpk & ns & build (s) \\
 \midrule
 \multicolumn{10}{c}{\emph{Uniform-100}} \\
 \midrule
-AutoCSF & 5.2 & \textbf{93} & 0.032 & 2.5 & 92 & 0.015 & 0.8 & 104 & 0.007 \\
-BCSF (Shibuya) & 5.5 & 117 & 0.026 & 2.7 & \textbf{92} & 0.015 & 0.8 & \textbf{88} & 0.008 \\
-C++ Hash Table & 95.1 & 138 & \textbf{0.006} & 95.1 & 134 & \textbf{0.006} & 95.1 & 109 & \textbf{0.006} \\
+AutoCSF & 5.2 & \textbf{239} & 0.043 & 2.5 & 255 & \textbf{0.027} & 0.8 & \textbf{178} & \textbf{0.018} \\
+BCSF (Shibuya) & 5.5 & 319 & \textbf{0.042} & 2.7 & \textbf{250} & 0.027 & 0.8 & 214 & 0.019 \\
+Sux4J CSF & 5.0 & 346 & 0.415 & 2.8 & 337 & 0.184 & 1.7 & 326 & 0.189 \\
 MPH Table & 35.0 & 1412 & 0.569 & 49.0 & 1505 & 0.438 & 55.9 & 1551 & 0.572 \\
 Learned CSF & \textbf{4.4} & 6435 & 5.173 & \textbf{2.2} & 6160 & 5.480 & \textbf{0.7} & 3199 & 5.733 \\
 \midrule
 \multicolumn{10}{c}{\emph{Zipfian}} \\
 \midrule
-AutoCSF & \textbf{4.6} & 97 & 0.025 & \textbf{2.3} & 97 & 0.013 & \textbf{0.8} & \textbf{79} & \textbf{0.006} \\
-BCSF (Shibuya) & 4.9 & \textbf{97} & 0.024 & 2.4 & \textbf{94} & 0.014 & 0.8 & 88 & 0.008 \\
-C++ Hash Table & 95.1 & 177 & \textbf{0.007} & 95.1 & 111 & \textbf{0.006} & 95.1 & 107 & \textbf{0.006} \\
+AutoCSF & \textbf{4.6} & \textbf{265} & 0.036 & \textbf{2.3} & \textbf{239} & \textbf{0.023} & \textbf{0.8} & \textbf{180} & \textbf{0.017} \\
+BCSF (Shibuya) & 4.9 & 283 & \textbf{0.035} & 2.4 & 247 & 0.027 & 0.8 & 229 & 0.019 \\
+Sux4J CSF & 5.0 & 397 & 0.291 & 2.9 & 355 & 0.185 & 1.8 & 333 & 0.169 \\
 MPH Table & 35.4 & 1195 & 0.569 & 49.2 & 1344 & 0.490 & 56.0 & 1323 & 0.470 \\
-Learned CSF & 5.8 & 76811 & 32.064 & 2.9 & 39387 & 22.474 & 1.6 & 13530 & 13.284 \\
+Learned CSF & 4.9 & 76811 & 32.064 & 2.4 & 39387 & 22.474 & 1.4 & 13530 & 13.284 \\
 \midrule
 \multicolumn{10}{c}{\emph{Unique}} \\
 \midrule
-AutoCSF & \textbf{26.3} & 117 & 0.062 & \textbf{10.6} & 109 & 0.031 & \textbf{2.7} & \textbf{79} & 0.011 \\
-BCSF (Shibuya) & 27.3 & \textbf{102} & 0.055 & 11.0 & \textbf{99} & 0.027 & 2.7 & 89 & 0.012 \\
-C++ Hash Table & 95.1 & 116 & \textbf{0.007} & 95.1 & 143 & \textbf{0.006} & 95.1 & 104 & \textbf{0.006} \\
+AutoCSF & 26.3 & \textbf{372} & \textbf{0.081} & 10.6 & \textbf{282} & \textbf{0.047} & \textbf{2.7} & \textbf{188} & \textbf{0.025} \\
+BCSF (Shibuya) & 27.3 & 400 & 0.084 & 11.0 & 341 & 0.051 & 2.7 & 236 & 0.026 \\
+Sux4J CSF & 41.9 & 667 & 0.559 & 17.2 & 377 & 0.339 & 5.1 & 330 & 0.198 \\
 MPH Table & 43.9 & 1363 & 0.496 & 52.2 & 1236 & 0.487 & 56.4 & 1390 & 0.472 \\
-Learned CSF & 35.4 & 3997545 & 793.065 & 16.5 & 1431918 & 359.657 & 5.9 & 243241 & 85.772 \\
+Learned CSF & \textbf{11.4} & 3997545 & 983.000 & \textbf{6.9} & 1431918 & 359.657 & 3.5 & 243241 & 85.772 \\
 \bottomrule
 \end{tabular}
 \caption{Synthetic benchmark results ($N = 100{,}000$). Memory in bits/key (bpk), query latency in nanoseconds (ns), and construction time in seconds. \textbf{Bold} indicates best in each column.}
@@ -663,23 +665,23 @@ Table~\ref{tab:genomics} reports results on the three genomics datasets. The dat
  & \multicolumn{3}{c}{E.\ coli ($n$=5.3M, $\alpha$=0.97)} & \multicolumn{3}{c}{SRR ($n$=9.8M, $\alpha$=0.20)} & \multicolumn{3}{c}{C.\ elegans ($n$=69.7M, $\alpha$=0.82)} \\
 Method & bpk & ns & build (s) & bpk & ns & build (s) & bpk & ns & build (s) \\
 \midrule
-AutoCSF & \textbf{0.31} & \textbf{92} & \textbf{0.2} & 4.21 & 443 & 2.3 & \textbf{1.26} & 466 & 6.6 \\
-BCSF (Shibuya) & 0.35 & 126 & 0.3 & 4.24 & \textbf{355} & 2.3 & 1.39 & \textbf{274} & \textbf{7.0} \\
-C++ Hash Table & 152.00 & 488 & 0.8 & 152.00 & 742 & \textbf{1.5} & 152.00 & 1034 & 15.2 \\
+AutoCSF & \textbf{0.30} & \textbf{335} & \textbf{0.7} & 4.20 & \textbf{458} & \textbf{4.3} & \textbf{1.23} & 394 & \textbf{13.7} \\
+BCSF (Shibuya) & 0.34 & 432 & 0.9 & 4.23 & 594 & 4.4 & 1.36 & \textbf{386} & 15.1 \\
+Sux4J CSF & 1.24 & 598 & 1.3 & 3.59 & 621 & 4.6 & 1.59 & 853 & 17.8 \\
 MPH Table & 11.55 & 1666 & 8.1 & 11.55 & 1716 & 13.6 & 11.55 & 2054 & 136.3 \\
-Learned CSF & 0.33 & 1615 & 102.9 & \textbf{3.49} & 7911 & 448.7 & 1.75 & 30512 & 7417.6 \\
+Learned CSF & 0.33 & 1725 & 127.4 & \textbf{3.49} & 8312 & 501.4 & --- & --- & --- \\
 \bottomrule
 \end{tabular}
-\caption{Genomics benchmark results. Memory in bits/key (bpk), query latency in nanoseconds (ns), and construction time in seconds. \textbf{Bold} indicates best in each column.}
+\caption{Genomics benchmark results. Memory in bits/key (bpk), query latency in nanoseconds (ns), and construction time in seconds. ``---'' indicates we did not complete the experiment due to lack of time. \textbf{Bold} indicates best in each column.}
 \label{tab:genomics}
 \end{table*}
 
-On E.\ coli, where $\alpha = 0.97$, AutoCSF achieves 0.31~bpk, less than one-third of a bit per key to index 5.3 million $k$-mers. This is $37\times$ smaller than MPH Table (11.55~bpk). Learned CSF is competitive in memory (0.33~bpk) but requires 103 seconds to build versus AutoCSF's 0.2 seconds ($515\times$ slower) and has $18\times$ higher query latency (1615~ns vs.\ 92~ns).
+On E.\ coli, where $\alpha = 0.97$, AutoCSF achieves 0.30~bpk, less than one-third of a bit per key to index 5.3 million $k$-mers. This is $4.1\times$ smaller than Sux4J CSF (1.24~bpk), which cannot exploit the extreme majority dominance, and $38\times$ smaller than MPH Table (11.55~bpk). Learned CSF is competitive in memory (0.33~bpk) but requires 127 seconds to build versus AutoCSF's 0.7 seconds ($182\times$ slower) and has $5.1\times$ higher query latency.
 
-The SRR dataset ($\alpha = 0.20$) represents a case where filter augmentation is not beneficial. AutoCSF correctly defaults to a plain CSF, achieving 4.21~bpk with 443~ns query latency. Learned CSF achieves the best memory (3.49~bpk) but at a cost: 449 seconds to build ($195\times$ slower than AutoCSF) and $18\times$ higher query latency (7911~ns vs.\ 443~ns).
+The SRR dataset ($\alpha = 0.20$) represents a case where filter augmentation is not beneficial. Here, Sux4J CSF achieves the best memory (3.59~bpk) among non-learned methods. AutoCSF (4.20~bpk) uses slightly more memory than Sux4J due to differences in our underlying CSF implementation rather than filter overhead. Despite this, AutoCSF achieves the fastest query latency (458~ns vs.\ Sux4J's 621~ns). Learned CSF achieves the best memory (3.49~bpk) but at a cost: 501 seconds to build ($117\times$ slower than AutoCSF) and $18\times$ higher query latency (8312~ns vs.\ 458~ns).
 
 
-On C.\ elegans ($n = 69.7$M, $\alpha = 0.82$), AutoCSF scales to the largest dataset while maintaining its advantages: 1.26~bpk with 466~ns latency and a 6.6-second build time. For context, this means the entire 70-million-entry $k$-mer count table is indexed in approximately 11~MB of memory. MPH Table would require 100.6~MB for the same data. Learned CSF uses 1.75~bpk (39\% more memory than AutoCSF) with 30{,}512~ns latency ($65\times$ slower) and requires over 2 hours to build.
+On C.\ elegans ($n = 69.7$M, $\alpha = 0.82$), AutoCSF scales to the largest dataset while maintaining its advantages: 1.23~bpk with 394~ns latency and a 13.7-second build time. For context, this means the entire 70-million-entry $k$-mer count table is indexed in approximately 10.7~MB of memory. MPH Table would require 100.6~MB for the same data, and Sux4J CSF uses 13.8~MB. We did not complete our experiments for Learned CSF on this dataset (due to lack of time).
 
 \subsection{Discussion}
 
