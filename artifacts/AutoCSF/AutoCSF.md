@@ -478,36 +478,17 @@ We evaluated four types of filters: XOR filter, binary fuse filter, and Bloom fi
 
 Figure~\ref{fig:alpha_sweep} shows the results of sweeping $\alpha$ for each distribution across all four filter types. Each panel plots four curves: the lower bound (blue dashed), best empirical savings (red dashed), and the upper bound evaluated at the theory-guided parameter (light blue solid) and at the empirical-best parameter (dark blue solid). A vertical dashed line marks where the lower bound crosses zero.
 
-\begin{figure*}[!t]
-\begin{center}
-\includegraphics[width=0.8\textwidth]{vldb2026/figures/theory_validation/epsilon_sweep_uniform_100_alpha0.7.png}
-\end{center}
-
-\begin{center}
-\includegraphics[width=0.8\textwidth]{vldb2026/figures/theory_validation/epsilon_sweep_uniform_100_alpha0.9.png}
-\end{center}
-
-
-\begin{center}
-\includegraphics[width=0.8\textwidth]{vldb2026/figures/theory_validation/epsilon_sweep_unique_alpha0.7.png}
-\end{center}
-
-
-\begin{center}
-\includegraphics[width=0.8\textwidth]{vldb2026/figures/theory_validation/epsilon_sweep_unique_alpha0.9.png}
-\end{center}
-
-
-\begin{center}
-\includegraphics[width=0.8\textwidth]{vldb2026/figures/theory_validation/epsilon_sweep_zipfian_alpha0.7.png}
-\end{center}
-
-\begin{center}
+\begin{figure*}[p]
+\makeatletter\setlength{\@fptop}{0pt}\makeatother
+\vspace*{-1.5cm}
+\centering
+\includegraphics[width=0.8\textwidth]{vldb2026/figures/theory_validation/epsilon_sweep_uniform_100_alpha0.7.png}\\[-2pt]
+\includegraphics[width=0.8\textwidth]{vldb2026/figures/theory_validation/epsilon_sweep_uniform_100_alpha0.9.png}\\[4pt]
+\includegraphics[width=0.8\textwidth]{vldb2026/figures/theory_validation/epsilon_sweep_unique_alpha0.7.png}\\[-2pt]
+\includegraphics[width=0.8\textwidth]{vldb2026/figures/theory_validation/epsilon_sweep_unique_alpha0.9.png}\\[4pt]
+\includegraphics[width=0.8\textwidth]{vldb2026/figures/theory_validation/epsilon_sweep_zipfian_alpha0.7.png}\\[-2pt]
 \includegraphics[width=0.8\textwidth]{vldb2026/figures/theory_validation/epsilon_sweep_zipfian_alpha0.9.png}
-\end{center}
-
-
-\caption{Results of sweeping $\epsilon$ for each distribution across all four filter types.}
+\caption{Results of sweeping $\varepsilon$ for each distribution across all four filter types.}
 \label{fig:epsilon_sweep}
 \end{figure*}
 
