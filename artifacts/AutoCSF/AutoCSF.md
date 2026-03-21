@@ -454,7 +454,7 @@ which, as expected, is greater than 0.
 \includegraphics[width=\textwidth]{vldb2026/figures/theory_validation/alpha_sweep_uniform_100.png}
 \end{center}
 
-\caption{Results of sweeping $\alpha$ for each distribution across all five filter types. Each panel plots the lower bound (blue dashed), best empirical savings (red solid with dots), and the upper bound at the theory-guided and empirical-best parameters (light and dark blue solid). The vertical dashed line marks where the lower bound crosses zero.}
+\caption{Results of sweeping $\alpha$ for each distribution across all four filter types. Each panel plots the lower bound (blue dashed), best empirical savings (red solid with dots), and the upper bound at the theory-guided and empirical-best parameters (light and dark blue solid). The vertical dashed line marks where the lower bound crosses zero.}
 \label{fig:alpha_sweep}
 \end{figure*}
 
@@ -472,9 +472,9 @@ We construct synthetic key-value datasets that sweep the majority fraction $\alp
     \item \textbf{Zipfian}: power-law with exponent $s = 1.5$.
     \item \textbf{Uniform-100}: values drawn uniformly from 100 symbols.
 \end{itemize}
-We evaluated five types of filters: XOR filter, binary fuse filter, and Bloom filters with $k \in \{1, 2, 3\}$ hash functions.
+We evaluated four types of filters: XOR filter, binary fuse filter, and Bloom filters with $k \in \{1, 3\}$ hash functions.
 
-Figure~\ref{fig:alpha_sweep} shows the results of sweeping $\alpha$ for each distribution across all five filter types. Each panel plots four curves: the lower bound (blue dashed), best empirical savings (red solid with dots), and the upper bound evaluated at the theory-guided parameter (light blue solid) and at the empirical-best parameter (dark blue solid). A vertical dashed line marks where the lower bound crosses zero.
+Figure~\ref{fig:alpha_sweep} shows the results of sweeping $\alpha$ for each distribution across all four filter types. Each panel plots four curves: the lower bound (blue dashed), best empirical savings (red solid with dots), and the upper bound evaluated at the theory-guided parameter (light blue solid) and at the empirical-best parameter (dark blue solid). A vertical dashed line marks where the lower bound crosses zero.
 
 \begin{figure*}[!t]
 \begin{center}
@@ -505,7 +505,7 @@ Figure~\ref{fig:alpha_sweep} shows the results of sweeping $\alpha$ for each dis
 \end{center}
 
 
-\caption{Results of sweeping $\epsilon$ for each distribution across all five filter types.}
+\caption{Results of sweeping $\epsilon$ for each distribution across all four filter types.}
 \label{fig:epsilon_sweep}
 \end{figure*}
 
@@ -559,7 +559,7 @@ We restrict both methods to Bloom filters in this comparison for fairness, since
 \section{Experiments}
 
 
-The previous section validates AutoCSF's theoretical bounds and decision criterion in isolation. We now evaluate AutoCSF as a complete, end-to-end index and compare it against three baselines that span the landscape of practical approaches to static key-value indexing. Our goal is to answer three questions: (1)~Does AutoCSF's theory-guided filter selection translate into real space savings over competing methods? (2)~What is the latency cost, if any, of filter-augmented CSFs? (3)~How do these trade-offs change on real-world genomics workloads where the value distributions are not synthetically controlled?
+The previous section validates AutoCSF's theoretical bounds and decision criterion in isolation. We now evaluate AutoCSF as a complete, end-to-end index and compare it against four baselines that span the landscape of practical approaches to static key-value indexing. Our goal is to answer three questions: (1)~Does AutoCSF's theory-guided filter selection translate into real space savings over competing methods? (2)~What is the latency cost, if any, of filter-augmented CSFs? (3)~How do these trade-offs change on real-world genomics workloads where the value distributions are not synthetically controlled?
 
 \subsection{Baselines}
 
@@ -591,7 +591,7 @@ These datasets exhibit the diversity of real genomics workloads: E.\ coli has ex
 
 \subsection{Synthetic Benchmarks}
 
-\textbf{Pareto frontier.} Figure~\ref{fig:pareto} plots memory (bpk) against query latency (ns) on log-log axes for all four methods across the three synthetic distributions plus genomics data. Each method traces a trajectory as $\alpha$ sweeps from 0.5 to 0.99; larger markers highlight $\alpha \in \{0.5, 0.8, 0.95\}$.
+\textbf{Pareto frontier.} Figure~\ref{fig:pareto} plots memory (bpk) against query latency (ns) on log-log axes for all five methods across the three synthetic distributions plus genomics data. Each method traces a trajectory as $\alpha$ sweeps from 0.5 to 0.99; larger markers highlight $\alpha \in \{0.5, 0.8, 0.95\}$.
 
 \begin{figure*}[t]
 \centering
@@ -608,14 +608,14 @@ Several patterns emerge from the Pareto plot. AutoCSF and BCSF consistently occu
 \begin{figure*}[t]
 \centering
 \includegraphics[width=\textwidth]{vldb2026/figures/theory_validation/paper_memory_vs_alpha.png}
-\caption{Memory (bits/key) vs.\ majority fraction $\alpha$ for the three synthetic distributions. AutoCSF and BCSF exploit increasing skew; MPH Table is distribution-agnostic.}
+\caption{Memory (bits/key) vs.\ majority fraction $\alpha$ for the three synthetic distributions. AutoCSF and BCSF exploit increasing skew; C++ Hash Table and MPH Table are distribution-agnostic; Learned CSF tracks AutoCSF on low-entropy distributions but diverges on Unique.}
 \label{fig:mem_alpha}
 \end{figure*}
 
 
 The Unique distribution is the hardest case for all methods: at $\alpha = 0.5$, half the keys have distinct values, so the CSF must store nearly $\log_2(N/2) \approx 16$ bits of entropy per minority key. Learned CSF achieves the best memory on this distribution (11.4~bpk at $\alpha = 0.5$), as the learned model can exploit per-key patterns that are invisible to Huffman coding. However, as Table~\ref{tab:synthetic} shows, this memory advantage comes at higher latency (4M~ns) and construction time (16 minutes). At higher skew ($\alpha = 0.95$), AutoCSF closes the gap to 2.7~bpk vs.\ Learned CSF's 3.5~bpk, with $1{,}300\times$ faster queries.
 
-\textbf{Construction time.} Table~\ref{tab:synthetic} reports memory, latency, and construction time for all four methods at $\alpha \in \{0.5, 0.8, 0.95\}$. AutoCSF and BCSF build in under 0.1 seconds across all configurations. MPH Table builds in 0.4--0.6 seconds. Learned CSF is the most expensive to build: 5--983 seconds depending on distribution complexity, with the Unique distribution requiring over 16 minutes at $\alpha = 0.5$ due to the large number of distinct values the model must learn. At $\alpha = 0.95$ on Uniform-100, where Learned CSF's memory advantage over AutoCSF is only 0.1~bpk, it takes 320$\times$ longer to construct.
+\textbf{Construction time.} Table~\ref{tab:synthetic} reports memory, latency, and construction time for all five methods at $\alpha \in \{0.5, 0.8, 0.95\}$. AutoCSF and BCSF build in under 0.1 seconds across all configurations. MPH Table builds in 0.4--0.6 seconds. Learned CSF is the most expensive to build: 5--983 seconds depending on distribution complexity, with the Unique distribution requiring over 16 minutes at $\alpha = 0.5$ due to the large number of distinct values the model must learn. At $\alpha = 0.95$ on Uniform-100, where Learned CSF's memory advantage over AutoCSF is only 0.1~bpk, it takes 320$\times$ longer to construct.
 
 \begin{table*}[t]
 \centering
