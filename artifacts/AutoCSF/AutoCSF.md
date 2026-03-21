@@ -574,7 +574,7 @@ We compare AutoCSF against the following methods:
 
 \item \textbf{MPH Table}. A minimal perfect hash function (via Sux4J's GOV construction~\cite{genuzio2020fast}) paired with a compact value array. This is a distribution-agnostic baseline as it does not exploit value skew and its memory usage depends only on the vocabulary size.
 
-\item \textbf{Learned CSF}~\cite{hermann2025learned}. A learned static function that replaces the linear-system solver in a CSF with a small neural network trained to predict Huffman codes from keys. The model is augmented with a Bloom filter and a correction table. On low-entropy distributions this method can achieve a smaller memory footprint than AutoCSF, but at the cost of  higher query latency and construction time due to model training.
+\item \textbf{Learned CSF}~\cite{hermann2025learned}. A learned static function that trains a small neural network to predict value distributions from keys. These predictions are used to derive key-specific prefix codes, which are stored in a pair of ribbon-based retrieval structures. By learning correlations between keys and values, this method can break the zero-order entropy barrier of standard CSFs, but at the cost of higher query latency and construction time due to model training.
 \end{itemize}
 
 \subsection{Setup}
@@ -589,7 +589,9 @@ We compare AutoCSF against the following methods:
 \end{itemize}
 These datasets exhibit the diversity of real genomics workloads: E.\ coli has extreme skew ($\alpha = 0.97$) with very few distinct values, SRR has low skew ($\alpha = 0.20$) with moderate vocabulary, and C.\ elegans is a large-scale dataset (70M keys) with intermediate skew.
 
-\textbf{Metrics.} We report three metrics: \emph{memory} in bits per key (bpk), \emph{query latency} as the mean inference time per key in nanoseconds, and \emph{construction time} in seconds. For AutoCSF and BCSF, we use binary fuse filters~\cite{graf2020xor}, which offer lower false positive rates per bit than Bloom filters. 
+\textbf{Metrics.} We report three metrics: \emph{memory} in bits per key (bpk), \emph{query latency} as the mean inference time per key in nanoseconds, and \emph{construction time} in seconds. For AutoCSF and BCSF, we use binary fuse filters~\cite{graf2020xor}, which offer lower false positive rates per bit than Bloom filters.
+
+\textbf{Learned CSF configuration.} We follow the training pipeline of \citet{hermann2025learned}, sweeping four MLP architectures (linear, one hidden layer with 50 or 100 units, and two hidden layers with 50 units each) with float16 quantization and early stopping. For genomics datasets, we use ordinal $k$-mer encoding as input features, mapping each nucleotide position to $\{0,1,2,3\}/3$, since the character-level structure of $k$-mers is learnable unlike the hash-derived features used for synthetic data. The best model is selected by minimum total size (ribbon storage plus model weights). Construction time includes both model training and index construction.
 
 \subsection{Synthetic Benchmarks}
 
@@ -603,12 +605,12 @@ These datasets exhibit the diversity of real genomics workloads: E.\ coli has ex
 \end{figure*}
 
 
-Several patterns emerge from the Pareto plot. AutoCSF and BCSF consistently occupy the lower-left corner of the Pareto frontier---low memory \emph{and} low latency---across all three distributions. The hash table offers competitive latency (107--204~ns) but does not compress the data. MPH Table uses 7--70$\times$ more memory than AutoCSF and its latency is 10--20$\times$ higher. Learned CSF achieves the tightest memory on Uniform-100 (e.g., 4.4 vs.\ 5.2~bpk at $\alpha = 0.5$), but on Zipfian and Unique, AutoCSF matches or outperforms it in memory while maintaining 2--4 orders of magnitude lower query latency. On Unique, Learned CSF uses 35.4~bpk versus AutoCSF's 26.3~bpk at $\alpha = 0.5$, with query latency of 4.1 \emph{seconds} compared to AutoCSF's 116~ns. The log-log scale in Figure~\ref{fig:pareto} is necessary to display these extremes on the same axes.
+Several patterns emerge from the Pareto plot. AutoCSF and BCSF consistently occupy the lower-left corner of the Pareto frontier---low memory \emph{and} low latency---across all three distributions. The hash table offers competitive latency (107--204~ns) but does not compress the data. MPH Table uses 7--70$\times$ more memory than AutoCSF and its latency is 10--20$\times$ higher. Learned CSF achieves tighter memory than AutoCSF on Uniform-100 at all $\alpha$ values (e.g., 4.4 vs.\ 5.2~bpk at $\alpha = 0.5$) and on Unique at low-to-moderate $\alpha$ (e.g., 11.4 vs.\ 26.3~bpk at $\alpha = 0.5$), but at 2--4 orders of magnitude higher query latency. On Zipfian, AutoCSF achieves lower memory than Learned CSF at all $\alpha$ values. The log-log scale in Figure~\ref{fig:pareto} is necessary to display these extremes on the same axes.
 
 
-The Unique distribution is the hardest case for all methods: at $\alpha = 0.5$, half the keys have distinct values, so the CSF must store nearly $\log_2(N/2) \approx 16$ bits of entropy per minority key. AutoCSF achieves 26.3~bpk, outperforming Learned CSF (35.4~bpk) by 26\% while being $35{,}000\times$ faster in query latency (116~ns vs.\ 4.1M~ns) and $15{,}000\times$ faster to construct (0.067~s vs.\ 1{,}011~s). At higher skew ($\alpha = 0.95$), AutoCSF widens the gap to 2.7~bpk vs.\ Learned CSF's 5.9~bpk, with $2{,}800\times$ faster queries.
+The Unique distribution is the hardest case for all methods: at $\alpha = 0.5$, half the keys have distinct values, so the CSF must store nearly $\log_2(N/2) \approx 16$ bits of entropy per minority key. Learned CSF achieves 11.4~bpk versus AutoCSF's 26.3~bpk, demonstrating that a trained model can significantly reduce effective entropy when the value space is large. However, this comes at extreme cost: 4.0M~ns query latency ($34{,}000\times$ slower than AutoCSF's 116~ns) and 983 seconds to construct ($15{,}000\times$ slower). At higher skew ($\alpha = 0.95$), AutoCSF overtakes Learned CSF in memory (2.7 vs.\ 3.5~bpk) while maintaining $3{,}000\times$ faster queries.
 
-\textbf{Construction time.} Table~\ref{tab:synthetic} reports memory, latency, and construction time for all five methods at $\alpha \in \{0.5, 0.8, 0.95\}$. AutoCSF and BCSF build in under 0.1 seconds across all configurations. C++ Hash Table is the fastest to construct (${\sim}0.006$~s). MPH Table builds in 0.4--0.6 seconds. Learned CSF is the most expensive to build: 7--1{,}011 seconds depending on distribution complexity, with the Unique distribution requiring over 16 minutes at $\alpha = 0.5$ due to the large number of distinct values the model must learn. At $\alpha = 0.95$ on Uniform-100, where Learned CSF's memory advantage over AutoCSF is only 0.1~bpk, it takes 719$\times$ longer to construct.
+\textbf{Construction time.} Table~\ref{tab:synthetic} reports memory, latency, and construction time for all five methods at $\alpha \in \{0.5, 0.8, 0.95\}$. AutoCSF and BCSF build in under 0.1 seconds across all configurations. C++ Hash Table is the fastest to construct (${\sim}0.006$~s). MPH Table builds in 0.4--0.6 seconds. Learned CSF is the most expensive to build: 5--983 seconds depending on distribution complexity, with the Unique distribution requiring over 16 minutes at $\alpha = 0.5$. At $\alpha = 0.95$ on Uniform-100, where Learned CSF's memory advantage over AutoCSF is only 0.1~bpk, it takes $440\times$ longer to construct (5.7~s vs.\ 0.013~s).
 
 \begin{table*}[t]
 \centering
@@ -623,7 +625,7 @@ AutoCSF & 5.2 & \textbf{92} & 0.030 & 2.5 & \textbf{116} & 0.030 & 0.8 & \textbf
 BCSF (Shibuya) & 5.5 & 95 & 0.028 & 2.7 & 120 & 0.020 & 0.8 & 87 & 0.008 \\
 C++ Hash Table & 95.1 & 150 & \textbf{0.006} & 95.1 & 121 & \textbf{0.006} & 95.1 & 157 & \textbf{0.007} \\
 MPH Table & 35.0 & 1412 & 0.569 & 49.0 & 1505 & 0.438 & 55.9 & 1551 & 0.572 \\
-Learned CSF & \textbf{4.4} & 6153 & 6.977 & \textbf{2.2} & 6708 & 8.562 & \textbf{0.7} & 3779 & 9.348 \\
+Learned CSF & \textbf{4.4} & 6435 & 5.173 & \textbf{2.2} & 6160 & 5.480 & \textbf{0.7} & 3199 & 5.733 \\
 \midrule
 \multicolumn{10}{c}{\emph{Zipfian}} \\
 \midrule
@@ -631,15 +633,15 @@ AutoCSF & \textbf{4.6} & 98 & 0.025 & \textbf{2.3} & 95 & 0.014 & \textbf{0.8} &
 BCSF (Shibuya) & 4.9 & \textbf{93} & 0.026 & 2.4 & \textbf{90} & 0.013 & 0.8 & 94 & 0.008 \\
 C++ Hash Table & 95.1 & 111 & \textbf{0.006} & 95.1 & 142 & \textbf{0.006} & 95.1 & 107 & \textbf{0.006} \\
 MPH Table & 35.4 & 1195 & 0.569 & 49.2 & 1344 & 0.490 & 56.0 & 1323 & 0.470 \\
-Learned CSF & 5.8 & 81357 & 38.283 & 2.9 & 38756 & 28.065 & 1.6 & 13190 & 16.711 \\
+Learned CSF & 4.9 & 76811 & 32.064 & 2.4 & 39387 & 22.474 & 1.4 & 13530 & 13.284 \\
 \midrule
 \multicolumn{10}{c}{\emph{Unique}} \\
 \midrule
-AutoCSF & \textbf{26.3} & 116 & 0.067 & \textbf{10.6} & 103 & 0.032 & \textbf{2.7} & \textbf{79} & 0.012 \\
+AutoCSF & 26.3 & 116 & 0.067 & 10.6 & 103 & 0.032 & \textbf{2.7} & \textbf{79} & 0.012 \\
 BCSF (Shibuya) & 27.3 & \textbf{101} & 0.057 & 11.0 & \textbf{93} & 0.026 & 2.7 & 88 & 0.012 \\
 C++ Hash Table & 95.1 & 114 & \textbf{0.007} & 95.1 & 204 & \textbf{0.006} & 95.1 & 171 & \textbf{0.006} \\
 MPH Table & 43.9 & 1363 & 0.496 & 52.2 & 1236 & 0.487 & 56.4 & 1390 & 0.472 \\
-Learned CSF & 35.4 & 4123112 & 1011.367 & 16.5 & 1440552 & 381.668 & 5.9 & 223807 & 69.562 \\
+Learned CSF & \textbf{11.4} & 3997545 & 983.000 & \textbf{6.9} & 1431918 & 359.657 & 3.5 & 243241 & 85.772 \\
 \bottomrule
 \end{tabular}
 \caption{Synthetic benchmark results ($N = 100{,}000$). Memory in bits/key (bpk), query latency in nanoseconds (ns), and construction time in seconds. \textbf{Bold} indicates best in each column.}
@@ -677,7 +679,7 @@ On C.\ elegans ($n = 69.7$M, $\alpha = 0.82$), AutoCSF scales to the largest dat
 
 Across all experiments, a consistent picture emerges. AutoCSF dominates the Pareto frontier of memory versus latency, especially when the majority fraction $\alpha$ is moderate to high ($\gtrsim 0.7$). The margin over heuristic construction is modest (up to 11\% in memory) but systematic, confirming that the theory-guided parameter selection from Section~4 translates to measurable improvements in practice over the heuristic approach.
 
-The comparison with Learned CSF is particularly instructive. On low-entropy distributions (Uniform-100), Learned CSF achieves modestly lower memory than AutoCSF, but on higher-entropy distributions (Zipfian, Unique), AutoCSF matches or substantially outperforms Learned CSF in memory while maintaining 2--4 orders of magnitude lower query latency. These results suggest that for practical deployments where query latency and build time matter, learned approaches provide limited benefit over a principled analytical framework that requires no model training.
+The comparison with Learned CSF is particularly instructive. Learned CSF can achieve tighter compression than AutoCSF in several regimes: it consistently uses less memory on Uniform-100, and on Unique it achieves substantially lower bits per key at low-to-moderate $\alpha$ (e.g., 11.4 vs.\ 26.3~bpk at $\alpha = 0.5$), demonstrating that a trained model can exploit distributional structure beyond what a static Huffman code captures. However, these memory savings come at 2--4 orders of magnitude higher query latency due to per-key neural network inference, and construction times ranging from seconds to over 16 minutes due to model training. On Zipfian distributions, where the value distribution follows a smoother power law, AutoCSF achieves lower memory than Learned CSF at all $\alpha$ values without any training overhead. These results suggest that learned approaches offer genuine compression advantages in specific regimes, but for practical deployments where query latency and build time are important, AutoCSF provides a more favorable overall tradeoff.
 
 \section{Conclusion}
 
