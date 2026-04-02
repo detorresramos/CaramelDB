@@ -125,6 +125,10 @@ PreFilterConfigPtr selectBestFilter(const std::vector<T> &values,
   double n_over_N = static_cast<double>(n_unique) / N;
   size_t n_filter = N - highest_freq;
 
+  if (n_filter <= 10) {
+    return nullptr;
+  }
+
   struct Candidate {
     PreFilterConfigPtr config;
     double lb;
