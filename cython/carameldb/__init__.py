@@ -28,6 +28,8 @@ from ._caramel import (
     MultisetCSFString,
     MultisetCSFUint32,
     MultisetCSFUint64,
+    PackedCSFUint32,
+    RaggedMultisetCSFUint32,
     PreFilterChar10,
     PreFilterChar12,
     PreFilterString,
@@ -122,6 +124,78 @@ def Caramel(
             raise ValueError("'shared_filter' is only supported for multiset (2D) values.")
         csf = CSFClass(keys, values, prefilter=prefilter, verbose=verbose)
     return csf
+
+
+def CaramelRagged(
+    keys,
+    values,
+    prefilter=AutoFilterConfig(),
+    permutation=None,
+    shared_codebook=False,
+    verbose=True,
+):
+    """
+    Constructs a RaggedMultisetCSF: a length CSF + per-column CSFs where
+    each column only includes keys whose array reaches that column.
+
+    Arguments:
+        keys: List of hashable keys.
+        values: List of lists of uint32 values (must be ragged or fixed-length).
+        prefilter: The type of prefilter to use.
+        permutation: A PermutationConfig for the min_length prefix columns.
+        shared_codebook: If true, uses a single shared Huffman codebook.
+        verbose: Enable verbose logging.
+
+    Returns:
+        A RaggedMultisetCSF containing the desired key-value mapping.
+    """
+    if not len(keys):
+        raise ValueError("Keys must be non-empty.")
+    if not len(values):
+        raise ValueError("Values must be non-empty.")
+    if len(keys) != len(values):
+        raise ValueError("Keys and values must have the same length.")
+    if not isinstance(keys[0], (str, bytes)):
+        raise ValueError(f"Keys must be str or bytes, found {type(keys[0])}")
+
+    # Convert numpy 2D array to list-of-lists
+    if isinstance(values, np.ndarray):
+        values = [row.tolist() for row in values]
+
+    return RaggedMultisetCSFUint32(
+        keys, values, prefilter=prefilter, permutation=permutation,
+        shared_codebook=shared_codebook, verbose=verbose,
+    )
+
+
+def CaramelPacked(keys, values, verbose=True):
+    """
+    Constructs a PackedCSF: a single CSF storing concatenated Huffman codes
+    with a stop symbol. Works for both fixed-length and ragged (variable-length)
+    value arrays.
+
+    Arguments:
+        keys: List of hashable keys.
+        values: List of lists of uint32 values (can be ragged).
+        verbose: Enable verbose logging.
+
+    Returns:
+        A PackedCSF containing the desired key-value mapping.
+    """
+    if not len(keys):
+        raise ValueError("Keys must be non-empty.")
+    if not len(values):
+        raise ValueError("Values must be non-empty.")
+    if len(keys) != len(values):
+        raise ValueError("Keys and values must have the same length.")
+    if not isinstance(keys[0], (str, bytes)):
+        raise ValueError(f"Keys must be str or bytes, found {type(keys[0])}")
+
+    # Convert to list-of-lists if numpy 2D array
+    if isinstance(values, np.ndarray):
+        values = [row.tolist() for row in values]
+
+    return PackedCSFUint32(keys, values, verbose=verbose)
 
 
 def load(filename):

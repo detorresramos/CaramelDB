@@ -1318,6 +1318,89 @@ cdef class MultisetCSFString:
         return True
 
 
+# ── RaggedMultisetCSF wrappers ────────────────────────────────────────────
+
+cdef class RaggedMultisetCSFUint32:
+    cdef shared_ptr[cpp.RaggedMultisetCsf_uint32] _ptr
+
+    def __init__(self, list keys, values, prefilter=None, permutation=None,
+                 bint shared_codebook=False, bint verbose=True):
+        cdef vector[string] cpp_keys = _to_cpp_strings(keys)
+        cdef vector[vector[unsigned int]] cpp_values
+
+        for row in values:
+            cpp_values.push_back(<vector[unsigned int]>[<unsigned int>v for v in row])
+
+        cdef cpp.MultisetConfig config
+        if permutation is not None and isinstance(permutation, PermutationConfig):
+            config.permutation_config = (<PermutationConfig>permutation)._ptr
+        config.verbose = verbose
+        config.shared_codebook = shared_codebook
+        if prefilter is not None and isinstance(prefilter, PreFilterConfig):
+            config.filter_config = (<PreFilterConfig>prefilter)._ptr
+
+        self._ptr = cpp.constructRaggedMultisetCsf_uint32(cpp_keys, cpp_values, config)
+
+    def query(self, key):
+        cdef const char* buf
+        cdef Py_ssize_t length
+        _key_to_buf(key, &buf, &length)
+        return list(self._ptr.get().query(buf, length))
+
+    def save(self, str filename):
+        self._ptr.get().save(filename.encode('utf-8'), 301)
+
+    @staticmethod
+    def load(str filename):
+        cdef RaggedMultisetCSFUint32 obj = RaggedMultisetCSFUint32.__new__(RaggedMultisetCSFUint32)
+        try:
+            obj._ptr = cpp.RaggedMultisetCsf_uint32.load(filename.encode('utf-8'), 301)
+        except RuntimeError as e:
+            raise CsfDeserializationException(str(e))
+        return obj
+
+    @staticmethod
+    def is_multiset():
+        return True
+
+
+# ── PackedCSF wrappers ───────────────────────────────────────────────────
+
+cdef class PackedCSFUint32:
+    cdef shared_ptr[cpp.PackedCsf_uint32] _ptr
+
+    def __init__(self, list keys, values, bint verbose=True):
+        cdef vector[string] cpp_keys = _to_cpp_strings(keys)
+        cdef vector[vector[unsigned int]] cpp_values
+
+        for row in values:
+            cpp_values.push_back(<vector[unsigned int]>[<unsigned int>v for v in row])
+
+        self._ptr = cpp.constructPackedCsf_uint32(cpp_keys, cpp_values, verbose)
+
+    def query(self, key):
+        cdef const char* buf
+        cdef Py_ssize_t length
+        _key_to_buf(key, &buf, &length)
+        return list(self._ptr.get().query(buf, length))
+
+    def save(self, str filename):
+        self._ptr.get().save(filename.encode('utf-8'), 201)
+
+    @staticmethod
+    def load(str filename):
+        cdef PackedCSFUint32 obj = PackedCSFUint32.__new__(PackedCSFUint32)
+        try:
+            obj._ptr = cpp.PackedCsf_uint32.load(filename.encode('utf-8'), 201)
+        except RuntimeError as e:
+            raise CsfDeserializationException(str(e))
+        return obj
+
+    @staticmethod
+    def is_multiset():
+        return True
+
+
 # ── UnorderedMapBaseline ───────────────────────────────────────────────────
 
 cdef class UnorderedMapBaseline:
