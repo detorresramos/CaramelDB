@@ -198,6 +198,10 @@ def run_strategy(strategy_name, keys, values_lol, values_2d=None):
             csf, build_s = run_ragged_column(keys, values_lol)
         elif strategy_name == "RaggedColumn+Permute":
             csf, build_s = run_ragged_column(keys, values_lol, permute=True)
+        elif strategy_name == "RaggedColumn+SharedCB":
+            csf, build_s = run_ragged_column(keys, values_lol, shared_cb=True)
+        elif strategy_name == "RaggedColumn+SharedCB+Permute":
+            csf, build_s = run_ragged_column(keys, values_lol, permute=True, shared_cb=True)
         elif strategy_name == "PaddedColumn":
             csf, build_s = run_padded_column(keys, values_lol)
         elif strategy_name == "PaddedColumn+Permute":
@@ -239,6 +243,7 @@ FIXED_STRATEGIES = [
 ]
 RAGGED_STRATEGIES = [
     "RaggedColumn", "RaggedColumn+Permute",
+    "RaggedColumn+SharedCB", "RaggedColumn+SharedCB+Permute",
     "PaddedColumn", "PaddedColumn+Permute", "Packed",
 ]
 
