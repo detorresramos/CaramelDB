@@ -18,7 +18,7 @@ All strategies use AutoFilter prefilter. Permute variants use global_sort with 5
 - **Column+SharedCB+Permute**: Both shared codebook and permutation.
 - **Packed**: Single CSF per key storing all values as a concatenated Huffman bitstream with a stop symbol. No column structure.
 
-## Fixed Strategies
+## Ragged Strategies
 
 - **Packed**: Single CSF per key storing all values as a concatenated Huffman bitstream with a stop symbol. No column structure.
 - **RaggedColumn**: A length CSF (key → array length) plus per-column CSFs. Column 0 has all keys, column 1 only keys with length >= 2, column i only keys with length >= i+1. Later columns shrink as fewer keys reach them.
