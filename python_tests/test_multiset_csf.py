@@ -26,11 +26,12 @@ def test_multiset_csf(tmp_path):
 
 
 def test_multiset_csf_different_number_of_values():
-    with pytest.raises(
-        ValueError,
-        match="Error transforming values to numpy array. Make sure all rows are the same length.",
-    ):
-        carameldb.Caramel(["1", "2", "3"], [[1, 2], [2, 3], [3]])
+    """Ragged values should be handled by RaggedMultisetCSF."""
+    keys = ["1", "2", "3"]
+    values = [[1, 2], [2, 3], [3]]
+    csf = carameldb.Caramel(keys, values, verbose=False)
+    for i in range(len(keys)):
+        assert sorted(csf.query(keys[i])) == sorted(values[i])
 
 
 def test_multiset_csf_empty_lists():

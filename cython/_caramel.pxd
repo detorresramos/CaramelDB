@@ -384,6 +384,42 @@ cdef extern from "src/construct/multiset/ConstructMultiset.h" namespace "caramel
         const vector[string] &keys, const vector[vector[string]] &values,
         const MultisetConfig &config) except +
 
+# ── RaggedMultisetCsf ─────────────────────────────────────────────────────
+
+cdef extern from "src/construct/multiset/RaggedMultisetCsf.h" namespace "caramel":
+    cppclass RaggedMultisetCsf_uint32 "caramel::RaggedMultisetCsf<uint32_t>":
+        vector[unsigned int] query(const char *data, size_t length) except +
+        vector[unsigned int] query(const string &key) except +
+        void save(const string &filename, unsigned int type_id) except +
+
+        @staticmethod
+        shared_ptr[RaggedMultisetCsf_uint32] load(const string &filename, unsigned int type_id) except +
+
+# ── ConstructRaggedMultiset free functions ────────────────────────────────
+
+cdef extern from "src/construct/multiset/ConstructRaggedMultiset.h" namespace "caramel":
+    shared_ptr[RaggedMultisetCsf_uint32] constructRaggedMultisetCsf_uint32 "caramel::constructRaggedMultisetCsf<uint32_t>"(
+        const vector[string] &keys, const vector[vector[unsigned int]] &values,
+        const MultisetConfig &config) except +
+
+# ── PackedCsf ─────────────────────────────────────────────────────────────
+
+cdef extern from "src/construct/multiset/PackedCsf.h" namespace "caramel":
+    cppclass PackedCsf_uint32 "caramel::PackedCsf<uint32_t>":
+        vector[unsigned int] query(const char *data, size_t length) except +
+        vector[unsigned int] query(const string &key) except +
+        void save(const string &filename, unsigned int type_id) except +
+
+        @staticmethod
+        shared_ptr[PackedCsf_uint32] load(const string &filename, unsigned int type_id) except +
+
+# ── ConstructPacked free functions ────────────────────────────────────────
+
+cdef extern from "src/construct/multiset/ConstructPacked.h" namespace "caramel":
+    shared_ptr[PackedCsf_uint32] constructPackedCsf_uint32 "caramel::constructPackedCsf<uint32_t>"(
+        const vector[string] &keys, const vector[vector[unsigned int]] &values,
+        cbool verbose) except +
+
 # ── UnorderedMapBaseline ───────────────────────────────────────────────────
 
 cdef extern from "src/baselines/UnorderedMapBaseline.h" namespace "caramel":

@@ -28,6 +28,8 @@ from ._caramel import (
     MultisetCSFString,
     MultisetCSFUint32,
     MultisetCSFUint64,
+    PackedCSFUint32,
+    RaggedMultisetCSFUint32,
     PreFilterChar10,
     PreFilterChar12,
     PreFilterString,
@@ -57,6 +59,18 @@ CLASS_LIST = [
 ]
 
 
+def _is_ragged(values):
+    """Check if values is a list-of-lists with varying lengths."""
+    if isinstance(values, np.ndarray):
+        return False
+    if not isinstance(values, list) or len(values) == 0:
+        return False
+    if not isinstance(values[0], (list, np.ndarray)):
+        return False
+    first_len = len(values[0])
+    return any(len(row) != first_len for row in values)
+
+
 def Caramel(
     keys,
     values,
@@ -64,24 +78,35 @@ def Caramel(
     permutation=None,
     shared_codebook=False,
     shared_filter=False,
+    strategy=None,
     max_to_infer=None,
     verbose=True,
 ):
     """
     Constructs a Caramel object, automatically inferring the correct CSF backend.
 
+    Supports 1D values (key → scalar), 2D fixed-length values (key → array),
+    and ragged values (key → variable-length array).
+
     Arguments:
         keys: List of hashable keys.
-        values: List of values to use in the CSF.
+        values: List of values to use in the CSF. Can be:
+            - 1D: list of scalars
+            - 2D: list of equal-length lists, or a 2D numpy array
+            - Ragged: list of variable-length lists
         prefilter: The type of prefilter to use.
         permutation: A PermutationConfig specifying the permutation algorithm.
+            Supported for multiset (2D) and ragged values.
         shared_codebook: If true, uses a single shared Huffman codebook across
-            all columns. Only valid for multiset (2D) values.
+            all columns. Only valid for multiset (2D) and ragged values.
         shared_filter: If true, columns that share the same most common value
-            (MCV) use a single shared prefilter. Only valid for multiset (2D)
-            values. Requires prefilter.
+            (MCV) use a single shared prefilter. Only valid for fixed-length
+            multiset (2D) values. Requires prefilter.
+        strategy: Encoding strategy for multiset values. Options:
+            - None (default): per-column CSFs (ragged-aware for variable-length)
+            - "packed": single CSF with concatenated Huffman codes + stop symbol
         max_to_infer: If provided, only the first "max_to_infer" values
-            will be examinied when inferring the correct CSF backend.
+            will be examined when inferring the correct CSF backend.
         verbose: Enable verbose logging
 
     Returns:
@@ -99,6 +124,29 @@ def Caramel(
     if not isinstance(keys[0], (str, bytes)):
         raise ValueError(f"Keys must be str or bytes, found {type(keys[0])}")
 
+    is_ragged = _is_ragged(values)
+
+    # Packed strategy
+    if strategy == "packed":
+        if isinstance(values, np.ndarray):
+            values = [row.tolist() for row in values]
+        elif not is_ragged:
+            values = [list(row) for row in values]
+        return PackedCSFUint32(keys, values, verbose=verbose)
+
+    if strategy is not None:
+        raise ValueError(f"Unknown strategy: {strategy!r}. Use None or 'packed'.")
+
+    # Ragged (variable-length) multiset
+    if is_ragged:
+        if shared_filter:
+            raise ValueError("'shared_filter' is not supported for ragged values.")
+        return RaggedMultisetCSFUint32(
+            keys, values, prefilter=prefilter, permutation=permutation,
+            shared_codebook=shared_codebook, verbose=verbose,
+        )
+
+    # Fixed-length: convert to numpy array
     try:
         values = np.array(values)
     except Exception:

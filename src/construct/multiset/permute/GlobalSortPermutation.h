@@ -8,23 +8,31 @@
 
 namespace caramel {
 
+// Core ragged implementation: each row has a (potentially different) length.
+// `row_offsets` has num_rows+1 entries; row i spans
+// M[row_offsets[i] .. row_offsets[i+1]).
+// `max_cols` is the maximum row length (number of column buckets for scoring).
 template <typename T>
-void globalSortPermutation(T *M, int num_rows, int num_cols,
-                           int refinement_iterations = 5) {
+void globalSortPermutationRagged(T *M, const int *row_offsets, int num_rows,
+                                 int max_cols,
+                                 int refinement_iterations = 5) {
   // Phase 1: Global Frequency Sort
-  // Sort each row so the most globally frequent items land in leftmost columns.
+  int total = row_offsets[num_rows];
   std::unordered_map<T, int> global_counts;
-  for (int i = 0; i < num_rows * num_cols; i++) {
+  for (int i = 0; i < total; i++) {
     global_counts[M[i]]++;
   }
 
-#pragma omp parallel for default(none) shared(M, global_counts, num_rows, num_cols)
+#pragma omp parallel for default(none)                                         \
+    shared(M, global_counts, row_offsets, num_rows)
   for (int row = 0; row < num_rows; row++) {
-    T *row_start = M + row * num_cols;
-    std::sort(row_start, row_start + num_cols, [&](const T &a, const T &b) {
+    T *row_start = M + row_offsets[row];
+    int row_len = row_offsets[row + 1] - row_offsets[row];
+    std::sort(row_start, row_start + row_len, [&](const T &a, const T &b) {
       int ca = global_counts.at(a);
       int cb = global_counts.at(b);
-      if (ca != cb) return ca > cb;
+      if (ca != cb)
+        return ca > cb;
       return a < b;
     });
   }
@@ -42,26 +50,24 @@ void globalSortPermutation(T *M, int num_rows, int num_cols,
     float score;
     int item_idx;
     int pref_idx;
-    bool operator<(const PQItem &other) const {
-      return score < other.score;
-    }
+    bool operator<(const PQItem &other) const { return score < other.score; }
   };
 
   for (int iter = 0; iter < refinement_iterations; iter++) {
-    // Build counts: how many times each value appears in each column.
-    std::vector<std::unordered_map<T, int>> counts(num_cols);
+    std::vector<std::unordered_map<T, int>> counts(max_cols);
     for (int row = 0; row < num_rows; row++) {
-      for (int col = 0; col < num_cols; col++) {
-        counts[col][M[row * num_cols + col]]++;
+      int row_len = row_offsets[row + 1] - row_offsets[row];
+      T *row_start = M + row_offsets[row];
+      for (int col = 0; col < row_len; col++) {
+        counts[col][row_start[col]]++;
       }
     }
 
-    // For each unique value, build a sorted preference list of columns.
     std::unordered_map<T, std::vector<ColScore>> value_prefs;
     for (const auto &[value, _] : global_counts) {
       auto &prefs = value_prefs[value];
-      prefs.reserve(num_cols);
-      for (int col = 0; col < num_cols; col++) {
+      prefs.reserve(max_cols);
+      for (int col = 0; col < max_cols; col++) {
         auto it = counts[col].find(value);
         int count = (it != counts[col].end()) ? it->second : 0;
         float score =
@@ -71,25 +77,28 @@ void globalSortPermutation(T *M, int num_rows, int num_cols,
       std::sort(prefs.begin(), prefs.end(), std::greater<ColScore>());
     }
 
-    // Greedy assignment: for each row, assign items to their best available
-    // column using a priority queue to resolve conflicts.
-#pragma omp parallel for default(none) shared(M, value_prefs, num_rows, num_cols)
+#pragma omp parallel for default(none)                                         \
+    shared(M, value_prefs, row_offsets, num_rows)
     for (int row = 0; row < num_rows; row++) {
-      T *row_start = M + row * num_cols;
+      T *row_start = M + row_offsets[row];
+      int row_len = row_offsets[row + 1] - row_offsets[row];
 
       std::priority_queue<PQItem> pq;
-      std::vector<bool> col_used(num_cols, false);
-      std::vector<T> new_row(num_cols);
+      std::vector<bool> col_used(row_len, false);
+      std::vector<T> new_row(row_len);
 
-      for (int item_idx = 0; item_idx < num_cols; item_idx++) {
+      for (int item_idx = 0; item_idx < row_len; item_idx++) {
         const auto &prefs = value_prefs.at(row_start[item_idx]);
-        if (!prefs.empty()) {
-          pq.push({prefs[0].score, item_idx, 0});
+        for (int p = 0; p < static_cast<int>(prefs.size()); p++) {
+          if (prefs[p].col_idx < row_len) {
+            pq.push({prefs[p].score, item_idx, p});
+            break;
+          }
         }
       }
 
       int assigned = 0;
-      while (assigned < num_cols && !pq.empty()) {
+      while (assigned < row_len && !pq.empty()) {
         PQItem top = pq.top();
         pq.pop();
 
@@ -97,14 +106,17 @@ void globalSortPermutation(T *M, int num_rows, int num_cols,
         const auto &prefs = value_prefs.at(val);
         int col_idx = prefs[top.pref_idx].col_idx;
 
-        if (!col_used[col_idx]) {
+        if (col_idx < row_len && !col_used[col_idx]) {
           col_used[col_idx] = true;
           new_row[col_idx] = val;
           assigned++;
         } else {
-          int next = top.pref_idx + 1;
-          if (next < static_cast<int>(prefs.size())) {
-            pq.push({prefs[next].score, top.item_idx, next});
+          for (int next = top.pref_idx + 1;
+               next < static_cast<int>(prefs.size()); next++) {
+            if (prefs[next].col_idx < row_len) {
+              pq.push({prefs[next].score, top.item_idx, next});
+              break;
+            }
           }
         }
       }
@@ -112,6 +124,18 @@ void globalSortPermutation(T *M, int num_rows, int num_cols,
       std::copy(new_row.begin(), new_row.end(), row_start);
     }
   }
+}
+
+// Fixed-length convenience wrapper: all rows have the same number of columns.
+template <typename T>
+void globalSortPermutation(T *M, int num_rows, int num_cols,
+                           int refinement_iterations = 5) {
+  std::vector<int> row_offsets(num_rows + 1);
+  for (int i = 0; i <= num_rows; i++) {
+    row_offsets[i] = i * num_cols;
+  }
+  globalSortPermutationRagged<T>(M, row_offsets.data(), num_rows, num_cols,
+                                 refinement_iterations);
 }
 
 } // namespace caramel
