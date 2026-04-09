@@ -24,10 +24,11 @@ All strategies use AutoFilter prefilter. Permute variants use global_sort with 5
 
 ## Metrics
 
-- **Bits per key**: serialized size in bits divided by N. Lower is better.
-- **Construction time**: wall-clock seconds to build the data structure (including permutation). Lower is better.
-- **Query latency**: median nanoseconds per single-key lookup. Lower is better.
+- **Bits per key**: serialized size in bits divided by N.
+- **Construction time**: construction (includes permutation).
+- **Query latency**: median nanoseconds per single-key lookup. 
 
+## Results
 
 ### Fixed-Length Arrays
 

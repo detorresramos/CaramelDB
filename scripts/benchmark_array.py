@@ -318,40 +318,8 @@ def _make_metric_tables(section_title, data_rows, data_headers, strategies, metr
     return "\n".join(lines)
 
 
-def format_results_markdown(all_results, num_keys):
-    """Format all results into clean markdown tables."""
-    lines = [
-        "# Key-to-Array Benchmark Results",
-        "",
-        "## Setup",
-        "",
-        f"- **N** (number of keys): {num_keys:,}",
-        "- **M** (values per key): exactly M for fixed-length arrays, or drawn uniformly from a range for ragged arrays",
-        "- **Vocab**: number of distinct values in the universe",
-        "- **s** (Zipfian exponent): controls value skew (0.5 = mild, 2.0 = high)",
-        "- Values sampled without replacement (per row) from Zipfian distribution over Vocab items",
-        "",
-        "## Strategies",
-        "",
-        "All strategies use AutoFilter prefilter. Permute variants use global_sort with 5 refinement iterations.",
-        "",
-        "- **Column**: M independent CSFs, one per column position. Each column maps the keys to that keys value within the column.",
-        "- **Column+Permute**: Column, but first reorder values within each row to minimize per-column entropy.",
-        "- **Column+SharedCB**: Column with a single Huffman codebook shared across all columns instead of one per column.",
-        "- **Column+SharedCB+Permute**: Both shared codebook and permutation.",
-        "- **Packed**: Single CSF per key storing all values as a concatenated Huffman bitstream with a stop symbol. No column structure.",
-        "- **RaggedColumn**: A length CSF (key → array length) plus per-column CSFs. Column 0 has all keys, column 1 only keys with length >= 2, column i only keys with length >= i+1. Later columns shrink as fewer keys reach them.",
-        "- **RaggedColumn+Permute**: RaggedColumn with permutation applied to the prefix columns shared by all keys.",
-        "- **PaddedColumn**: Pad ragged arrays to max length, then use Column.",
-        "- **PaddedColumn+Permute**: Pad ragged arrays to max length, then use Column+Permute.",
-        "",
-        "## Metrics",
-        "",
-        "- **Bits per key**: serialized size in bits divided by N. Lower is better.",
-        "- **Construction time**: wall-clock seconds to build the data structure (including permutation). Lower is better.",
-        "- **Query latency**: median nanoseconds per single-key lookup. Lower is better.",
-        "",
-    ]
+def format_results_tables(all_results):
+    lines = []
 
     metric_labels = [
         ("bits_per_key", "Bits per key (serialized size)"),
@@ -466,23 +434,17 @@ def main():
                 print(f" {metrics['bits_per_key']} bits/key, {metrics['build_s']}s, {metrics['query_ns']}ns")
         all_results.append(result)
 
-    # Write markdown output
-    md_output = format_results_markdown(all_results, num_keys)
+    # Print tables to stdout
+    tables = format_results_tables(all_results)
+    print("\n" + tables)
 
+    # Save raw JSON
+    json_path = os.path.join(os.path.dirname(__file__), "..", "artifacts", "array-benchmark.json")
     if args.output:
-        out_path = args.output
-    else:
-        out_path = os.path.join(os.path.dirname(__file__), "..", "artifacts", "array-benchmark.md")
-
-    with open(out_path, "w") as f:
-        f.write(md_output)
-    print(f"\nResults saved to {out_path}")
-
-    # Also save raw JSON
-    json_path = out_path.replace(".md", ".json")
+        json_path = args.output
     with open(json_path, "w") as f:
         json.dump(all_results, f, indent=2)
-    print(f"Raw data saved to {json_path}")
+    print(f"\nRaw data saved to {json_path}")
 
 
 if __name__ == "__main__":
