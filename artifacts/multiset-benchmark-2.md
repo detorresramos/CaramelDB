@@ -8,14 +8,18 @@
 - **s** (Zipfian exponent): controls value skew (0.5 = mild, 2.0 = high)
 - Values sampled without replacement (per row) from Zipfian distribution over Vocab items
 
-## Strategies
-
 All strategies use AutoFilter prefilter. Permute variants use global_sort with 5 refinement iterations.
+
+## Fixed Strategies
 
 - **Column**: M independent CSFs, one per column position. Each column maps the keys to that keys value within the column.
 - **Column+Permute**: Column, but first reorder values within each row to minimize per-column entropy.
 - **Column+SharedCB**: Column with a single Huffman codebook shared across all columns instead of one per column.
 - **Column+SharedCB+Permute**: Both shared codebook and permutation.
+- **Packed**: Single CSF per key storing all values as a concatenated Huffman bitstream with a stop symbol. No column structure.
+
+## Fixed Strategies
+
 - **Packed**: Single CSF per key storing all values as a concatenated Huffman bitstream with a stop symbol. No column structure.
 - **RaggedColumn**: A length CSF (key → array length) plus per-column CSFs. Column 0 has all keys, column 1 only keys with length >= 2, column i only keys with length >= i+1. Later columns shrink as fewer keys reach them.
 - **RaggedColumn+Permute**: RaggedColumn with ragged-aware permutation applied across all columns (each row is permuted over its actual length, not just the shared prefix).
