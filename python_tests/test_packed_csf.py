@@ -20,7 +20,7 @@ def test_packed_csf_basic_fixed():
         for _ in range(num_keys)
     ]
 
-    csf = carameldb.CaramelPacked(keys, values, verbose=False)
+    csf = carameldb.Caramel(keys, values, strategy="packed", verbose=False)
 
     for i in range(num_keys):
         result = csf.query(keys[i])
@@ -42,7 +42,7 @@ def test_packed_csf_ragged():
         row = sorted(rng.choice(vocab_size, size=length, replace=False).tolist())
         values.append(row)
 
-    csf = carameldb.CaramelPacked(keys, values, verbose=False)
+    csf = carameldb.Caramel(keys, values, strategy="packed", verbose=False)
 
     for i in range(num_keys):
         result = csf.query(keys[i])
@@ -56,7 +56,7 @@ def test_packed_csf_single_value_rows():
     keys = [f"k{i}" for i in range(100)]
     values = [[i % 20] for i in range(100)]
 
-    csf = carameldb.CaramelPacked(keys, values, verbose=False)
+    csf = carameldb.Caramel(keys, values, strategy="packed", verbose=False)
 
     for i in range(100):
         assert csf.query(keys[i]) == values[i]
@@ -67,7 +67,7 @@ def test_packed_csf_save_load():
     keys = [f"key_{i}" for i in range(200)]
     values = [[i % 10, (i * 3) % 10, (i * 7) % 10] for i in range(200)]
 
-    csf = carameldb.CaramelPacked(keys, values, verbose=False)
+    csf = carameldb.Caramel(keys, values, strategy="packed", verbose=False)
 
     with tempfile.NamedTemporaryFile(suffix=".csf", delete=False) as tmp:
         tmp_path = tmp.name
@@ -81,12 +81,12 @@ def test_packed_csf_save_load():
 
 
 def test_packed_csf_numpy_input():
-    """CaramelPacked accepts 2D numpy arrays."""
+    """Packed strategy accepts 2D numpy arrays."""
     keys = [f"key_{i}" for i in range(100)]
     values = np.array([[i % 5, (i + 1) % 5, (i + 2) % 5] for i in range(100)],
                       dtype=np.uint32)
 
-    csf = carameldb.CaramelPacked(keys, values, verbose=False)
+    csf = carameldb.Caramel(keys, values, strategy="packed", verbose=False)
 
     for i in range(100):
         assert sorted(csf.query(keys[i])) == sorted(values[i].tolist())

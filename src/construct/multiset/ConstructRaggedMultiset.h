@@ -45,28 +45,53 @@ constructRaggedMultisetCsf(const std::vector<std::string> &keys,
     }
   }
 
-  // Optional permutation on the min_length prefix (all keys present)
-  if (config.permutation_config && min_length > 1) {
-    // Build rectangular prefix: min_length columns x num_keys
-    std::vector<std::vector<T>> prefix_cols(col_values.begin(),
-                                            col_values.begin() + min_length);
-
-    if (std::dynamic_pointer_cast<GlobalSortPermutationConfig>(
+  // Optional permutation across all columns (ragged-aware)
+  if (config.permutation_config && max_length > 1) {
+    if (auto cfg = std::dynamic_pointer_cast<GlobalSortPermutationConfig>(
             config.permutation_config)) {
-      auto cfg = std::dynamic_pointer_cast<GlobalSortPermutationConfig>(
-          config.permutation_config);
       int iters = cfg->refinement_iterations;
-      applyPermutation(prefix_cols, [iters](T *M, int nr, int nc) {
-        globalSortPermutation<T>(M, nr, nc, iters);
-      });
+
+      // Build CSR-style flat buffer from ragged row-major data
+      std::vector<int> row_offsets(num_keys + 1, 0);
+      for (size_t i = 0; i < num_keys; i++) {
+        row_offsets[i + 1] = row_offsets[i] + lengths[i];
+      }
+      int total = row_offsets[num_keys];
+      std::vector<T> buf(total);
+
+      // Column-major (col_values) → row-major flat buffer
+      // col_values[c] only has entries for keys with length > c, so we need
+      // to track per-column position.
+      std::vector<size_t> col_pos(max_length, 0);
+      for (size_t i = 0; i < num_keys; i++) {
+        for (size_t c = 0; c < lengths[i]; c++) {
+          buf[row_offsets[i] + c] = col_values[c][col_pos[c]];
+          col_pos[c]++;
+        }
+      }
+
+      globalSortPermutationRagged<T>(buf.data(), row_offsets.data(), num_keys,
+                                     max_length, iters);
+
+      // Write back: flat row-major buffer → column-major col_values
+      std::fill(col_pos.begin(), col_pos.end(), 0);
+      for (size_t i = 0; i < num_keys; i++) {
+        for (size_t c = 0; c < lengths[i]; c++) {
+          col_values[c][col_pos[c]] = buf[row_offsets[i] + c];
+          col_pos[c]++;
+        }
+      }
     } else if (std::dynamic_pointer_cast<EntropyPermutationConfig>(
                    config.permutation_config)) {
-      applyPermutation(prefix_cols, entropyPermutation<T>);
-    }
-
-    // Write back permuted prefix
-    for (size_t c = 0; c < min_length; c++) {
-      col_values[c] = std::move(prefix_cols[c]);
+      // Entropy permutation: fall back to min_length prefix (rectangular)
+      if (min_length > 1) {
+        std::vector<std::vector<T>> prefix_cols(col_values.begin(),
+                                                col_values.begin() + min_length);
+        applyPermutation(prefix_cols, entropyPermutation<T>);
+        for (size_t c = 0; c < min_length; c++) {
+          col_values[c] = std::move(prefix_cols[c]);
+        }
+      }
     }
   }
 

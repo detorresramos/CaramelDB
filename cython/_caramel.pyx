@@ -1061,7 +1061,7 @@ cdef class MultisetCSFUint32:
 
         self._ptr = cpp.constructMultisetCsfConfig_uint32(cpp_keys, cpp_values, config)
 
-    def query(self, key, bint parallel=True):
+    def query(self, key, bint parallel=False):
         cdef const char* buf
         cdef Py_ssize_t length
         _key_to_buf(key, &buf, &length)
@@ -1117,7 +1117,7 @@ cdef class MultisetCSFUint64:
 
         self._ptr = cpp.constructMultisetCsfConfig_uint64(cpp_keys, cpp_values, config)
 
-    def query(self, key, bint parallel=True):
+    def query(self, key, bint parallel=False):
         cdef const char* buf
         cdef Py_ssize_t length
         _key_to_buf(key, &buf, &length)
@@ -1172,7 +1172,7 @@ cdef class MultisetCSFChar10:
 
         self._ptr = cpp.constructMultisetCsfConfig_Char10(cpp_keys, cpp_values, config)
 
-    def query(self, key, bint parallel=True):
+    def query(self, key, bint parallel=False):
         cdef const char* buf
         cdef Py_ssize_t length
         _key_to_buf(key, &buf, &length)
@@ -1231,7 +1231,7 @@ cdef class MultisetCSFChar12:
 
         self._ptr = cpp.constructMultisetCsfConfig_Char12(cpp_keys, cpp_values, config)
 
-    def query(self, key, bint parallel=True):
+    def query(self, key, bint parallel=False):
         cdef const char* buf
         cdef Py_ssize_t length
         _key_to_buf(key, &buf, &length)
@@ -1294,7 +1294,7 @@ cdef class MultisetCSFString:
 
         self._ptr = cpp.constructMultisetCsfConfig_string(cpp_keys, cpp_values, config)
 
-    def query(self, key, bint parallel=True):
+    def query(self, key, bint parallel=False):
         cdef const char* buf
         cdef Py_ssize_t length
         _key_to_buf(key, &buf, &length)

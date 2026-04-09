@@ -21,7 +21,7 @@ def test_ragged_basic():
         row = sorted(rng.choice(vocab_size, size=length, replace=False).tolist())
         values.append(row)
 
-    csf = carameldb.CaramelRagged(keys, values, verbose=False)
+    csf = carameldb.Caramel(keys, values, verbose=False)
 
     for i in range(num_keys):
         result = csf.query(keys[i])
@@ -43,7 +43,7 @@ def test_ragged_fixed_length():
         for _ in range(num_keys)
     ]
 
-    csf = carameldb.CaramelRagged(keys, values, verbose=False)
+    csf = carameldb.Caramel(keys, values, verbose=False)
 
     for i in range(num_keys):
         result = csf.query(keys[i])
@@ -64,7 +64,7 @@ def test_ragged_with_permutation():
         row = sorted(rng.choice(vocab_size, size=length, replace=False).tolist())
         values.append(row)
 
-    csf = carameldb.CaramelRagged(
+    csf = carameldb.Caramel(
         keys, values,
         permutation=GlobalSortPermutationConfig(refinement_iterations=3),
         verbose=False,
@@ -88,7 +88,7 @@ def test_ragged_shared_codebook():
         row = sorted(rng.choice(vocab_size, size=length, replace=False).tolist())
         values.append(row)
 
-    csf = carameldb.CaramelRagged(
+    csf = carameldb.Caramel(
         keys, values, shared_codebook=True, verbose=False,
     )
 
@@ -102,7 +102,7 @@ def test_ragged_save_load():
     keys = [f"key_{i}" for i in range(200)]
     values = [[i % 10, (i * 3) % 10] if i % 2 == 0 else [i % 10] for i in range(200)]
 
-    csf = carameldb.CaramelRagged(keys, values, verbose=False)
+    csf = carameldb.Caramel(keys, values, verbose=False)
 
     with tempfile.NamedTemporaryFile(suffix=".csf", delete=False) as tmp:
         tmp_path = tmp.name
@@ -120,7 +120,7 @@ def test_ragged_single_element_rows():
     keys = [f"k{i}" for i in range(100)]
     values = [[i % 20] for i in range(100)]
 
-    csf = carameldb.CaramelRagged(keys, values, verbose=False)
+    csf = carameldb.Caramel(keys, values, verbose=False)
 
     for i in range(100):
         assert csf.query(keys[i]) == values[i]

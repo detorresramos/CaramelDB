@@ -141,7 +141,7 @@ def run_column(keys, values_2d, permute=False, shared_cb=False):
 def run_packed(keys, values_lol):
     """Packed strategy: single CSF with concatenated Huffman + STOP."""
     t0 = time.perf_counter()
-    csf = carameldb.CaramelPacked(keys, values_lol, verbose=False)
+    csf = carameldb.Caramel(keys, values_lol, strategy="packed", verbose=False)
     build_s = time.perf_counter() - t0
     return csf, build_s
 
@@ -150,7 +150,7 @@ def run_ragged_column(keys, values_lol, permute=False, shared_cb=False):
     """RaggedColumn strategy: length CSF + per-column CSFs."""
     perm_config = GlobalSortPermutationConfig(refinement_iterations=5) if permute else None
     t0 = time.perf_counter()
-    csf = carameldb.CaramelRagged(
+    csf = carameldb.Caramel(
         keys, values_lol,
         permutation=perm_config,
         prefilter=AutoFilterConfig(),
