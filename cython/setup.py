@@ -32,9 +32,7 @@ class CMakeCythonBuild(build_ext):
 
         cmake_generator = os.environ.get("CMAKE_GENERATOR", "")
         if "CMAKE_ARGS" in os.environ:
-            cmake_args += [
-                item for item in os.environ["CMAKE_ARGS"].split(" ") if item
-            ]
+            cmake_args += [item for item in os.environ["CMAKE_ARGS"].split(" ") if item]
 
         if not cmake_generator or cmake_generator == "Ninja":
             try:
@@ -47,16 +45,12 @@ class CMakeCythonBuild(build_ext):
         if sys.platform.startswith("darwin"):
             archs = re.findall(r"-arch (\S+)", os.environ.get("ARCHFLAGS", ""))
             if archs:
-                cmake_args += [
-                    "-DCMAKE_OSX_ARCHITECTURES={}".format(";".join(archs))
-                ]
+                cmake_args += ["-DCMAKE_OSX_ARCHITECTURES={}".format(";".join(archs))]
 
         jobs = multiprocessing.cpu_count() * 2
 
         # Configure and build caramel_lib only
-        subprocess.check_call(
-            ["cmake", project_root] + cmake_args, cwd=build_dir
-        )
+        subprocess.check_call(["cmake", project_root] + cmake_args, cwd=build_dir)
         subprocess.check_call(
             ["cmake", "--build", ".", "-t", "caramel_lib", f"-j{jobs}"],
             cwd=build_dir,
@@ -128,12 +122,10 @@ def get_library_dirs():
     return [build_dir]
 
 
-project_root = str(Path(__file__).resolve().parent.parent)
-
 extensions = [
     Extension(
         "carameldb._caramel",
-        sources=[os.path.join(project_root, "cython", "_caramel.pyx")],
+        sources=["_caramel.pyx"],
         include_dirs=get_include_dirs(),
         library_dirs=get_library_dirs(),
         libraries=["caramel_lib"],
@@ -144,14 +136,7 @@ extensions = [
 ]
 
 setup(
-    name="carameldb",
-    version="0.0.1",
     packages=find_packages(),
-    author="Ben Coleman, Vihan Lakshman, David Torres, Chen Luo",
-    author_email="detorresramos1@gmail.com",
-    description="A Succinct Read-Only Lookup Table via Compressed Static Functions",
-    long_description="",
-    license_files=("../LICENSE",),
     ext_modules=cythonize(
         extensions,
         compiler_directives={
@@ -162,7 +147,4 @@ setup(
     ),
     cmdclass={"build_ext": CMakeCythonBuild},
     zip_safe=False,
-    install_requires=["numpy"],
-    extras_require={"test": ["pytest>=6.0"]},
-    python_requires=">=3.7",
 )

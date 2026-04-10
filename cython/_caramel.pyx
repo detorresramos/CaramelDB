@@ -2,15 +2,16 @@
 # cython: language_level = 3
 # cython: always_allow_keywords = False
 
-cimport cython
-from cpython.bytes cimport PyBytes_AS_STRING, PyBytes_GET_SIZE
+from cpython.bytes cimport PyBytes_AS_STRING, PyBytes_Check, PyBytes_GET_SIZE
 from cpython.unicode cimport PyUnicode_Check, PyUnicode_DecodeUTF8
-from cpython.bytes cimport PyBytes_Check
 from libc.string cimport memcpy
+from libcpp cimport bool as cbool
+from libcpp.memory cimport make_shared, shared_ptr
 from libcpp.string cimport string
 from libcpp.vector cimport vector
-from libcpp.memory cimport shared_ptr, make_shared
-from libcpp cimport bool as cbool
+
+cimport cython
+
 
 cdef extern from "Python.h":
     const char* PyUnicode_AsUTF8AndSize(object o, Py_ssize_t *size) except NULL
@@ -18,6 +19,7 @@ cdef extern from "Python.h":
 cimport _caramel as cpp
 
 import numpy as np
+
 cimport numpy as np
 
 np.import_array()

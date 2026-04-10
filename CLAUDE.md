@@ -1,12 +1,18 @@
 # CaramelDB Build and Test Guide
 
+## Setup
+```bash
+uv sync --directory cython --extra dev --no-editable
+```
+Creates the virtual environment at `cython/.venv` and installs all dependencies (including dev tools).
+
 ## Building
 
 ### Python Bindings (Default)
 ```bash
 bin/build.py
 ```
-Builds the code in release mode and installs Python bindings.
+Builds the code in release mode and installs Python bindings via `uv sync`.
 
 ### C++ Tests
 ```bash

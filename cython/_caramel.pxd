@@ -1,10 +1,10 @@
 # distutils: language = c++
 
+from libc.stddef cimport size_t
+from libcpp cimport bool as cbool
+from libcpp.memory cimport shared_ptr
 from libcpp.string cimport string
 from libcpp.vector cimport vector
-from libcpp.memory cimport shared_ptr
-from libcpp cimport bool as cbool
-from libc.stddef cimport size_t
 
 # ── Char10/Char12 typedefs ────────────────────────────────────────────────
 

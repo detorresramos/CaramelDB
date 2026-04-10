@@ -53,14 +53,13 @@ def main():
     os.system('mkdir -p "build"')
 
     if args.target == "package":
-        # Set environment variables, and run pip install
         os.environ["CARAMEL_BUILD_MODE"] = args.build_mode
-
-        os.chdir("cython")
-        checked_system_call(f"pip3 install . --verbose --force-reinstall")
-        os.chdir("..")
+        checked_system_call(
+            "uv sync --directory cython --no-editable --extra dev --reinstall-package carameldb"
+        )
     else:
-        cmake_command = f"cmake -B build -S . -DPYTHON_EXECUTABLE=$(which python3) -DCMAKE_BUILD_TYPE={args.build_mode}"
+        python_exec = "$(uv run --directory cython which python)"
+        cmake_command = f"cmake -B build -S . -DPYTHON_EXECUTABLE={python_exec} -DCMAKE_BUILD_TYPE={args.build_mode}"
         build_command = f"cmake --build build --target {args.target}"
 
         checked_system_call(cmake_command)

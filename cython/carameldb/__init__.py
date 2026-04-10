@@ -2,8 +2,6 @@ import numpy as np
 
 from ._caramel import (
     AutoFilterConfig,
-    EntropyPermutationConfig,
-    GlobalSortPermutationConfig,
     BinaryFuseFilterConfig,
     BinaryFusePreFilterUint32,
     BinaryFusePreFilterUint64,
@@ -21,7 +19,9 @@ from ._caramel import (
     CSFString,
     CSFUint32,
     CSFUint64,
+    EntropyPermutationConfig,
     FilterStats,
+    GlobalSortPermutationConfig,
     HuffmanStats,
     MultisetCSFChar10,
     MultisetCSFChar12,
@@ -29,12 +29,12 @@ from ._caramel import (
     MultisetCSFUint32,
     MultisetCSFUint64,
     PackedCSFUint32,
-    RaggedMultisetCSFUint32,
     PreFilterChar10,
     PreFilterChar12,
     PreFilterString,
     PreFilterUint32,
     PreFilterUint64,
+    RaggedMultisetCSFUint32,
     UnorderedMapBaseline,
     XORFilterConfig,
     XORPreFilterUint32,
@@ -142,8 +142,12 @@ def Caramel(
         if shared_filter:
             raise ValueError("'shared_filter' is not supported for ragged values.")
         return RaggedMultisetCSFUint32(
-            keys, values, prefilter=prefilter, permutation=permutation,
-            shared_codebook=shared_codebook, verbose=verbose,
+            keys,
+            values,
+            prefilter=prefilter,
+            permutation=permutation,
+            shared_codebook=shared_codebook,
+            verbose=verbose,
         )
 
     # Fixed-length: convert to numpy array
@@ -157,17 +161,27 @@ def Caramel(
     CSFClass = _infer_backend(values, max_to_infer=max_to_infer)
     if CSFClass.is_multiset():
         csf = CSFClass(
-            keys, values, prefilter=prefilter, permutation=permutation,
-            shared_codebook=shared_codebook, shared_filter=shared_filter,
+            keys,
+            values,
+            prefilter=prefilter,
+            permutation=permutation,
+            shared_codebook=shared_codebook,
+            shared_filter=shared_filter,
             verbose=verbose,
         )
     else:
         if permutation is not None:
-            raise ValueError("'permutation' is only supported for multiset (2D) values.")
+            raise ValueError(
+                "'permutation' is only supported for multiset (2D) values."
+            )
         if shared_codebook:
-            raise ValueError("'shared_codebook' is only supported for multiset (2D) values.")
+            raise ValueError(
+                "'shared_codebook' is only supported for multiset (2D) values."
+            )
         if shared_filter:
-            raise ValueError("'shared_filter' is only supported for multiset (2D) values.")
+            raise ValueError(
+                "'shared_filter' is only supported for multiset (2D) values."
+            )
         csf = CSFClass(keys, values, prefilter=prefilter, verbose=verbose)
     return csf
 
@@ -247,5 +261,3 @@ def _infer_length(values_to_infer, max_to_infer):
         return lengths[0]
     else:
         return None
-
-
