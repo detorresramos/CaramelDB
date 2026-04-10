@@ -7,6 +7,6 @@ BASEDIR=$(dirname "$0")
 cd $BASEDIR/../build/
 
 echo "Running the following tests:"
-python3 -m pytest ../ --ignore-glob=../deps --collect-only "$@" 
+uv run --directory ../cython python -m pytest ../ --ignore-glob=../deps --collect-only "$@"
 echo "Output of the tests:"
-python3 -m pytest ../ --ignore-glob=../deps -s "$@"
+uv run --directory ../cython python -m pytest ../ --ignore-glob=../deps -s "$@"

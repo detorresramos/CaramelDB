@@ -9,4 +9,5 @@ brew install libomp
 
 git submodule update --init --recursive
 
-pip3 install pytest numpy cython
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv sync --directory cython --extra dev

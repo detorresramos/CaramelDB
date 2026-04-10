@@ -1,3 +1,22 @@
 [build-system]
 requires = ["setuptools>=42", "cython>=3.0", "numpy"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "carameldb"
+version = "0.0.1"
+description = "A Succinct Read-Only Lookup Table via Compressed Static Functions"
+requires-python = ">=3.9"
+license = "MIT"
+authors = [
+    {name = "Ben Coleman, Vihan Lakshman, David Torres, Chen Luo", email = "detorresramos1@gmail.com"}
+]
+dependencies = ["numpy"]
+
+[project.optional-dependencies]
+test = ["pytest>=6.0"]
+format = ["black", "isort"]
+dev = ["pytest>=6.0", "black", "isort"]
+
+[tool.setuptools.packages.find]
+where = ["."]

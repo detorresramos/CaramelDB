@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Run this script as sudo
+# Run this script as sudo (for apt commands)
 
 apt update
 
@@ -14,4 +14,5 @@ apt install g++ -y
 
 git submodule update --init --recursive
 
-pip3 install pytest numpy cython
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv sync --directory cython --extra dev
