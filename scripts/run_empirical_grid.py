@@ -185,31 +185,49 @@ def main():
     parser.add_argument("--dataset-dir", default="datasets/")
     parser.add_argument("--output-json", default=OUTPUT_JSON)
     parser.add_argument("--output-md", default="artifacts/multiset-benchmark-empirical.md")
+    parser.add_argument("--m-order", type=int, nargs="+", default=None,
+                        help="Order of M values to run (default: 10 25 50 100)")
     args = parser.parse_args()
 
+    m_order = args.m_order or M_VALUES
+
+    # Load existing results to skip completed configs
     all_results = []
+    completed = set()
+    if os.path.exists(args.output_json):
+        with open(args.output_json) as f:
+            all_results = json.load(f)
+        for r in all_results:
+            completed.add((r["dataset"], r["M"], r["strategy"]))
+        print(f"Loaded {len(all_results)} existing results, skipping {len(completed)} configs", flush=True)
+
+    # Build run list: iterate M values in specified order, both datasets per M
+    run_list = []
+    for m in m_order:
+        for ds_name, ds_prefix in DATASETS:
+            npy_path = os.path.join(args.dataset_dir, f"{ds_prefix}_100m_m{m}.npy")
+            for strat_name, perm, shared_cb in STRATEGIES:
+                if (ds_name, m, strat_name) in completed:
+                    continue
+                run_list.append((ds_name, ds_prefix, m, strat_name, perm, shared_cb, npy_path))
+
+    total = len(run_list)
+    print(f"{total} configs to run", flush=True)
     t_global = time.perf_counter()
 
-    total_configs = len(DATASETS) * len(M_VALUES) * len(STRATEGIES)
-    i = 0
+    for i, (ds_name, ds_prefix, m, strat_name, perm, shared_cb, npy_path) in enumerate(run_list):
+        if not os.path.exists(npy_path):
+            print(f"SKIP: {npy_path} not found", flush=True)
+            continue
 
-    for ds_name, ds_prefix in DATASETS:
-        for m in M_VALUES:
-            npy_path = os.path.join(args.dataset_dir, f"{ds_prefix}_100m_m{m}.npy")
-            if not os.path.exists(npy_path):
-                print(f"SKIP: {npy_path} not found", flush=True)
-                continue
+        elapsed = time.perf_counter() - t_global
+        print(f"\n[{i+1}/{total}] {ds_name} M={m} {strat_name} ({elapsed:.0f}s elapsed)", flush=True)
 
-            for strat_name, perm, shared_cb in STRATEGIES:
-                i += 1
-                elapsed = time.perf_counter() - t_global
-                print(f"\n[{i}/{total_configs}] {ds_name} M={m} {strat_name} ({elapsed:.0f}s elapsed)", flush=True)
+        result = run_one(ds_name, m, strat_name, perm, shared_cb, npy_path)
+        all_results.append(result)
 
-                result = run_one(ds_name, m, strat_name, perm, shared_cb, npy_path)
-                all_results.append(result)
-
-                with open(args.output_json, "w") as f:
-                    json.dump(all_results, f, indent=2)
+        with open(args.output_json, "w") as f:
+            json.dump(all_results, f, indent=2)
 
     elapsed = time.perf_counter() - t_global
     print(f"\n{'='*80}")
