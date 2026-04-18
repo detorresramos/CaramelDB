@@ -337,7 +337,9 @@ constructMultisetCsfRowMajor(const std::vector<std::string> &keys,
   // Reusable buffer for extracting one column at a time.
   std::vector<T> column_values(n);
 
+  Timer col_timer;
   for (size_t i = 0; i < num_columns; i++) {
+    col_timer.seconds();
     for (size_t r = 0; r < n; r++) {
       column_values[r] = data[r * num_columns + i];
     }
@@ -395,6 +397,11 @@ constructMultisetCsfRowMajor(const std::vector<std::string> &keys,
     columns[i].filter = col_inputs.filter;
     columns[i].most_common_value = col_inputs.most_common_value;
     columns[i].buildQueryCache();
+
+    if (config.verbose) {
+      std::cout << "  Column " << i + 1 << "/" << num_columns
+                << " done in " << col_timer.seconds() << "s" << std::endl;
+    }
   }
 
   result.build_seconds = timer.seconds();
