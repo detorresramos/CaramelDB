@@ -59,15 +59,18 @@ def test_multiset_csf_permute(tmp_path):
 
     values = np.array(values)
 
+    def dir_size(path):
+        return sum(p.stat().st_size for p in path.iterdir())
+
     csf_permute = carameldb.Caramel(keys, values, permutation=carameldb.EntropyPermutationConfig(), verbose=False)
     csf_permute_file = tmp_path / "csf_permute.csf"
     csf_permute.save(str(csf_permute_file))
-    csf_permute_size = csf_permute_file.stat().st_size
+    csf_permute_size = dir_size(csf_permute_file)
 
     csf_no_permute = carameldb.Caramel(keys, values, verbose=False)
     csf_no_permute_file = tmp_path / "csf_no_permute.csf"
     csf_no_permute.save(str(csf_no_permute_file))
-    csf_no_permute_size = csf_no_permute_file.stat().st_size
+    csf_no_permute_size = dir_size(csf_no_permute_file)
 
     assert csf_permute_size < csf_no_permute_size
 

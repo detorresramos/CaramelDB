@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <queue>
 #include <unordered_map>
 #include <vector>
@@ -13,13 +14,13 @@ namespace caramel {
 // M[row_offsets[i] .. row_offsets[i+1]).
 // `max_cols` is the maximum row length (number of column buckets for scoring).
 template <typename T>
-void globalSortPermutationRagged(T *M, const int *row_offsets, int num_rows,
+void globalSortPermutationRagged(T *M, const int64_t *row_offsets, int num_rows,
                                  int max_cols,
                                  int refinement_iterations = 5) {
   // Phase 1: Global Frequency Sort
-  int total = row_offsets[num_rows];
+  int64_t total = row_offsets[num_rows];
   std::unordered_map<T, int> global_counts;
-  for (int i = 0; i < total; i++) {
+  for (int64_t i = 0; i < total; i++) {
     global_counts[M[i]]++;
   }
 
@@ -130,9 +131,9 @@ void globalSortPermutationRagged(T *M, const int *row_offsets, int num_rows,
 template <typename T>
 void globalSortPermutation(T *M, int num_rows, int num_cols,
                            int refinement_iterations = 5) {
-  std::vector<int> row_offsets(num_rows + 1);
+  std::vector<int64_t> row_offsets(num_rows + 1);
   for (int i = 0; i <= num_rows; i++) {
-    row_offsets[i] = i * num_cols;
+    row_offsets[i] = static_cast<int64_t>(i) * num_cols;
   }
   globalSortPermutationRagged<T>(M, row_offsets.data(), num_rows, num_cols,
                                  refinement_iterations);

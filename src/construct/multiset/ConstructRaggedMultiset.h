@@ -52,11 +52,11 @@ constructRaggedMultisetCsf(const std::vector<std::string> &keys,
       int iters = cfg->refinement_iterations;
 
       // Build CSR-style flat buffer from ragged row-major data
-      std::vector<int> row_offsets(num_keys + 1, 0);
+      std::vector<int64_t> row_offsets(num_keys + 1, 0);
       for (size_t i = 0; i < num_keys; i++) {
         row_offsets[i + 1] = row_offsets[i] + lengths[i];
       }
-      int total = row_offsets[num_keys];
+      int64_t total = row_offsets[num_keys];
       std::vector<T> buf(total);
 
       // Column-major (col_values) → row-major flat buffer
@@ -186,7 +186,9 @@ constructRaggedMultisetCsf(const std::vector<std::string> &keys,
     columns[c].codebook = col_codebook;
     columns[c].filter = col_filter;
     columns[c].most_common_value = mcv;
-    columns[c].codebook->clearCodedict();
+    if (!config.shared_codebook) {
+      columns[c].codebook->clearCodedict();
+    }
   }
 
   for (size_t c = 0; c < max_length; c++) {
