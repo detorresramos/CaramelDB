@@ -49,35 +49,40 @@ def main():
 
     chunk_size = 1_000_000
     num_tiers = len(tier_counts)
-    oversample = 2.0
-    draws_per_row = max(int(args.num_cols * oversample), args.num_cols + 8)
+    M = args.num_cols
 
     for start in range(0, args.num_rows, chunk_size):
         end = min(start + chunk_size, args.num_rows)
         n = end - start
-        total_draws = n * draws_per_row
 
-        tiers = rng.choice(num_tiers, size=total_draws, p=tier_probs)
-        offsets = (rng.random(total_draws) * tier_counts[tiers]).astype(np.int64)
-        ids_flat = (tier_starts[tiers] + offsets).astype(np.uint64)
-        ids = ids_flat.reshape(n, draws_per_row)
+        # Sample exactly M per row (no oversample — V >> M so collisions rare)
+        tiers = rng.choice(num_tiers, size=(n, M), p=tier_probs)
+        offsets = (rng.random((n, M)) * tier_counts[tiers]).astype(np.int64)
+        ids = (tier_starts[tiers] + offsets).astype(np.uint32)
 
-        for i in range(n):
-            _, first_idx = np.unique(ids[i], return_index=True)
-            uniq = ids[i][np.sort(first_idx)]
-            if len(uniq) >= args.num_cols:
-                values[start + i] = uniq[:args.num_cols].astype(np.uint32)
-            else:
-                seen = set(int(x) for x in uniq)
-                while len(seen) < args.num_cols:
-                    t = rng.choice(num_tiers, p=tier_probs)
-                    gid = int(tier_starts[t] + rng.integers(tier_counts[t]))
+        # Vectorized dup check: sort each row, compare adjacent
+        sorted_ids = np.sort(ids, axis=1)
+        has_dup = np.any(sorted_ids[:, 1:] == sorted_ids[:, :-1], axis=1)
+        dup_rows = np.where(has_dup)[0]
+
+        # Fix the rare dup rows by rejection sampling
+        for i in dup_rows:
+            seen = set()
+            row = []
+            while len(row) < M:
+                t = rng.choice(num_tiers, p=tier_probs)
+                gid = int(tier_starts[t] + rng.integers(tier_counts[t]))
+                if gid not in seen:
                     seen.add(gid)
-                values[start + i] = np.fromiter(seen, dtype=np.uint32, count=args.num_cols)
+                    row.append(gid)
+            ids[i] = np.array(row, dtype=np.uint32)
+
+        values[start:end] = ids
 
         elapsed = time.perf_counter() - t0
         pct = end / args.num_rows * 100
-        print(f"  {end:>12,} / {args.num_rows:,} ({pct:5.1f}%) — {elapsed:.0f}s", flush=True)
+        print(f"  {end:>12,} / {args.num_rows:,} ({pct:5.1f}%) — {elapsed:.0f}s"
+              f"  dups={len(dup_rows)}", flush=True)
 
     values.flush()
     sample_time = time.perf_counter() - t0
