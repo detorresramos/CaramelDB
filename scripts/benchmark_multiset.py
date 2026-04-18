@@ -91,39 +91,43 @@ def load_empirical_tiers(csv_path):
     return result
 
 
-def sample_empirical(tier_starts, tier_counts, tier_probs, num_rows, num_cols, rng):
+def sample_empirical(tier_starts, tier_counts, tier_probs, num_rows, num_cols, rng,
+                     chunk_size=1_000_000):
     """
     Sample num_cols items without replacement per row from a tier-structured
-    empirical distribution. Uses bulk oversampling + per-row dedupe; falls back
-    to per-item rejection if a row is short after dedupe.
+    empirical distribution. Processes in chunks to bound memory usage.
     """
     values = np.empty((num_rows, num_cols), dtype=np.uint32)
     num_tiers = len(tier_counts)
-
     oversample = 2.0
     draws_per_row = max(int(num_cols * oversample), num_cols + 8)
-    total = num_rows * draws_per_row
-    tiers = rng.choice(num_tiers, size=total, p=tier_probs)
-    offsets = (rng.random(total) * tier_counts[tiers]).astype(np.int64)
-    ids_flat = (tier_starts[tiers] + offsets).astype(np.uint64)
-    ids = ids_flat.reshape(num_rows, draws_per_row)
 
-    short_rows = []
-    for i in range(num_rows):
-        _, first_idx = np.unique(ids[i], return_index=True)
-        uniq = ids[i][np.sort(first_idx)]
-        if len(uniq) >= num_cols:
-            values[i] = uniq[:num_cols].astype(np.uint32)
-        else:
-            short_rows.append((i, uniq))
+    for start in range(0, num_rows, chunk_size):
+        end = min(start + chunk_size, num_rows)
+        n = end - start
+        total = n * draws_per_row
 
-    for i, uniq in short_rows:
-        seen = set(int(x) for x in uniq)
-        while len(seen) < num_cols:
-            t = rng.choice(num_tiers, p=tier_probs)
-            gid = int(tier_starts[t] + rng.integers(tier_counts[t]))
-            seen.add(gid)
-        values[i] = np.fromiter(seen, dtype=np.uint32, count=num_cols)
+        tiers = rng.choice(num_tiers, size=total, p=tier_probs)
+        offsets = (rng.random(total) * tier_counts[tiers]).astype(np.int64)
+        ids_flat = (tier_starts[tiers] + offsets).astype(np.uint64)
+        ids = ids_flat.reshape(n, draws_per_row)
+
+        short_rows = []
+        for i in range(n):
+            _, first_idx = np.unique(ids[i], return_index=True)
+            uniq = ids[i][np.sort(first_idx)]
+            if len(uniq) >= num_cols:
+                values[start + i] = uniq[:num_cols].astype(np.uint32)
+            else:
+                short_rows.append((start + i, uniq))
+
+        for i, uniq in short_rows:
+            seen = set(int(x) for x in uniq)
+            while len(seen) < num_cols:
+                t = rng.choice(num_tiers, p=tier_probs)
+                gid = int(tier_starts[t] + rng.integers(tier_counts[t]))
+                seen.add(gid)
+            values[i] = np.fromiter(seen, dtype=np.uint32, count=num_cols)
 
     return values
 
