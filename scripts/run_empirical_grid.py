@@ -63,13 +63,17 @@ def run_one(dataset_name, M, strategy_name, permutation, shared_codebook, npy_pa
     build_s = csf.build_seconds
 
     # Serialized size
-    with tempfile.NamedTemporaryFile(suffix=".csf", delete=False) as tmp:
-        tmp_path = tmp.name
+    import shutil
+    tmp_path = tempfile.mkdtemp(suffix=".csf")
+    shutil.rmtree(tmp_path)
     try:
         csf.save(tmp_path)
-        size_bytes = os.path.getsize(tmp_path)
+        size_bytes = sum(
+            os.path.getsize(os.path.join(tmp_path, f))
+            for f in os.listdir(tmp_path)
+        )
     finally:
-        os.unlink(tmp_path)
+        shutil.rmtree(tmp_path, ignore_errors=True)
     bits_per_key = (size_bytes * 8) / N
 
     # Query latency
