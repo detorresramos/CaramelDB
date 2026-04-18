@@ -46,7 +46,7 @@ def run_one(dataset_name, M, strategy_name, permutation, shared_codebook, npy_pa
     values = np.load(npy_path)
     assert values.shape == (N, M), f"Expected ({N}, {M}), got {values.shape}"
 
-    keys = [f"q{i}" for i in range(N)]
+    keys = np.arange(N, dtype=np.uint32)
 
     print(f"  Building {strategy_name}...", flush=True)
     t0 = time.perf_counter()
