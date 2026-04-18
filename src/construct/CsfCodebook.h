@@ -180,6 +180,8 @@ template <typename T> struct CsfCodebook {
     }
   }
 
+  void clearCodedict() { codedict.clear(); }
+
 private:
   friend class cereal::access;
 
