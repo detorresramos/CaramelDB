@@ -26,6 +26,7 @@ Examples:
 """
 
 import argparse
+import csv
 import itertools
 import json
 import os
@@ -49,6 +50,82 @@ NUM_QUERY_KEYS = 250
 WARMUP_TRIALS = 3
 MEASURE_TRIALS = 10
 SEED = 42
+
+
+_EMPIRICAL_CACHE = {}
+
+
+def load_empirical_tiers(csv_path):
+    """
+    Load a (metric, count) CSV where each row describes `count` items that each
+    share the same `metric` weight. Returns tier_starts, tier_counts, tier_probs,
+    total_unique.
+
+    Items are assigned contiguous integer IDs: tier t occupies
+    [tier_starts[t], tier_starts[t] + tier_counts[t]).
+    """
+    key = os.path.abspath(csv_path)
+    if key in _EMPIRICAL_CACHE:
+        return _EMPIRICAL_CACHE[key]
+
+    metrics = []
+    counts = []
+    with open(csv_path, newline="") as f:
+        reader = csv.reader(f)
+        header = next(reader)
+        for row in reader:
+            if not row:
+                continue
+            metrics.append(float(row[0]))
+            counts.append(int(row[1]))
+
+    metrics = np.asarray(metrics, dtype=np.float64)
+    counts = np.asarray(counts, dtype=np.int64)
+    tier_weights = metrics * counts
+    tier_probs = tier_weights / tier_weights.sum()
+    tier_starts = np.concatenate([[0], np.cumsum(counts[:-1])]).astype(np.int64)
+    total_unique = int(counts.sum())
+
+    result = (tier_starts, counts, tier_probs, total_unique)
+    _EMPIRICAL_CACHE[key] = result
+    return result
+
+
+def sample_empirical(tier_starts, tier_counts, tier_probs, num_rows, num_cols, rng):
+    """
+    Sample num_cols items without replacement per row from a tier-structured
+    empirical distribution. Uses bulk oversampling + per-row dedupe; falls back
+    to per-item rejection if a row is short after dedupe.
+    """
+    values = np.empty((num_rows, num_cols), dtype=np.uint32)
+    num_tiers = len(tier_counts)
+
+    oversample = 2.0
+    draws_per_row = max(int(num_cols * oversample), num_cols + 8)
+    total = num_rows * draws_per_row
+    tiers = rng.choice(num_tiers, size=total, p=tier_probs)
+    offsets = (rng.random(total) * tier_counts[tiers]).astype(np.int64)
+    ids_flat = (tier_starts[tiers] + offsets).astype(np.uint64)
+    ids = ids_flat.reshape(num_rows, draws_per_row)
+
+    short_rows = []
+    for i in range(num_rows):
+        _, first_idx = np.unique(ids[i], return_index=True)
+        uniq = ids[i][np.sort(first_idx)]
+        if len(uniq) >= num_cols:
+            values[i] = uniq[:num_cols].astype(np.uint32)
+        else:
+            short_rows.append((i, uniq))
+
+    for i, uniq in short_rows:
+        seen = set(int(x) for x in uniq)
+        while len(seen) < num_cols:
+            t = rng.choice(num_tiers, p=tier_probs)
+            gid = int(tier_starts[t] + rng.integers(tier_counts[t]))
+            seen.add(gid)
+        values[i] = np.fromiter(seen, dtype=np.uint32, count=num_cols)
+
+    return values
 
 
 def gen_multiset_data(num_rows, num_cols, vocab_size, distribution, dist_params, seed):
@@ -81,6 +158,12 @@ def gen_multiset_data(num_rows, num_cols, vocab_size, distribution, dist_params,
         probs = np.empty(vocab_size)
         probs[0] = alpha
         probs[1:] = minority_probs
+    elif distribution == "empirical":
+        csv_path = dist_params["csv_path"]
+        tier_starts, tier_counts, tier_probs, _ = load_empirical_tiers(csv_path)
+        values = sample_empirical(tier_starts, tier_counts, tier_probs, num_rows, num_cols, rng)
+        keys = [f"query_{i}" for i in range(num_rows)]
+        return keys, values
     else:
         raise ValueError(f"Unknown distribution: {distribution}")
 
@@ -202,6 +285,8 @@ def run_single(config, verbose=True):
         label += f"(s={config['dist_params'].get('exponent', 1.5)})"
     elif config["distribution"] == "alpha":
         label += f"(α={config['dist_params'].get('alpha', 0.9)})"
+    elif config["distribution"] == "empirical":
+        label += f"({os.path.basename(config['dist_params'].get('csv_path', ''))})"
     label += f", perm={config['permutation']}, filter={config.get('prefilter', 'auto')}"
     if config.get("shared_codebook"):
         label += ", shared_cb"
@@ -333,7 +418,9 @@ def main():
     single.add_argument("--num-cols", type=int, default=10, help="Values per key (M)")
     single.add_argument("--vocab-size", type=int, default=1_000, help="Vocabulary size (|Σ|)")
     single.add_argument("--distribution", type=str, default="zipfian",
-                        choices=["zipfian", "uniform", "alpha"])
+                        choices=["zipfian", "uniform", "alpha", "empirical"])
+    single.add_argument("--empirical-csv", type=str, default=None,
+                        help="Path to (metric,count) CSV histogram (for --distribution empirical)")
     single.add_argument("--exponent", type=float, default=1.5, help="Zipfian exponent (s)")
     single.add_argument("--alpha", type=float, default=0.9, help="Dominant value fraction (alpha dist)")
     single.add_argument("--permutation", type=str, default="none",
@@ -375,6 +462,10 @@ def main():
         dist_params = {"alpha": args.alpha, "minority_dist": "zipfian"}
     elif args.distribution == "zipfian":
         dist_params = {"exponent": args.exponent}
+    elif args.distribution == "empirical":
+        if not args.empirical_csv:
+            parser.error("--empirical-csv is required when --distribution empirical")
+        dist_params = {"csv_path": args.empirical_csv}
     else:
         dist_params = {}
 
