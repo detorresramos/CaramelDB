@@ -2,11 +2,22 @@
 
 #include "SpookyHash.h"
 #include <algorithm>
+#include <functional>
 #include <iostream>
 #include <stdexcept>
 #include <string>
 #include <unordered_set>
 #include <vector>
+
+namespace std {
+template <> struct hash<__uint128_t> {
+  size_t operator()(__uint128_t v) const noexcept {
+    auto lo = static_cast<uint64_t>(v);
+    auto hi = static_cast<uint64_t>(v >> 64);
+    return hash<uint64_t>{}(lo) ^ (hash<uint64_t>{}(hi) * 0x9e3779b97f4a7c15ULL + 0x9e3779b9 + (lo << 6) + (lo >> 2));
+  }
+};
+} // namespace std
 
 namespace caramel {
 
