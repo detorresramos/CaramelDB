@@ -55,7 +55,7 @@ def run_one(dataset_name, M, strategy_name, permutation, shared_codebook, npy_pa
         permutation=permutation,
         prefilter=AutoFilterConfig(),
         shared_codebook=shared_codebook,
-        verbose=False,
+        verbose=True,
     )
     wall_time = time.perf_counter() - t0
 
