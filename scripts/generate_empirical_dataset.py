@@ -47,7 +47,7 @@ def main():
         shape=(args.num_rows, args.num_cols),
     )
 
-    chunk_size = 1_000_000
+    chunk_size = 5_000_000
     num_tiers = len(tier_counts)
     M = args.num_cols
 
