@@ -9,6 +9,7 @@
 #include <unordered_set>
 #include <vector>
 
+#if defined(__GNUC__) && !defined(__clang__)
 namespace std {
 template <> struct hash<__uint128_t> {
   size_t operator()(__uint128_t v) const noexcept {
@@ -18,6 +19,7 @@ template <> struct hash<__uint128_t> {
   }
 };
 } // namespace std
+#endif
 
 namespace caramel {
 

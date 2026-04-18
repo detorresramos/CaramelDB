@@ -4,6 +4,7 @@
 
 from cpython.bytes cimport PyBytes_AS_STRING, PyBytes_Check, PyBytes_GET_SIZE
 from cpython.unicode cimport PyUnicode_Check, PyUnicode_DecodeUTF8
+from libc.stdint cimport uint32_t, uint64_t
 from libc.string cimport memcpy
 from libcpp cimport bool as cbool
 from libcpp.memory cimport make_shared, shared_ptr
@@ -328,7 +329,7 @@ cdef class PreFilterUint64:
         return self._ptr.get().contains(_to_cpp_string(key))
 
     def get_most_common_value(self):
-        cdef cpp.optional[unsigned long long] val = self._ptr.get().getMostCommonValue()
+        cdef cpp.optional[uint64_t] val = self._ptr.get().getMostCommonValue()
         if val.has_value():
             return val.value()
         return None
@@ -790,18 +791,18 @@ cdef class CSFUint64:
 
     def __init__(self, list keys, values, prefilter=None, bint verbose=True):
         cdef vector[string] cpp_keys = _to_cpp_strings(keys)
-        cdef vector[unsigned long long] cpp_values
+        cdef vector[uint64_t] cpp_values
         cdef shared_ptr[cpp.PreFilterConfig] filter_config
         cdef Py_ssize_t n = len(values)
 
         if isinstance(values, np.ndarray):
             arr_u64 = np.ascontiguousarray(values, dtype=np.uint64)
             cpp_values.resize(n)
-            memcpy(cpp_values.data(), (<np.ndarray>arr_u64).data, n * sizeof(unsigned long long))
+            memcpy(cpp_values.data(), (<np.ndarray>arr_u64).data, n * sizeof(uint64_t))
         else:
             cpp_values.reserve(n)
             for v in values:
-                cpp_values.push_back(<unsigned long long>v)
+                cpp_values.push_back(<uint64_t>v)
 
         if prefilter is not None and isinstance(prefilter, PreFilterConfig):
             filter_config = (<PreFilterConfig>prefilter)._ptr
@@ -817,7 +818,7 @@ cdef class CSFUint64:
     def query_batch(self, list keys):
         cdef Py_ssize_t n = len(keys)
         cdef np.ndarray[np.uint64_t, ndim=1] results = np.empty(n, dtype=np.uint64)
-        cdef unsigned long long* out = <unsigned long long*>results.data
+        cdef uint64_t* out = <uint64_t*>results.data
         cdef const char* buf
         cdef Py_ssize_t length
         for i in range(n):
@@ -1121,7 +1122,7 @@ cdef class MultisetCSFUint64:
 
         cdef cpp.MultisetConstructionResult_uint64 result
         result = cpp.constructMultisetCsfRowMajor_uint64(
-            cpp_keys, <unsigned long long*>(<np.ndarray>values).data,
+            cpp_keys, <uint64_t*>(<np.ndarray>values).data,
             num_rows, num_cols, config)
         self._ptr = result.csf
         self.permutation_seconds = result.permutation_seconds
@@ -1453,10 +1454,10 @@ def permute_uint64(np.ndarray[np.uint64_t, ndim=2] array not None, config=None):
     cdef int num_rows = array.shape[0]
     cdef int num_cols = array.shape[1]
     if isinstance(config, GlobalSortPermutationConfig):
-        cpp.globalSortPermutation_uint64(<unsigned long long*>array.data, num_rows, num_cols,
+        cpp.globalSortPermutation_uint64(<uint64_t*>array.data, num_rows, num_cols,
                                          (<GlobalSortPermutationConfig>config)._refinement_iterations)
     else:
-        cpp.entropyPermutation_uint64(<unsigned long long*>array.data, num_rows, num_cols)
+        cpp.entropyPermutation_uint64(<uint64_t*>array.data, num_rows, num_cols)
 
 def permute_char10(np.ndarray array not None, config=None):
     if array.ndim != 2:
