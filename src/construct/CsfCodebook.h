@@ -250,7 +250,6 @@ CsfCodebook<T> canonicalHuffman(const std::vector<T> &symbols) {
   cb.ordered_symbols = std::move(ordered_symbols);
   cb.max_codelength = cb.code_length_counts.size() - 1;
   cb.codedict = std::move(codedict);
-  cb.buildLookupTable();
   return cb;
 }
 

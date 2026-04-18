@@ -186,6 +186,11 @@ constructRaggedMultisetCsf(const std::vector<std::string> &keys,
     columns[c].codebook = col_codebook;
     columns[c].filter = col_filter;
     columns[c].most_common_value = mcv;
+    columns[c].codebook->clearCodedict();
+  }
+
+  for (size_t c = 0; c < max_length; c++) {
+    columns[c].codebook->buildLookupTable();
     columns[c].buildQueryCache();
   }
 

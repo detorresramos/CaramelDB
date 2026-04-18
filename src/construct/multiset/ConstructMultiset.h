@@ -7,6 +7,8 @@
 #include "src/construct/multiset/MultisetConfig.h"
 #include "src/construct/filter/FilterFactory.h"
 #include "src/utils/Timer.h"
+#include <chrono>
+#include <filesystem>
 
 namespace caramel {
 
@@ -213,7 +215,11 @@ constructMultisetCsf(const std::vector<std::string> &keys,
   }
 
   using ColumnState = typename MultisetCsf<T>::ColumnState;
-  std::vector<ColumnState> columns(num_columns);
+
+  auto temp_dir = std::filesystem::temp_directory_path() /
+      ("caramel_build_" + std::to_string(
+          std::chrono::steady_clock::now().time_since_epoch().count()));
+  std::filesystem::create_directories(temp_dir);
 
   for (size_t i = 0; i < num_columns; i++) {
     auto *col_filter = group_filters.empty() ? nullptr : &group_filters[i];
@@ -263,14 +269,25 @@ constructMultisetCsf(const std::vector<std::string> &keys,
       std::rethrow_exception(exception);
     }
 
-    columns[i].solutions_and_seeds = std::move(solutions_and_seeds);
-    columns[i].hash_store_seed = hash_store.seed;
-    columns[i].codebook = col_codebook;
-    columns[i].filter = col_inputs.filter;
-    columns[i].most_common_value = col_inputs.most_common_value;
-    columns[i].buildQueryCache();
-    columns[i].codebook->clearCodedict();
+    {
+      ColumnState col;
+      col.solutions_and_seeds = std::move(solutions_and_seeds);
+      col.hash_store_seed = hash_store.seed;
+      col.codebook = col_codebook;
+      col.codebook->clearCodedict();
+      col.filter = col_inputs.filter;
+      col.most_common_value = col_inputs.most_common_value;
+      MultisetCsf<T>::saveColumnState(
+          col, (temp_dir / ("col_" + std::to_string(i) + ".bin")).string());
+    }
   }
+
+  std::vector<ColumnState> columns(num_columns);
+  for (size_t i = 0; i < num_columns; i++) {
+    columns[i] = MultisetCsf<T>::loadColumnState(
+        (temp_dir / ("col_" + std::to_string(i) + ".bin")).string());
+  }
+  std::filesystem::remove_all(temp_dir);
 
   return std::make_shared<MultisetCsf<T>>(std::move(columns));
 }
@@ -333,7 +350,12 @@ constructMultisetCsfRowMajor(const std::vector<std::string> &keys,
   }
 
   using ColumnState = typename MultisetCsf<T>::ColumnState;
-  std::vector<ColumnState> columns(num_columns);
+
+  // Temp directory for incremental column serialization.
+  auto temp_dir = std::filesystem::temp_directory_path() /
+      ("caramel_build_" + std::to_string(
+          std::chrono::steady_clock::now().time_since_epoch().count()));
+  std::filesystem::create_directories(temp_dir);
 
   // Reusable buffer for extracting one column at a time.
   std::vector<T> column_values(n);
@@ -392,13 +414,18 @@ constructMultisetCsfRowMajor(const std::vector<std::string> &keys,
       std::rethrow_exception(exception);
     }
 
-    columns[i].solutions_and_seeds = std::move(solutions_and_seeds);
-    columns[i].hash_store_seed = hash_store.seed;
-    columns[i].codebook = col_codebook;
-    columns[i].filter = col_inputs.filter;
-    columns[i].most_common_value = col_inputs.most_common_value;
-    columns[i].buildQueryCache();
-    columns[i].codebook->clearCodedict();
+    // Serialize column to disk and let it go out of scope to free memory.
+    {
+      ColumnState col;
+      col.solutions_and_seeds = std::move(solutions_and_seeds);
+      col.hash_store_seed = hash_store.seed;
+      col.codebook = col_codebook;
+      col.codebook->clearCodedict();
+      col.filter = col_inputs.filter;
+      col.most_common_value = col_inputs.most_common_value;
+      MultisetCsf<T>::saveColumnState(
+          col, (temp_dir / ("col_" + std::to_string(i) + ".bin")).string());
+    }
 
     if (config.verbose) {
       std::cout << "  Column " << i + 1 << "/" << num_columns
@@ -407,6 +434,15 @@ constructMultisetCsfRowMajor(const std::vector<std::string> &keys,
   }
 
   result.build_seconds = timer.seconds();
+
+  // Reload all columns from disk (builds lookup tables and query caches).
+  std::vector<ColumnState> columns(num_columns);
+  for (size_t i = 0; i < num_columns; i++) {
+    columns[i] = MultisetCsf<T>::loadColumnState(
+        (temp_dir / ("col_" + std::to_string(i) + ".bin")).string());
+  }
+  std::filesystem::remove_all(temp_dir);
+
   result.csf = std::make_shared<MultisetCsf<T>>(std::move(columns));
   return result;
 }

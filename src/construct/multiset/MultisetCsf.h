@@ -5,6 +5,7 @@
 #include "src/construct/Csf.h"
 #include <cereal/types/memory.hpp>
 #include <cereal/types/optional.hpp>
+#include <filesystem>
 
 namespace caramel {
 
@@ -79,39 +80,57 @@ public:
     return outputs;
   }
 
-  void save(const std::string &filename, const uint32_t type_id = 0) const {
-    auto output_stream = SafeFileIO::ofstream(filename, std::ios::binary);
-    output_stream.write(reinterpret_cast<const char *>(&type_id),
-                        sizeof(uint32_t));
-    cereal::BinaryOutputArchive oarchive(output_stream);
-    oarchive(*this);
+  static void saveColumnState(const ColumnState &col, const std::string &path) {
+    auto stream = SafeFileIO::ofstream(path, std::ios::binary);
+    cereal::BinaryOutputArchive archive(stream);
+    archive(col);
   }
 
-  static MultisetCsfPtr<T> load(const std::string &filename,
+  static ColumnState loadColumnState(const std::string &path) {
+    auto stream = SafeFileIO::ifstream(path, std::ios::binary);
+    cereal::BinaryInputArchive archive(stream);
+    ColumnState col;
+    archive(col);
+    return col;
+  }
+
+  void save(const std::string &path, const uint32_t type_id = 0) const {
+    std::filesystem::create_directories(path);
+    {
+      auto meta = SafeFileIO::ofstream(path + "/metadata.bin", std::ios::binary);
+      uint32_t num_cols = _columns.size();
+      meta.write(reinterpret_cast<const char *>(&type_id), sizeof(uint32_t));
+      meta.write(reinterpret_cast<const char *>(&num_cols), sizeof(uint32_t));
+    }
+    for (size_t i = 0; i < _columns.size(); i++) {
+      saveColumnState(_columns[i],
+                      path + "/col_" + std::to_string(i) + ".bin");
+    }
+  }
+
+  static MultisetCsfPtr<T> load(const std::string &path,
                                 const uint32_t type_id = 0) {
-    auto input_stream = SafeFileIO::ifstream(filename, std::ios::binary);
-    uint32_t type_id_found = 0;
-    input_stream.read(reinterpret_cast<char *>(&type_id_found),
-                      sizeof(uint32_t));
+    auto meta = SafeFileIO::ifstream(path + "/metadata.bin", std::ios::binary);
+    uint32_t type_id_found = 0, num_cols = 0;
+    meta.read(reinterpret_cast<char *>(&type_id_found), sizeof(uint32_t));
     if (type_id != type_id_found) {
       throw CsfDeserializationException(
           "Expected type_id to be " + std::to_string(type_id) +
           " but found type_id = " + std::to_string(type_id_found) +
-          " when deserializing " + filename);
+          " when deserializing " + path);
     }
-    cereal::BinaryInputArchive iarchive(input_stream);
-    MultisetCsfPtr<T> deserialize_into(new MultisetCsf<T>());
-    iarchive(*deserialize_into);
-    return deserialize_into;
+    meta.read(reinterpret_cast<char *>(&num_cols), sizeof(uint32_t));
+
+    std::vector<ColumnState> columns(num_cols);
+    for (uint32_t i = 0; i < num_cols; i++) {
+      columns[i] =
+          loadColumnState(path + "/col_" + std::to_string(i) + ".bin");
+    }
+    return std::make_shared<MultisetCsf<T>>(std::move(columns));
   }
 
 private:
   MultisetCsf() {}
-
-  friend class cereal::access;
-  template <class Archive> void serialize(Archive &archive) {
-    archive(_columns);
-  }
 
   std::vector<ColumnState> _columns;
 };
