@@ -33,10 +33,9 @@ DATASETS = [
 ]
 
 STRATEGIES = [
-    ("Column",                  None,                                                    False),
-    ("Column+Permute",          GlobalSortPermutationConfig(refinement_iterations=REFINEMENT_ITERATIONS), False),
-    ("Column+SharedCB",         None,                                                    True),
-    ("Column+SharedCB+Permute", GlobalSortPermutationConfig(refinement_iterations=REFINEMENT_ITERATIONS), True),
+    ("Column",          None,                                                            False),
+    ("Column+Permute",  GlobalSortPermutationConfig(refinement_iterations=REFINEMENT_ITERATIONS), False),
+    ("Column+SharedCB", None,                                                            True),
 ]
 
 OUTPUT_JSON = "scripts/empirical_grid_results.json"
