@@ -384,6 +384,28 @@ cdef extern from "src/construct/multiset/ConstructMultiset.h" namespace "caramel
         const vector[string] &keys, const vector[vector[string]] &values,
         const MultisetConfig &config) except +
 
+
+# ── Row-major construction (avoids column copy) ──────────────────────────
+
+cdef extern from "src/construct/multiset/ConstructMultiset.h" namespace "caramel":
+    cppclass MultisetConstructionResult_uint32 "caramel::MultisetConstructionResult<uint32_t>":
+        shared_ptr[MultisetCsf_uint32] csf
+        double permutation_seconds
+        double build_seconds
+
+    cppclass MultisetConstructionResult_uint64 "caramel::MultisetConstructionResult<uint64_t>":
+        shared_ptr[MultisetCsf_uint64] csf
+        double permutation_seconds
+        double build_seconds
+
+    MultisetConstructionResult_uint32 constructMultisetCsfRowMajor_uint32 "caramel::constructMultisetCsfRowMajor<uint32_t>"(
+        const vector[string] &keys, unsigned int *data, int num_rows, int num_cols,
+        const MultisetConfig &config) except +
+
+    MultisetConstructionResult_uint64 constructMultisetCsfRowMajor_uint64 "caramel::constructMultisetCsfRowMajor<uint64_t>"(
+        const vector[string] &keys, unsigned long long *data, int num_rows, int num_cols,
+        const MultisetConfig &config) except +
+
 # ── RaggedMultisetCsf ─────────────────────────────────────────────────────
 
 cdef extern from "src/construct/multiset/RaggedMultisetCsf.h" namespace "caramel":

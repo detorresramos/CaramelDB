@@ -6,6 +6,7 @@
 #include "src/construct/multiset/MultisetCsf.h"
 #include "src/construct/multiset/MultisetConfig.h"
 #include "src/construct/filter/FilterFactory.h"
+#include "src/utils/Timer.h"
 
 namespace caramel {
 
@@ -271,6 +272,134 @@ constructMultisetCsf(const std::vector<std::string> &keys,
   }
 
   return std::make_shared<MultisetCsf<T>>(std::move(columns));
+}
+
+template <typename T>
+struct MultisetConstructionResult {
+  MultisetCsfPtr<T> csf;
+  double permutation_seconds = 0.0;
+  double build_seconds = 0.0;
+};
+
+// Constructs a MultisetCsf from a row-major flat buffer (T* data, num_rows x
+// num_cols). Avoids the memory doubling of the vector<vector<T>> overload by
+// extracting columns on-the-fly. Returns timing stats for permutation and build.
+template <typename T>
+MultisetConstructionResult<T>
+constructMultisetCsfRowMajor(const std::vector<std::string> &keys,
+                             T *data, int num_rows, int num_cols,
+                             const MultisetConfig &config) {
+  MultisetConstructionResult<T> result;
+  Timer timer;
+
+  // Permutation operates directly on the row-major buffer.
+  if (config.permutation_config && num_cols > 1) {
+    if (std::dynamic_pointer_cast<EntropyPermutationConfig>(
+            config.permutation_config)) {
+      entropyPermutation<T>(data, num_rows, num_cols);
+    } else if (auto cfg =
+                   std::dynamic_pointer_cast<GlobalSortPermutationConfig>(
+                       config.permutation_config)) {
+      globalSortPermutation<T>(data, num_rows, num_cols,
+                               cfg->refinement_iterations);
+    }
+  }
+  result.permutation_seconds = timer.seconds();
+
+  size_t num_columns = static_cast<size_t>(num_cols);
+  size_t n = static_cast<size_t>(num_rows);
+
+  // Shared codebook: pool all values from the flat buffer.
+  std::shared_ptr<CsfCodebook<T>> shared_cb;
+  if (config.shared_codebook) {
+    std::vector<T> pooled(data, data + n * num_columns);
+    shared_cb = std::make_shared<CsfCodebook<T>>(canonicalHuffman<T>(pooled));
+  }
+
+  // Shared filter: needs column-major access to all columns simultaneously.
+  std::vector<ColumnFilterInfo<T>> group_filters;
+  if (config.shared_filter && config.filter_config) {
+    std::vector<std::vector<T>> col_values(num_columns);
+    for (size_t c = 0; c < num_columns; c++) {
+      col_values[c].resize(n);
+      for (size_t r = 0; r < n; r++) {
+        col_values[c][r] = data[r * num_columns + c];
+      }
+    }
+    group_filters = buildGroupSharedFilters<T>(keys, col_values,
+                                               config.filter_config,
+                                               config.verbose);
+  }
+
+  using ColumnState = typename MultisetCsf<T>::ColumnState;
+  std::vector<ColumnState> columns(num_columns);
+
+  // Reusable buffer for extracting one column at a time.
+  std::vector<T> column_values(n);
+
+  for (size_t i = 0; i < num_columns; i++) {
+    for (size_t r = 0; r < n; r++) {
+      column_values[r] = data[r * num_columns + i];
+    }
+
+    auto *col_filter = group_filters.empty() ? nullptr : &group_filters[i];
+    auto col_inputs = resolveColumnInputs<T>(
+        keys, column_values, col_filter, config.filter_config, config.verbose);
+
+    bool using_filter = (col_inputs.filter != nullptr);
+    const auto &active_keys = using_filter ? col_inputs.keys : keys;
+    const auto &active_values = using_filter ? col_inputs.values : column_values;
+
+    auto col_codebook = config.shared_codebook
+        ? shared_cb
+        : std::make_shared<CsfCodebook<T>>(canonicalHuffman<T>(active_values));
+
+    const CodeDict<T> &codedict = col_codebook->codedict;
+    uint32_t max_cl = col_codebook->max_codelength;
+
+    uint64_t num_buckets = targetBucketCount(active_values, codedict);
+
+    BucketedHashStore<T> hash_store =
+        partitionToBuckets<T>(active_keys, active_values, num_buckets);
+
+    std::exception_ptr exception = nullptr;
+    std::vector<SubsystemSolutionSeedPair> solutions_and_seeds(
+        hash_store.num_buckets);
+
+#pragma omp parallel for default(none)                                         \
+    shared(hash_store, solutions_and_seeds, exception, DELTA,                  \
+           codedict, max_cl)
+    for (uint32_t j = 0; j < hash_store.num_buckets; j++) {
+      if (exception) {
+        continue;
+      }
+      try {
+        solutions_and_seeds[j] = constructAndSolveSubsystem<T>(
+            hash_store.key_buckets[j], hash_store.value_buckets[j],
+            codedict, max_cl, DELTA);
+      } catch (std::exception &e) {
+#pragma omp critical
+        {
+          exception = std::current_exception();
+        }
+      }
+    }
+
+    if (exception) {
+      std::rethrow_exception(exception);
+    }
+
+    columns[i].solutions_and_seeds = std::move(solutions_and_seeds);
+    columns[i].hash_store_seed = hash_store.seed;
+    columns[i].codebook = col_codebook;
+    columns[i].filter = col_inputs.filter;
+    columns[i].most_common_value = col_inputs.most_common_value;
+    columns[i].buildQueryCache();
+  }
+
+  result.build_seconds = timer.seconds();
+  result.csf = std::make_shared<MultisetCsf<T>>(std::move(columns));
+  return result;
 }
 
 } // namespace caramel

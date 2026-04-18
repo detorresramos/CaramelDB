@@ -1032,25 +1032,22 @@ cdef class CSFString:
 
 cdef class MultisetCSFUint32:
     cdef shared_ptr[cpp.MultisetCsf_uint32] _ptr
+    cdef public double permutation_seconds
+    cdef public double build_seconds
 
     def __init__(self, list keys, values, prefilter=None, permutation=None,
                  bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
         cdef vector[string] cpp_keys = _to_cpp_strings(keys)
-        cdef vector[vector[unsigned int]] cpp_values
 
         values = np.ascontiguousarray(values, dtype=np.uint32)
         if values.ndim != 2:
             raise ValueError("MultisetCSF values must be a 2D array.")
 
+        if permutation is not None:
+            values = values.copy()
+
         cdef int num_rows = values.shape[0]
         cdef int num_cols = values.shape[1]
-        cdef vector[unsigned int] col_vec
-        cpp_values.reserve(num_cols)
-        for col_idx in range(num_cols):
-            arr_col = np.ascontiguousarray(values[:, col_idx])
-            col_vec.resize(num_rows)
-            memcpy(col_vec.data(), (<np.ndarray>arr_col).data, num_rows * sizeof(unsigned int))
-            cpp_values.push_back(col_vec)
 
         cdef cpp.MultisetConfig config
         if permutation is not None and isinstance(permutation, PermutationConfig):
@@ -1061,7 +1058,13 @@ cdef class MultisetCSFUint32:
         if prefilter is not None and isinstance(prefilter, PreFilterConfig):
             config.filter_config = (<PreFilterConfig>prefilter)._ptr
 
-        self._ptr = cpp.constructMultisetCsfConfig_uint32(cpp_keys, cpp_values, config)
+        cdef cpp.MultisetConstructionResult_uint32 result
+        result = cpp.constructMultisetCsfRowMajor_uint32(
+            cpp_keys, <unsigned int*>(<np.ndarray>values).data,
+            num_rows, num_cols, config)
+        self._ptr = result.csf
+        self.permutation_seconds = result.permutation_seconds
+        self.build_seconds = result.build_seconds
 
     def query(self, key, bint parallel=False):
         cdef const char* buf
@@ -1079,6 +1082,8 @@ cdef class MultisetCSFUint32:
             obj._ptr = cpp.MultisetCsf_uint32.load(filename.encode('utf-8'), 101)
         except RuntimeError as e:
             raise CsfDeserializationException(str(e))
+        obj.permutation_seconds = 0.0
+        obj.build_seconds = 0.0
         return obj
 
     @staticmethod
@@ -1088,25 +1093,22 @@ cdef class MultisetCSFUint32:
 
 cdef class MultisetCSFUint64:
     cdef shared_ptr[cpp.MultisetCsf_uint64] _ptr
+    cdef public double permutation_seconds
+    cdef public double build_seconds
 
     def __init__(self, list keys, values, prefilter=None, permutation=None,
                  bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
         cdef vector[string] cpp_keys = _to_cpp_strings(keys)
-        cdef vector[vector[unsigned long long]] cpp_values
 
         values = np.ascontiguousarray(values, dtype=np.uint64)
         if values.ndim != 2:
             raise ValueError("MultisetCSF values must be a 2D array.")
 
+        if permutation is not None:
+            values = values.copy()
+
         cdef int num_rows = values.shape[0]
         cdef int num_cols = values.shape[1]
-        cdef vector[unsigned long long] col_vec
-        cpp_values.reserve(num_cols)
-        for col_idx in range(num_cols):
-            arr_col = np.ascontiguousarray(values[:, col_idx])
-            col_vec.resize(num_rows)
-            memcpy(col_vec.data(), (<np.ndarray>arr_col).data, num_rows * sizeof(unsigned long long))
-            cpp_values.push_back(col_vec)
 
         cdef cpp.MultisetConfig config
         if permutation is not None and isinstance(permutation, PermutationConfig):
@@ -1117,7 +1119,13 @@ cdef class MultisetCSFUint64:
         if prefilter is not None and isinstance(prefilter, PreFilterConfig):
             config.filter_config = (<PreFilterConfig>prefilter)._ptr
 
-        self._ptr = cpp.constructMultisetCsfConfig_uint64(cpp_keys, cpp_values, config)
+        cdef cpp.MultisetConstructionResult_uint64 result
+        result = cpp.constructMultisetCsfRowMajor_uint64(
+            cpp_keys, <unsigned long long*>(<np.ndarray>values).data,
+            num_rows, num_cols, config)
+        self._ptr = result.csf
+        self.permutation_seconds = result.permutation_seconds
+        self.build_seconds = result.build_seconds
 
     def query(self, key, bint parallel=False):
         cdef const char* buf
@@ -1135,6 +1143,8 @@ cdef class MultisetCSFUint64:
             obj._ptr = cpp.MultisetCsf_uint64.load(filename.encode('utf-8'), 102)
         except RuntimeError as e:
             raise CsfDeserializationException(str(e))
+        obj.permutation_seconds = 0.0
+        obj.build_seconds = 0.0
         return obj
 
     @staticmethod
