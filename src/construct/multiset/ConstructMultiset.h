@@ -274,7 +274,9 @@ constructMultisetCsf(const std::vector<std::string> &keys,
       col.solutions_and_seeds = std::move(solutions_and_seeds);
       col.hash_store_seed = hash_store.seed;
       col.codebook = col_codebook;
-      col.codebook->clearCodedict();
+      if (!config.shared_codebook) {
+        col.codebook->clearCodedict();
+      }
       col.filter = col_inputs.filter;
       col.most_common_value = col_inputs.most_common_value;
       MultisetCsf<T>::saveColumnState(
@@ -420,7 +422,9 @@ constructMultisetCsfRowMajor(const std::vector<std::string> &keys,
       col.solutions_and_seeds = std::move(solutions_and_seeds);
       col.hash_store_seed = hash_store.seed;
       col.codebook = col_codebook;
-      col.codebook->clearCodedict();
+      if (!config.shared_codebook) {
+        col.codebook->clearCodedict();
+      }
       col.filter = col_inputs.filter;
       col.most_common_value = col_inputs.most_common_value;
       MultisetCsf<T>::saveColumnState(
