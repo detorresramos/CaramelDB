@@ -1514,3 +1514,50 @@ def permute_char12(np.ndarray array not None, config=None):
                                          (<GlobalSortPermutationConfig>config)._refinement_iterations)
     else:
         cpp.entropyPermutation_Char12(<cpp.Char12*>array.data, num_rows, num_cols)
+
+
+# ── Shared-codebook retroactive size calculator ───────────────────────────
+
+def shared_codebook_serialized_bytes(values not None):
+    """Compute the serialized byte size of the shared codebook that a MultisetCSF
+    with shared_codebook=True would produce over the given 2D values array.
+
+    Streams a pooled frequency histogram from the input (accepts mmap arrays;
+    does not copy), builds a canonical Huffman codebook via
+    canonicalHuffmanFromFrequencies, cereal-serializes the codebook, and
+    returns the byte count.
+
+    Used to retroactively correct shared-codebook size measurements produced
+    before the per-column codebook-duplication bug was fixed: the savings from
+    the fix equal exactly (M - 1) * shared_codebook_serialized_bytes(values).
+
+    Parameters
+    ----------
+    values : 2D numpy array with dtype uint32 or uint64 (row-major).
+
+    Returns
+    -------
+    int : number of bytes one shared codebook consumes when cereal-serialized.
+    """
+    cdef np.ndarray arr = np.asarray(values)
+    if arr.ndim != 2:
+        raise ValueError(f"values must be 2D, got ndim={arr.ndim}")
+    if not arr.flags['C_CONTIGUOUS']:
+        arr = np.ascontiguousarray(arr)
+
+    cdef size_t n = arr.shape[0]
+    cdef size_t m = arr.shape[1]
+    cdef size_t result
+
+    if arr.dtype == np.uint32:
+        with nogil:
+            result = cpp.sharedCodebookSerializedBytes_uint32(
+                <const unsigned int*>arr.data, n, m)
+        return result
+    elif arr.dtype == np.uint64:
+        with nogil:
+            result = cpp.sharedCodebookSerializedBytes_uint64(
+                <const uint64_t*>arr.data, n, m)
+        return result
+    else:
+        raise TypeError(f"values must be uint32 or uint64, got {arr.dtype}")

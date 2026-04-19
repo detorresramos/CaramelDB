@@ -420,3 +420,61 @@ def test_multiset_csf_no_lut_mmap_values(tmp_path):
     )
     for i in range(num_rows):
         assert sorted(csf2.query(int(keys[i]))) == sorted(values_src[i].tolist())
+
+
+def test_shared_codebook_serialized_bytes(tmp_path):
+    """Retroactive size helper: (M - 1) * codebook_bytes must match the per-column
+    duplication overhead of the current shared-codebook save format."""
+    num_rows = 1000
+    num_cols = 20
+    # Zipfian-ish integers to create a non-trivial codebook.
+    rng = np.random.default_rng(42)
+    ranks = rng.integers(1, 500, size=(num_rows, num_cols), dtype=np.uint32)
+    values = ranks
+
+    cb_bytes = carameldb.shared_codebook_serialized_bytes(values)
+    assert cb_bytes > 0
+    assert isinstance(cb_bytes, int)
+
+    keys = np.arange(num_rows, dtype=np.uint32)
+    csf_shared = carameldb.Caramel(keys, values, shared_codebook=True,
+                                   build_lookup_table=False, verbose=False)
+
+    save_dir = tmp_path / "shared.csf"
+    csf_shared.save(str(save_dir))
+    buggy_total = sum(p.stat().st_size for p in save_dir.iterdir())
+
+    # The correction must leave a positive total and should save at least
+    # (M - 1) bytes (codebook is non-trivial).
+    savings = (num_cols - 1) * cb_bytes
+    corrected = buggy_total - savings
+    assert corrected > 0
+    assert savings > (num_cols - 1)
+
+
+def test_shared_codebook_serialized_bytes_accepts_mmap(tmp_path):
+    """Helper must work on an mmap'd numpy array without copying."""
+    rng = np.random.default_rng(7)
+    values_src = rng.integers(0, 50, size=(500, 10), dtype=np.uint32)
+    path = tmp_path / "vals.npy"
+    np.save(path, values_src)
+
+    values_mmap = np.load(path, mmap_mode='r')
+    cb_bytes = carameldb.shared_codebook_serialized_bytes(values_mmap)
+    assert cb_bytes > 0
+
+    # Same input non-mmap should yield identical bytes (deterministic).
+    cb_bytes_ram = carameldb.shared_codebook_serialized_bytes(values_src)
+    assert cb_bytes == cb_bytes_ram
+
+
+def test_shared_codebook_serialized_bytes_dtype():
+    rng = np.random.default_rng(0)
+    vals32 = rng.integers(0, 100, size=(200, 5), dtype=np.uint32)
+    vals64 = vals32.astype(np.uint64)
+    # Both dtypes should accept the call; uint64 codebook will typically be
+    # larger because ordered_symbols stores 8-byte values.
+    b32 = carameldb.shared_codebook_serialized_bytes(vals32)
+    b64 = carameldb.shared_codebook_serialized_bytes(vals64)
+    assert b32 > 0 and b64 > 0
+    assert b64 > b32

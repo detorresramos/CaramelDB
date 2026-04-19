@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <cereal/access.hpp>
+#include <cereal/archives/binary.hpp>
 #include <cereal/types/vector.hpp>
+#include <sstream>
 #include <src/BitArray.h>
 #include <stdexcept>
 #include <unordered_map>
@@ -255,6 +257,35 @@ CsfCodebook<T> canonicalHuffman(const std::vector<T> &symbols) {
     ++frequencies[symbol];
   }
   return canonicalHuffmanFromFrequencies<T>(frequencies);
+}
+
+// Serializes a codebook via cereal and returns the byte count. Used by the
+// retroactive cost calculator to measure how many bytes one shared codebook
+// consumes on disk (so we can correct buggy SharedCB saves that duplicated
+// the codebook across m columns).
+template <typename T>
+inline size_t serializedCodebookBytes(const CsfCodebook<T> &cb) {
+  std::stringstream ss;
+  {
+    cereal::BinaryOutputArchive archive(ss);
+    archive(cb);
+  }
+  return ss.str().size();
+}
+
+// Streams pooled frequencies from a row-major flat buffer (n rows x m cols),
+// builds a canonical Huffman codebook, serializes it via cereal, and returns
+// the byte count. Equivalent to what a MultisetCSF with shared_codebook=True
+// would produce, minus the CSF/bit-array construction.
+template <typename T>
+inline size_t sharedCodebookSerializedBytes(const T *data, size_t n, size_t m) {
+  std::unordered_map<T, uint64_t> freqs;
+  size_t total = n * m;
+  for (size_t i = 0; i < total; i++) {
+    ++freqs[data[i]];
+  }
+  CsfCodebook<T> cb = canonicalHuffmanFromFrequencies<T>(freqs);
+  return serializedCodebookBytes(cb);
 }
 
 } // namespace caramel

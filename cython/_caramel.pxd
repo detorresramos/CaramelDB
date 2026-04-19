@@ -27,6 +27,14 @@ cdef extern from "<optional>" namespace "std" nogil:
         cbool has_value()
         T& value()
 
+# ── Shared-codebook retroactive size helper ───────────────────────────────
+
+cdef extern from "src/construct/CsfCodebook.h" namespace "caramel":
+    size_t sharedCodebookSerializedBytes_uint32 "caramel::sharedCodebookSerializedBytes<uint32_t>"(
+        const unsigned int *data, size_t n, size_t m) nogil
+    size_t sharedCodebookSerializedBytes_uint64 "caramel::sharedCodebookSerializedBytes<uint64_t>"(
+        const uint64_t *data, size_t n, size_t m) nogil
+
 # ── Stats ──────────────────────────────────────────────────────────────────
 
 cdef extern from "src/construct/CsfStats.h" namespace "caramel":
