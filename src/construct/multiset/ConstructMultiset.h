@@ -9,6 +9,8 @@
 #include "src/utils/Timer.h"
 #include <chrono>
 #include <filesystem>
+#include <iostream>
+#include <omp.h>
 
 namespace caramel {
 
@@ -340,13 +342,58 @@ constructMultisetCsfRowMajor(const std::vector<std::string> &keys,
   // Shared codebook: stream a frequency histogram instead of copying the
   // whole flat buffer (which would double RAM usage for N*M * sizeof(T)).
   // uint64 counts needed because total samples = N*M can exceed 2^32.
+  //
+  // Parallelized via hash partitioning: each key is owned by exactly one
+  // thread (keyed by a mixing hash), so peak memory stays ~1x the final
+  // histogram size instead of T x. Every thread scans the entire buffer and
+  // cheaply skips keys it doesn't own.
   std::shared_ptr<CsfCodebook<T>> shared_cb;
   if (config.shared_codebook) {
-    std::unordered_map<T, uint64_t> freqs;
     size_t total = n * num_columns;
-    for (size_t i = 0; i < total; i++) {
-      ++freqs[data[i]];
+    const int freq_threads = std::min(8, omp_get_max_threads());
+    std::vector<std::unordered_map<T, uint64_t>> partial_freqs(freq_threads);
+
+    if (config.verbose) {
+      std::cout << "  Building pooled frequency histogram over " << total
+                << " cells (" << freq_threads << " threads)..." << std::endl;
     }
+    Timer freq_timer;
+
+#pragma omp parallel num_threads(freq_threads) default(none)                   \
+    shared(partial_freqs, data, total, freq_threads)
+    {
+      int tid = omp_get_thread_num();
+      auto &local = partial_freqs[tid];
+      const uint32_t t = static_cast<uint32_t>(freq_threads);
+      const uint32_t owner = static_cast<uint32_t>(tid);
+      for (size_t i = 0; i < total; i++) {
+        T key = data[i];
+        uint32_t h = static_cast<uint32_t>(key);
+        h ^= h >> 16;
+        h *= 0x85ebca6b;
+        h ^= h >> 13;
+        if (h % t == owner) {
+          ++local[key];
+        }
+      }
+    }
+
+    // Hash partitioning guarantees disjoint key sets, so the merge is a
+    // plain union — no collisions to resolve.
+    std::unordered_map<T, uint64_t> freqs;
+    size_t total_unique = 0;
+    for (const auto &p : partial_freqs) total_unique += p.size();
+    freqs.reserve(total_unique);
+    for (auto &p : partial_freqs) {
+      freqs.insert(p.begin(), p.end());
+      p = {};
+    }
+
+    if (config.verbose) {
+      std::cout << "  Histogram done in " << freq_timer.seconds() << "s ("
+                << total_unique << " unique values)" << std::endl;
+    }
+
     shared_cb = std::make_shared<CsfCodebook<T>>(
         canonicalHuffmanFromFrequencies<T>(freqs));
   }
