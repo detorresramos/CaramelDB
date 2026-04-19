@@ -20,6 +20,11 @@ public:
     std::shared_ptr<CsfCodebook<T>> codebook;
     PreFilterPtr<T> filter;
     std::optional<T> most_common_value;
+    // When true, the shared codebook lives in a sibling file (for
+    // directory-based save) or in the enclosing object (for single-archive
+    // save with cereal shared_ptr tracking), and must be injected before
+    // buildQueryCache() is called.
+    bool uses_shared_codebook = false;
 
     // Query caches (not serialized)
     std::vector<BucketQueryInfo> bucket_info;
@@ -39,19 +44,29 @@ public:
     friend class cereal::access;
 
     template <class Archive> void save(Archive &archive) const {
-      archive(solutions_and_seeds, hash_store_seed, codebook, filter,
-              most_common_value);
+      archive(solutions_and_seeds, hash_store_seed, filter, most_common_value,
+              uses_shared_codebook);
+      if (!uses_shared_codebook) {
+        archive(codebook);
+      }
     }
 
     template <class Archive> void load(Archive &archive) {
-      archive(solutions_and_seeds, hash_store_seed, codebook, filter,
-              most_common_value);
-      buildQueryCache();
+      archive(solutions_and_seeds, hash_store_seed, filter, most_common_value,
+              uses_shared_codebook);
+      if (!uses_shared_codebook) {
+        archive(codebook);
+      }
+      // Deferred: buildQueryCache() must be called by the enclosing load path
+      // after the codebook is assigned (may be injected externally for the
+      // shared-codebook case).
     }
   };
 
-  MultisetCsf(std::vector<ColumnState> columns)
-      : _columns(std::move(columns)) {}
+  MultisetCsf(std::vector<ColumnState> columns,
+              std::shared_ptr<CsfCodebook<T>> shared_codebook = nullptr)
+      : _columns(std::move(columns)),
+        _shared_codebook(std::move(shared_codebook)) {}
 
   std::vector<T> query(const std::string &key, bool parallelize = true) const {
     return query(key.data(), key.size(), parallelize);
@@ -88,12 +103,33 @@ public:
     archive(col);
   }
 
+  // Loads a column and runs buildQueryCache(). Only valid if the column does
+  // not use a shared codebook (otherwise the codebook must be injected first).
   static ColumnState loadColumnState(const std::string &path) {
     auto stream = SafeFileIO::ifstream(path, std::ios::binary);
     cereal::BinaryInputArchive archive(stream);
     ColumnState col;
     archive(col);
+    if (!col.uses_shared_codebook) {
+      col.buildQueryCache();
+    }
     return col;
+  }
+
+  static void saveSharedCodebook(const CsfCodebook<T> &cb,
+                                 const std::string &path) {
+    auto stream = SafeFileIO::ofstream(path, std::ios::binary);
+    cereal::BinaryOutputArchive archive(stream);
+    archive(cb);
+  }
+
+  static std::shared_ptr<CsfCodebook<T>>
+  loadSharedCodebook(const std::string &path) {
+    auto stream = SafeFileIO::ifstream(path, std::ios::binary);
+    cereal::BinaryInputArchive archive(stream);
+    auto cb = std::make_shared<CsfCodebook<T>>();
+    archive(*cb);
+    return cb;
   }
 
   void save(const std::string &path, const uint32_t type_id = 0) const {
@@ -101,8 +137,13 @@ public:
     {
       auto meta = SafeFileIO::ofstream(path + "/metadata.bin", std::ios::binary);
       uint32_t num_cols = _columns.size();
+      uint8_t uses_shared = _shared_codebook ? 1 : 0;
       meta.write(reinterpret_cast<const char *>(&type_id), sizeof(uint32_t));
       meta.write(reinterpret_cast<const char *>(&num_cols), sizeof(uint32_t));
+      meta.write(reinterpret_cast<const char *>(&uses_shared), sizeof(uint8_t));
+    }
+    if (_shared_codebook) {
+      saveSharedCodebook(*_shared_codebook, path + "/shared_codebook.bin");
     }
     for (size_t i = 0; i < _columns.size(); i++) {
       saveColumnState(_columns[i],
@@ -115,6 +156,7 @@ public:
                                 bool build_lookup_table = true) {
     auto meta = SafeFileIO::ifstream(path + "/metadata.bin", std::ios::binary);
     uint32_t type_id_found = 0, num_cols = 0;
+    uint8_t uses_shared = 0;
     meta.read(reinterpret_cast<char *>(&type_id_found), sizeof(uint32_t));
     if (type_id != type_id_found) {
       throw CsfDeserializationException(
@@ -123,22 +165,35 @@ public:
           " when deserializing " + path);
     }
     meta.read(reinterpret_cast<char *>(&num_cols), sizeof(uint32_t));
+    meta.read(reinterpret_cast<char *>(&uses_shared), sizeof(uint8_t));
+
+    std::shared_ptr<CsfCodebook<T>> shared_cb;
+    if (uses_shared) {
+      shared_cb = loadSharedCodebook(path + "/shared_codebook.bin");
+      if (build_lookup_table) {
+        shared_cb->buildLookupTable();
+      }
+    }
 
     std::vector<ColumnState> columns(num_cols);
     for (uint32_t i = 0; i < num_cols; i++) {
       columns[i] =
           loadColumnState(path + "/col_" + std::to_string(i) + ".bin");
-      if (build_lookup_table) {
+      if (columns[i].uses_shared_codebook) {
+        columns[i].codebook = shared_cb;
+        columns[i].buildQueryCache();
+      } else if (build_lookup_table) {
         columns[i].codebook->buildLookupTable();
       }
     }
-    return std::make_shared<MultisetCsf<T>>(std::move(columns));
+    return std::make_shared<MultisetCsf<T>>(std::move(columns), shared_cb);
   }
 
 private:
   MultisetCsf() {}
 
   std::vector<ColumnState> _columns;
+  std::shared_ptr<CsfCodebook<T>> _shared_codebook;
 };
 
 } // namespace caramel

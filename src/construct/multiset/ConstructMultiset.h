@@ -274,6 +274,7 @@ constructMultisetCsf(const std::vector<std::string> &keys,
       col.solutions_and_seeds = std::move(solutions_and_seeds);
       col.hash_store_seed = hash_store.seed;
       col.codebook = col_codebook;
+      col.uses_shared_codebook = config.shared_codebook;
       if (!config.shared_codebook) {
         col.codebook->clearCodedict();
       }
@@ -288,13 +289,17 @@ constructMultisetCsf(const std::vector<std::string> &keys,
   for (size_t i = 0; i < num_columns; i++) {
     columns[i] = MultisetCsf<T>::loadColumnState(
         (temp_dir / ("col_" + std::to_string(i) + ".bin")).string());
-    if (config.build_lookup_table) {
+    if (columns[i].uses_shared_codebook) {
+      columns[i].codebook = shared_cb;
+      columns[i].buildQueryCache();
+    }
+    if (config.build_lookup_table && columns[i].codebook) {
       columns[i].codebook->buildLookupTable();
     }
   }
   std::filesystem::remove_all(temp_dir);
 
-  return std::make_shared<MultisetCsf<T>>(std::move(columns));
+  return std::make_shared<MultisetCsf<T>>(std::move(columns), shared_cb);
 }
 
 template <typename T>
@@ -432,6 +437,7 @@ constructMultisetCsfRowMajor(const std::vector<std::string> &keys,
       col.solutions_and_seeds = std::move(solutions_and_seeds);
       col.hash_store_seed = hash_store.seed;
       col.codebook = col_codebook;
+      col.uses_shared_codebook = config.shared_codebook;
       if (!config.shared_codebook) {
         col.codebook->clearCodedict();
       }
@@ -454,13 +460,17 @@ constructMultisetCsfRowMajor(const std::vector<std::string> &keys,
   for (size_t i = 0; i < num_columns; i++) {
     columns[i] = MultisetCsf<T>::loadColumnState(
         (temp_dir / ("col_" + std::to_string(i) + ".bin")).string());
-    if (config.build_lookup_table) {
+    if (columns[i].uses_shared_codebook) {
+      columns[i].codebook = shared_cb;
+      columns[i].buildQueryCache();
+    }
+    if (config.build_lookup_table && columns[i].codebook) {
       columns[i].codebook->buildLookupTable();
     }
   }
   std::filesystem::remove_all(temp_dir);
 
-  result.csf = std::make_shared<MultisetCsf<T>>(std::move(columns));
+  result.csf = std::make_shared<MultisetCsf<T>>(std::move(columns), shared_cb);
   return result;
 }
 

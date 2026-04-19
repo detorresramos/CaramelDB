@@ -83,6 +83,16 @@ private:
 
   template <class Archive> void load(Archive &archive) {
     archive(_length_csf, _columns);
+    // buildQueryCache was moved out of ColumnState's cereal hook to support
+    // the shared-codebook pattern (where codebook is injected externally).
+    // Ragged serializes everything in one archive, so cereal's shared_ptr
+    // tracking already dedupes the shared codebook — we just need to rebuild
+    // query caches here.
+    for (auto &col : _columns) {
+      if (col.codebook) {
+        col.buildQueryCache();
+      }
+    }
   }
 
   CsfPtr<uint32_t> _length_csf;

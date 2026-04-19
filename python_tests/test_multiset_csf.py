@@ -423,33 +423,65 @@ def test_multiset_csf_no_lut_mmap_values(tmp_path):
 
 
 def test_shared_codebook_serialized_bytes(tmp_path):
-    """Retroactive size helper: (M - 1) * codebook_bytes must match the per-column
-    duplication overhead of the current shared-codebook save format."""
+    """The retroactive helper returns positive bytes for any non-trivial input."""
     num_rows = 1000
     num_cols = 20
-    # Zipfian-ish integers to create a non-trivial codebook.
     rng = np.random.default_rng(42)
-    ranks = rng.integers(1, 500, size=(num_rows, num_cols), dtype=np.uint32)
-    values = ranks
+    values = rng.integers(1, 500, size=(num_rows, num_cols), dtype=np.uint32)
 
     cb_bytes = carameldb.shared_codebook_serialized_bytes(values)
     assert cb_bytes > 0
     assert isinstance(cb_bytes, int)
 
+
+def test_shared_codebook_save_is_smaller_than_private(tmp_path):
+    """With the serialization fix, shared_codebook=True saves fewer bytes than
+    shared_codebook=False (one codebook on disk, not M copies)."""
+    num_rows = 2000
+    num_cols = 30
+    rng = np.random.default_rng(7)
+    values = rng.integers(0, 300, size=(num_rows, num_cols), dtype=np.uint32)
     keys = np.arange(num_rows, dtype=np.uint32)
+
+    def dir_size(path):
+        return sum(p.stat().st_size for p in path.iterdir())
+
     csf_shared = carameldb.Caramel(keys, values, shared_codebook=True,
                                    build_lookup_table=False, verbose=False)
+    shared_dir = tmp_path / "shared.csf"
+    csf_shared.save(str(shared_dir))
+    shared_total = dir_size(shared_dir)
+    assert (shared_dir / "shared_codebook.bin").exists()
 
-    save_dir = tmp_path / "shared.csf"
-    csf_shared.save(str(save_dir))
-    buggy_total = sum(p.stat().st_size for p in save_dir.iterdir())
+    csf_private = carameldb.Caramel(keys, values, shared_codebook=False,
+                                    build_lookup_table=False, verbose=False)
+    private_dir = tmp_path / "private.csf"
+    csf_private.save(str(private_dir))
+    private_total = dir_size(private_dir)
+    assert not (private_dir / "shared_codebook.bin").exists()
 
-    # The correction must leave a positive total and should save at least
-    # (M - 1) bytes (codebook is non-trivial).
-    savings = (num_cols - 1) * cb_bytes
-    corrected = buggy_total - savings
-    assert corrected > 0
-    assert savings > (num_cols - 1)
+    assert shared_total < private_total, \
+        f"shared_total={shared_total} should be less than private_total={private_total}"
+
+
+def test_shared_codebook_save_load_roundtrip(tmp_path):
+    """Shared-codebook CSF must load correctly and return identical queries."""
+    num_rows = 500
+    num_cols = 15
+    rng = np.random.default_rng(11)
+    values = rng.integers(0, 100, size=(num_rows, num_cols), dtype=np.uint32)
+    keys = np.arange(num_rows, dtype=np.uint32)
+
+    csf = carameldb.Caramel(keys, values, shared_codebook=True,
+                            build_lookup_table=False, verbose=False)
+    save_dir = tmp_path / "roundtrip.csf"
+    csf.save(str(save_dir))
+    loaded = carameldb.load(str(save_dir))
+
+    for i in range(num_rows):
+        expected = sorted(values[i].tolist())
+        actual = sorted(loaded.query(int(keys[i])))
+        assert actual == expected, f"row {i}: expected {expected}, got {actual}"
 
 
 def test_shared_codebook_serialized_bytes_accepts_mmap(tmp_path):
