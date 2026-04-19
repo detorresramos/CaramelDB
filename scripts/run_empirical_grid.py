@@ -25,7 +25,7 @@ from carameldb import AutoFilterConfig, GlobalSortPermutationConfig
 
 N = 100_000_000
 M_VALUES = [10, 25, 50, 100]
-REFINEMENT_ITERATIONS = 5
+REFINEMENT_ITERATIONS = 10
 
 DATASETS = [
     ("asin_clicks", "asin"),
