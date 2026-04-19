@@ -38,7 +38,9 @@ public:
         outputs[i] = queryCsfCore<T>(data, length, col.hash_store_seed,
                                      col.bucket_info, col.num_buckets,
                                      col.codebook->max_codelength,
-                                     col.codebook->lookup_table);
+                                     col.codebook->lookup_table,
+                                     col.codebook->code_length_counts,
+                                     col.codebook->ordered_symbols);
       }
     }
 

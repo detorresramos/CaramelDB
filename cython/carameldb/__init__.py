@@ -78,6 +78,7 @@ def Caramel(
     permutation=None,
     shared_codebook=False,
     shared_filter=False,
+    build_lookup_table=True,
     strategy=None,
     max_to_infer=None,
     verbose=True,
@@ -150,12 +151,13 @@ def Caramel(
             prefilter=prefilter,
             permutation=permutation,
             shared_codebook=shared_codebook,
+            build_lookup_table=build_lookup_table,
             verbose=verbose,
         )
 
-    # Fixed-length: convert to numpy array
+    # Fixed-length: convert to numpy array (no copy if already ndarray)
     try:
-        values = np.array(values)
+        values = np.asarray(values)
     except Exception:
         raise ValueError(
             "Error transforming values to numpy array. Make sure all rows are the same length."
@@ -170,6 +172,7 @@ def Caramel(
             permutation=permutation,
             shared_codebook=shared_codebook,
             shared_filter=shared_filter,
+            build_lookup_table=build_lookup_table,
             verbose=verbose,
         )
     else:

@@ -189,7 +189,8 @@ private:
     }
 
     return queryCsfCore<T>(data, length, _hash_store_seed, _bucket_info,
-                           _num_buckets, _max_codelength, _lookup_table);
+                           _num_buckets, _max_codelength, _lookup_table,
+                           _code_length_counts, _ordered_symbols);
   }
 
   // Private constructor for cereal

@@ -305,7 +305,7 @@ cdef extern from "src/construct/multiset/MultisetCsf.h" namespace "caramel":
         void save(const string &filename, unsigned int type_id) except +
 
         @staticmethod
-        shared_ptr[MultisetCsf_uint32] load(const string &filename, unsigned int type_id) except +
+        shared_ptr[MultisetCsf_uint32] load(const string &filename, unsigned int type_id, cbool build_lookup_table) except +
 
     cppclass MultisetCsf_uint64 "caramel::MultisetCsf<uint64_t>":
         vector[uint64_t] query(const char *data, size_t length, cbool parallelize) except +
@@ -313,7 +313,7 @@ cdef extern from "src/construct/multiset/MultisetCsf.h" namespace "caramel":
         void save(const string &filename, unsigned int type_id) except +
 
         @staticmethod
-        shared_ptr[MultisetCsf_uint64] load(const string &filename, unsigned int type_id) except +
+        shared_ptr[MultisetCsf_uint64] load(const string &filename, unsigned int type_id, cbool build_lookup_table) except +
 
     cppclass MultisetCsf_Char10 "caramel::MultisetCsf<Char10>":
         vector[Char10] query(const char *data, size_t length, cbool parallelize) except +
@@ -361,6 +361,7 @@ cdef extern from "src/construct/multiset/MultisetConfig.h" namespace "caramel":
         cbool shared_codebook
         cbool shared_filter
         cbool verbose
+        cbool build_lookup_table
 
 # ── ConstructMultiset free functions ───────────────────────────────────────
 

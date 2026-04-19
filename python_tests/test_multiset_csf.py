@@ -310,3 +310,113 @@ def test_backward_compat_default_settings(tmp_path):
     csf2 = carameldb.load(save_file)
     for key, row in zip(keys, values):
         assert csf2.query(key) == list(row)
+
+
+def test_multiset_csf_no_lookup_table():
+    """With build_lookup_table=False, queries fall back to canonical decode."""
+    num_rows = 500
+    num_cols = 5
+    keys = [f"key_{i}" for i in range(num_rows)]
+    values = np.random.default_rng(42).integers(0, 50, size=(num_rows, num_cols), dtype=np.uint32)
+
+    csf = carameldb.Caramel(keys, values, build_lookup_table=False, verbose=False)
+    for key, row in zip(keys, values):
+        assert csf.query(key) == list(row)
+
+
+def test_multiset_csf_no_lut_save_load(tmp_path):
+    """Save/load round-trip with build_lookup_table=False matches saved queries."""
+    num_rows = 500
+    num_cols = 5
+    keys = [f"key_{i}" for i in range(num_rows)]
+    values = np.random.default_rng(42).integers(0, 50, size=(num_rows, num_cols), dtype=np.uint32)
+
+    csf = carameldb.Caramel(keys, values, build_lookup_table=False, verbose=False)
+    save_file = str(tmp_path / "no_lut.csf")
+    csf.save(save_file)
+    csf2 = carameldb.load(save_file)
+    for key, row in zip(keys, values):
+        assert csf2.query(key) == list(row)
+
+
+def test_multiset_csf_no_lut_shared_codebook():
+    """Shared codebook + no LUT uses the streaming freq path and canonical decode."""
+    num_rows = 500
+    num_cols = 5
+    keys = [f"key_{i}" for i in range(num_rows)]
+    values = np.random.default_rng(42).integers(0, 10, size=(num_rows, num_cols), dtype=np.uint32)
+
+    csf = carameldb.Caramel(
+        keys, values, shared_codebook=True, build_lookup_table=False, verbose=False
+    )
+    for key, row in zip(keys, values):
+        assert csf.query(key) == list(row)
+
+
+def test_multiset_csf_no_lut_permute_shared_codebook():
+    """Grid script's Column+SharedCB-like path (but also with permute) works end-to-end."""
+    num_rows = 500
+    num_cols = 8
+    keys = np.arange(num_rows, dtype=np.uint32)
+    values = np.random.default_rng(42).integers(0, 15, size=(num_rows, num_cols), dtype=np.uint32)
+    values_copy = values.copy()  # for comparison since permute is in place
+
+    csf = carameldb.Caramel(
+        keys, values,
+        permutation=carameldb.GlobalSortPermutationConfig(refinement_iterations=3),
+        shared_codebook=True,
+        build_lookup_table=False,
+        verbose=False,
+    )
+    for i in range(num_rows):
+        assert sorted(csf.query(int(keys[i]))) == sorted(values_copy[i].tolist())
+
+
+def test_multiset_csf_permute_mutates_in_place():
+    """Verify that permutation no longer copies values — the caller's array is mutated."""
+    num_rows = 100
+    num_cols = 5
+    keys = [f"k{i}" for i in range(num_rows)]
+    values = np.random.default_rng(42).integers(0, 10, size=(num_rows, num_cols), dtype=np.uint32)
+    original = values.copy()
+
+    carameldb.Caramel(
+        keys, values,
+        permutation=carameldb.GlobalSortPermutationConfig(refinement_iterations=2),
+        verbose=False,
+    )
+    # At least one row should differ if permutation did anything non-trivial
+    # (we don't assert specific positions — just that mutation happened).
+    assert not np.array_equal(values, original), \
+        "values array should be mutated in place by permutation"
+    # Row multisets must still match (permutation only reorders within rows).
+    for i in range(num_rows):
+        assert sorted(values[i].tolist()) == sorted(original[i].tolist())
+
+
+def test_multiset_csf_no_lut_mmap_values(tmp_path):
+    """Simulate the grid script's mmap'd numpy input on a small scale."""
+    num_rows = 500
+    num_cols = 5
+    npy_path = tmp_path / "values.npy"
+    rng = np.random.default_rng(42)
+    values_src = rng.integers(0, 20, size=(num_rows, num_cols), dtype=np.uint32)
+    np.save(npy_path, values_src)
+
+    # Non-permute path uses mmap_mode='r'.
+    keys = np.arange(num_rows, dtype=np.uint32)
+    values_r = np.load(npy_path, mmap_mode='r')
+    csf = carameldb.Caramel(keys, values_r, build_lookup_table=False, verbose=False)
+    for i in range(num_rows):
+        assert csf.query(int(keys[i])) == values_src[i].tolist()
+
+    # Permute path uses mmap_mode='c' (writable copy-on-write).
+    values_c = np.load(npy_path, mmap_mode='c')
+    csf2 = carameldb.Caramel(
+        keys, values_c,
+        permutation=carameldb.GlobalSortPermutationConfig(refinement_iterations=2),
+        build_lookup_table=False,
+        verbose=False,
+    )
+    for i in range(num_rows):
+        assert sorted(csf2.query(int(keys[i]))) == sorted(values_src[i].tolist())

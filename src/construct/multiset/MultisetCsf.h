@@ -73,7 +73,9 @@ public:
         outputs[i] = queryCsfCore<T>(data, length, col.hash_store_seed,
                                      col.bucket_info, col.num_buckets,
                                      col.codebook->max_codelength,
-                                     col.codebook->lookup_table);
+                                     col.codebook->lookup_table,
+                                     col.codebook->code_length_counts,
+                                     col.codebook->ordered_symbols);
       }
     }
 
@@ -109,7 +111,8 @@ public:
   }
 
   static MultisetCsfPtr<T> load(const std::string &path,
-                                const uint32_t type_id = 0) {
+                                const uint32_t type_id = 0,
+                                bool build_lookup_table = true) {
     auto meta = SafeFileIO::ifstream(path + "/metadata.bin", std::ios::binary);
     uint32_t type_id_found = 0, num_cols = 0;
     meta.read(reinterpret_cast<char *>(&type_id_found), sizeof(uint32_t));
@@ -125,6 +128,9 @@ public:
     for (uint32_t i = 0; i < num_cols; i++) {
       columns[i] =
           loadColumnState(path + "/col_" + std::to_string(i) + ".bin");
+      if (build_lookup_table) {
+        columns[i].codebook->buildLookupTable();
+      }
     }
     return std::make_shared<MultisetCsf<T>>(std::move(columns));
   }

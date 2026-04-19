@@ -55,25 +55,45 @@ void globalSortPermutationRagged(T *M, const int64_t *row_offsets, int num_rows,
   };
 
   for (int iter = 0; iter < refinement_iterations; iter++) {
+    // Build per-column frequency maps. Parallelized by column: each thread
+    // owns a disjoint subset of `counts` entries, so no synchronization needed.
     std::vector<std::unordered_map<T, int>> counts(max_cols);
-    for (int row = 0; row < num_rows; row++) {
-      int row_len = row_offsets[row + 1] - row_offsets[row];
-      T *row_start = M + row_offsets[row];
-      for (int col = 0; col < row_len; col++) {
-        counts[col][row_start[col]]++;
+#pragma omp parallel for schedule(static) default(none)                        \
+    shared(counts, M, row_offsets, num_rows, max_cols)
+    for (int col = 0; col < max_cols; col++) {
+      auto &col_map = counts[col];
+      for (int row = 0; row < num_rows; row++) {
+        int64_t off = row_offsets[row];
+        int row_len = static_cast<int>(row_offsets[row + 1] - off);
+        if (col < row_len) {
+          col_map[M[off + col]]++;
+        }
       }
     }
 
+    // Pre-populate value_prefs entries serially so the subsequent parallel
+    // fill phase only does read-only lookups on the map structure.
     std::unordered_map<T, std::vector<ColScore>> value_prefs;
+    value_prefs.reserve(global_counts.size());
+    std::vector<T> unique_values;
+    unique_values.reserve(global_counts.size());
     for (const auto &[value, _] : global_counts) {
-      auto &prefs = value_prefs[value];
-      prefs.reserve(max_cols);
+      value_prefs[value].resize(max_cols);
+      unique_values.push_back(value);
+    }
+
+    // Parallel fill + sort: each thread owns a disjoint subset of values.
+#pragma omp parallel for schedule(static) default(none)                        \
+    shared(unique_values, value_prefs, counts, max_cols)
+    for (size_t i = 0; i < unique_values.size(); i++) {
+      const T value = unique_values[i];
+      auto &prefs = value_prefs.at(value);
       for (int col = 0; col < max_cols; col++) {
         auto it = counts[col].find(value);
         int count = (it != counts[col].end()) ? it->second : 0;
         float score =
             (count > 0) ? std::log(static_cast<float>(count) + 1.0f) : 0.0f;
-        prefs.push_back({score, col});
+        prefs[col] = {score, col};
       }
       std::sort(prefs.begin(), prefs.end(), std::greater<ColScore>());
     }

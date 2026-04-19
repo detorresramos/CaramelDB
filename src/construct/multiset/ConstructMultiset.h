@@ -288,6 +288,9 @@ constructMultisetCsf(const std::vector<std::string> &keys,
   for (size_t i = 0; i < num_columns; i++) {
     columns[i] = MultisetCsf<T>::loadColumnState(
         (temp_dir / ("col_" + std::to_string(i) + ".bin")).string());
+    if (config.build_lookup_table) {
+      columns[i].codebook->buildLookupTable();
+    }
   }
   std::filesystem::remove_all(temp_dir);
 
@@ -329,11 +332,18 @@ constructMultisetCsfRowMajor(const std::vector<std::string> &keys,
   size_t num_columns = static_cast<size_t>(num_cols);
   size_t n = static_cast<size_t>(num_rows);
 
-  // Shared codebook: pool all values from the flat buffer.
+  // Shared codebook: stream a frequency histogram instead of copying the
+  // whole flat buffer (which would double RAM usage for N*M * sizeof(T)).
+  // uint64 counts needed because total samples = N*M can exceed 2^32.
   std::shared_ptr<CsfCodebook<T>> shared_cb;
   if (config.shared_codebook) {
-    std::vector<T> pooled(data, data + n * num_columns);
-    shared_cb = std::make_shared<CsfCodebook<T>>(canonicalHuffman<T>(pooled));
+    std::unordered_map<T, uint64_t> freqs;
+    size_t total = n * num_columns;
+    for (size_t i = 0; i < total; i++) {
+      ++freqs[data[i]];
+    }
+    shared_cb = std::make_shared<CsfCodebook<T>>(
+        canonicalHuffmanFromFrequencies<T>(freqs));
   }
 
   // Shared filter: needs column-major access to all columns simultaneously.
@@ -439,11 +449,14 @@ constructMultisetCsfRowMajor(const std::vector<std::string> &keys,
 
   result.build_seconds = timer.seconds();
 
-  // Reload all columns from disk (builds lookup tables and query caches).
+  // Reload all columns from disk (builds query caches; LUT optional).
   std::vector<ColumnState> columns(num_columns);
   for (size_t i = 0; i < num_columns; i++) {
     columns[i] = MultisetCsf<T>::loadColumnState(
         (temp_dir / ("col_" + std::to_string(i) + ".bin")).string());
+    if (config.build_lookup_table) {
+      columns[i].codebook->buildLookupTable();
+    }
   }
   std::filesystem::remove_all(temp_dir);
 

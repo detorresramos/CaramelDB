@@ -192,7 +192,9 @@ constructRaggedMultisetCsf(const std::vector<std::string> &keys,
   }
 
   for (size_t c = 0; c < max_length; c++) {
-    columns[c].codebook->buildLookupTable();
+    if (config.build_lookup_table) {
+      columns[c].codebook->buildLookupTable();
+    }
     columns[c].buildQueryCache();
   }
 

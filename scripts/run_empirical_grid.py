@@ -25,7 +25,7 @@ from carameldb import AutoFilterConfig, GlobalSortPermutationConfig
 
 N = 100_000_000
 M_VALUES = [10, 25, 50, 100]
-REFINEMENT_ITERATIONS = 10
+REFINEMENT_ITERATIONS = 5
 
 DATASETS = [
     ("asin_clicks", "asin"),
@@ -43,7 +43,11 @@ OUTPUT_JSON = "scripts/empirical_grid_results.json"
 
 def run_one(dataset_name, M, strategy_name, permutation, shared_codebook, npy_path):
     print(f"  Loading {npy_path}...", flush=True)
-    values = np.load(npy_path)
+    # 'r' = read-only mmap for non-permute runs (zero anon RSS).
+    # 'c' = copy-on-write for permute runs so the in-place permutation
+    # doesn't write back to disk.
+    mmap_mode = 'r' if permutation is None else 'c'
+    values = np.load(npy_path, mmap_mode=mmap_mode)
     assert values.shape == (N, M), f"Expected ({N}, {M}), got {values.shape}"
 
     keys = np.arange(N, dtype=np.uint32)
@@ -55,6 +59,7 @@ def run_one(dataset_name, M, strategy_name, permutation, shared_codebook, npy_pa
         permutation=permutation,
         prefilter=AutoFilterConfig(),
         shared_codebook=shared_codebook,
+        build_lookup_table=False,
         verbose=True,
     )
     wall_time = time.perf_counter() - t0
@@ -80,9 +85,10 @@ def run_one(dataset_name, M, strategy_name, permutation, shared_codebook, npy_pa
     print(f"  Measuring query latency...", flush=True)
     query_ns = measure_query_throughput(csf, keys, WARMUP_TRIALS, MEASURE_TRIALS)
 
-    # Correctness
+    # Correctness — mmap so we don't materialize the full array to sample 50 rows.
     print(f"  Verifying correctness...", flush=True)
-    verify_correctness(csf, keys, values if permutation is None else np.load(npy_path))
+    verify_values = values if permutation is None else np.load(npy_path, mmap_mode='r')
+    verify_correctness(csf, keys, verify_values)
 
     print(f"  {strategy_name}: perm={perm_s:.2f}s build={build_s:.2f}s "
           f"wall={wall_time:.2f}s {bits_per_key:.2f} bits/key {query_ns:.1f} ns/q", flush=True)
