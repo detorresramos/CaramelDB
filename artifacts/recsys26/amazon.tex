@@ -1,0 +1,25 @@
+\section{Amazon Product Search}
+
+Amazon Search powers product discovery for hundreds of millions of customers, processing billions of search queries per week across 
+global marketplaces. Each query triggers a complex retrieval and ranking pipeline that identifies relevant products from a catalog of 
+hundreds of millions of items. With the increasing adoption of large language models for query understanding, result generation, and re
+-ranking, the computational cost of serving queries in real time has grown substantially. Precomputing and caching results is therefore
+a critical strategy for maintaining low-latency responses at scale. We evaluate CARAMEL on two result caching workloads derived from 
+Amazon's US marketplace.
+
+Query rewriting cache. A common component in search systems is query rewriting, where the system maps an incoming query to a set of 
+alternative or expanded queries that are also issued to the retrieval engine. For example, a query "wireless earbuds" may be rewritten 
+to {"bluetooth earbuds", "wireless headphones", "earbuds noise cancelling"}. These rewrite mappings are expensive to compute — often 
+involving LLM-based models — and are therefore precomputed and stored in a query-to-query cache. We extract the query frequency 
+distribution from a 5-week observation window of Amazon US mobile search traffic, filtered to keyword searches with bot and spam 
+traffic removed. The dataset contains 792 million unique queries with a total volume of 3.3 billion occurrences. The distribution is 
+heavily skewed: 79.6\% of queries appear exactly once, while the most popular query occurs 1.9 million times. In a query rewriting 
+cache, popular rewrite targets (e.g., common product-type queries like "laptop" or "running shoes") appear in the value lists of many 
+different source queries, creating the item-level repetition that CARAMEL is designed to exploit.
+
+Query-to-ASIN result cache. The primary output of a search system is a ranked list of products (ASINs) for each query. Precomputing 
+these result lists offline and serving them from a cache avoids the cost of real-time retrieval and ranking. We obtain the ASIN click 
+frequency distribution from a one-week subsample of US production search traffic, covering 12 million unique ASINs that received at 
+least one click, with approximately 150 million total clicks. The distribution follows a log-normal pattern: 48\% of ASINs receive 
+exactly one click, and the top 1\% of ASINs account for 37\% of all clicks. This concentration means that popular products appear across 
+the result lists of many different queries, providing significant redundancy for compression.

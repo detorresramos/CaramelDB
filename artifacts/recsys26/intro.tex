@@ -1,0 +1,30 @@
+\section{Introduction}
+
+Modern search and recommendation pipelines face a fundamental tension. Low online query latency is a critical pillar of user experience, yet retrieval algorithms are growing increasingly computationally expensive — a trend accelerated by the recent adoption of large language models (LLMs). To reconcile these competing demands, search and recommendation systems turn to result caching. A result cache is a key-value lookup table mapping entities such as search queries or user IDs to a list of associated retrieved items. By precomputing and caching results, a retrieval system can bypass real-time query processing and model inference, which can be prohibitively slow and expensive. Below, we highlight three motivating examples of result caching in practice.
+
+\noindent \textbf{Example 1:} Homepage Recommendations. A user logs in to a video streaming site and sees movie recommendations on the landing page. To generate these suggestions, the recommender engine precomputes a list of movies per user using offline models. Upon login, the system looks up the the list of precomputed results from the cache for that user, optionally reranks this list based on real-time session features, and then serves the top $k$ results to the homepage.   
+
+
+\noindent \textbf{Example 2:} Item-to-Item Recommendations. When an online shopper views a particular product, an e-commerce service recommends similar or complementary products to drive further engagement. To generate these recommendations, the service precomputes a result cache where the keys are product IDs and the values are the lists of associated product IDs. 
+
+\noindent \textbf{Example 3:} Personalized Search. A search engine uses a personalization model to vary the results served to different users for the same query. Here the keys of the result cache will be \emph{tuples} of queries and user IDs while the values will be lists of search results, (represented, for example, as document IDs).
+
+A common structure emerges across these examples: each key maps to a list of items, naturally forming a matrix. Throughout this paper, we will model result caches as a matrix where the rows correspond to individual users, items, or search queries and the columns represent the list of precomputed results. For a large web service with 500M rows and a precomputed list of 100 items per row (represented as 32 bit IDs), this cache, assuming no further optimizations, will take up at least 200GB of space. In practice, this space footprint might expand even further for cases where the retrieval services maintain multiple such caches, such as one for each shopping category in an e-commerce service. This heavy storage cost motivates the key research question we address in this paper: \textbf{Can we design a space-efficient index for result caching that reduces the storage footprint while retaining fast lookups?} 
+
+We affirmatively answer this question via a new caching system we call \sys (\textbf{C}ompressed \textbf{A}rray \textbf{R}epresentations \textbf{A}nd \textbf{M}ore \textbf{E}fficient \textbf{L}ookups). Our key observation guiding the design of \sys is that there are many common elements across the value lists in result caches. This heavy-tailed popularity phenomenon is well-documented in practical search and recommender systems; some web pages, movies, products, and songs are overwhelmingly more popular than others and thus appear frequently across different keys in the cache. 
+
+To take advantage of this redundancy in the value lists, we leverage \emph{compressed static functions} (CSFs), a succinct retrieval data structure that achieves a space footprint proportional to the empirical entropy of the values with $O(1)$ query time. Viewing result caches as an $n \times m$ matrix, we propose to construct a compressed static function for each \emph{column} of the matrix. Due to the fact that each value list exhibits power law behavior, this architecture can take advantage of repetition within columns to reduce space at the cost of increasing the query time to $O(m)$. In practice, $m$ is typically a small constant (often between 10-100) so we hypothesize that the query latency increase will be negligible, especially when compared to running the full retrieval pipeline in real time.
+
+This idea of building a CSF for each column of the result cache matrix raises a number of open research questions. First, CSFs, which rely on Huffman coding for compression, maintain a codebook to map Huffman codes back to the original item. When we have multiple CSFs, one for each column, is it more space-efficient to share one codebook across all CSFs or maintain separate codebooks per column (\textbf{RQ1})? Secondly, in many cases, the precomputed entries in a result cache are re-ranked at query time to take advantage of real-time personalization signals. Thus, the order in which the results are stored in the cache may not matter. In this order-agnostic setting, a natural optimization is to reorder the entries in each row of the matrix to minimize the sum of columnwise entropies to reduce space even further. However, to our knowledge, the computational complexity of this precise optimization problem has not been studied and it is unclear if there exists an efficient algorithm for this task (\textbf{RQ2}). Finally, a third open question raised by this multi-CSF architecture is how to handle the case of \emph{ragged} value lists where the list of retrieved results per row varies (\textbf{RQ3}).
+
+In this paper, we systematically study each of these research questions through a theoretical and experimental lens, culminating in the design of the \sys system. Our specific contributions are as follows:
+
+\begin{itemize}
+\item Problem Statement
+
+\item Codebook sharing
+
+\item Row Permutation
+
+\item Ragged Arrays
+\end{itemize}

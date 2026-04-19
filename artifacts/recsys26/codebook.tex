@@ -1,0 +1,123 @@
+\section{Codebook Sharing}
+
+In this section, we study the decision between maintaining separate codebooks for each column in \sys or using a single shared codebook\footnote{In principle, one could also consider a hybrid strategy where a subset of columns share a codebook and the remaining maintain individual codebooks. However, this optimization problem is NP-Hard (via a reduction from \textsc{Set Cover} \cite{karp1972}), so we restrict our attention to the binary decision of full sharing versus no sharing.}. We will proceed by developing cost models for the space usage of each respective index and analyze under what conditions is one setting superior to the other. 
+
+A length-limited canonical Huffman codebook over alphabet $\Sigma$ with maximum
+codeword length $\Lmax$ requires storing two things:
+\begin{enumerate}
+    \item \textbf{Codeword lengths.} One integer in $\{1, \ldots, \Lmax\}$ per symbol,
+          each requiring $\bL = \lceil\log_2 \Lmax\rceil$ bits: total
+          $|\Sigma|\,\bL$ bits.
+    \item \textbf{Symbol ordering.} The canonical ordering maps each codeword to a
+          symbol; storing this permutation of $\Sigma$ requires
+          $|\Sigma|\lceil\log_2|\Sigma|\rceil$ bits.
+\end{enumerate}
+The total codebook cost is therefore
+\[
+    \mathcal{C} = |\Sigma|\bigl(\bL + \lceil\log_2|\Sigma|\rceil\bigr) \bits.
+\]
+Crucially, since $\Lmax$ is a fixed design constant, $\mathcal{C}$ is the \emph{same}
+for both a private and a shared codebook: both store one table over the same alphabet
+$\Sigma$ with the same maximum depth $\Lmax$. There is no additional depth penalty from
+pooling distributions.
+
+\subsection{All-private strategy}
+
+The total space under strategy $\mathbf{P}$ is
+\[
+    \mathrm{Space}(\mathbf{P})
+    = \underbrace{\delta_k n \sum_{j=1}^{m} H(p_j)}_{\text{bit arrays}}
+    + \underbrace{m \cdot \mathcal{C}}_{\text{codebooks}}
+    + \underbrace{m \cdot M}_{\text{chunk metadata}},
+\]
+where $M = (n / 2^\ell) \cdot 64\bits$ is the per-column chunk metadata cost
+(one 64-bit word per chunk of approximately $2^\ell$ keys), and
+\[
+    \mathcal{C} = |\Sigma|\bigl(\bL + \lceil\log_2|\Sigma|\rceil\bigr).
+\]
+
+\subsection{All-shared strategy}
+
+By the source-coding theorem, encoding distribution $p_j$ with a code optimised for
+$\pbar$ incurs an expected codeword length of
+\[
+    \ell(p_j, \pbar) = H(p_j) + \KL{p_j}{\pbar}.
+\]
+Therefore the total space under strategy $\mathbf{S}$ is
+\[
+    \mathrm{Space}(\mathbf{S})
+    = \underbrace{\delta_k n \sum_{j=1}^{m}\bigl[H(p_j) + \KL{p_j}{\pbar}\bigr]}_{\text{bit arrays}}
+    + \underbrace{\mathcal{C}}_{\text{one codebook}}
+    + \underbrace{m \cdot M}_{\text{chunk metadata}}.
+\]
+
+The sum of KL divergences in the shared strategy admits a clean closed form.
+
+\begin{lemma}\label{lem:kl-identity}
+    \[
+        \sum_{j=1}^{m} \KL{p_j}{\pbar} = m \cdot \Hb{\pbar} - \sum_{j=1}^{m} \Hb{p_j}.
+    \]
+\end{lemma}
+
+\begin{proof}
+By definition,
+\[
+    \KL{p_j}{\pbar}
+    = \sum_{\sigma} p_j(\sigma)\log\frac{p_j(\sigma)}{\pbar(\sigma)}
+    = -\Hb{p_j} - \sum_{\sigma} p_j(\sigma)\log\pbar(\sigma).
+\]
+Summing over $j$ and noting that $\frac{1}{m}\sum_j p_j(\sigma) = \pbar(\sigma)$,
+\[
+    \sum_{j=1}^{m} \KL{p_j}{\pbar}
+    = -\sum_{j=1}^{m}\Hb{p_j}
+      - m\sum_{\sigma}\pbar(\sigma)\log\pbar(\sigma)
+    = m\Hb{\pbar} - \sum_{j=1}^{m}\Hb{p_j}. \qedhere
+\]
+\end{proof}
+
+Applying Lemma~\ref{lem:kl-identity}, the bit-array cost under $\mathbf{S}$ simplifies
+to
+\[
+    \delta_k n \sum_{j=1}^{m}\bigl[H(p_j) + \KL{p_j}{\pbar}\bigr]
+    = \delta_k n m \Hb{\pbar}.
+\]
+
+\begin{remark}
+    The total bit-array cost of the shared strategy depends only on the entropy of the
+    \emph{pooled} distribution $\pbar$, not on the individual column entropies. Adding a
+    high-entropy outlier column to the shared pool is therefore always expensive.
+\end{remark}
+
+The two space expressions can now be written compactly as:
+\begin{align}
+    \mathrm{Space}(\mathbf{P}) &= \delta_k n \sum_{j=1}^{m} \Hb{p_j}
+        + m \cdot |\Sigma|\bigl(\bL + \lceil\log_2|\Sigma|\rceil\bigr)
+        + m \cdot M, \label{eq:space-P} \\
+    \mathrm{Space}(\mathbf{S}) &= \delta_k n m \cdot \Hb{\pbar}
+        + |\Sigma|\bigl(\bL + \lceil\log_2|\Sigma|\rceil\bigr)
+        + m \cdot M. \label{eq:space-S}
+\end{align}
+
+The chunk-metadata terms $m \cdot M$ cancel in the comparison
+$\mathrm{Space}(\mathbf{S}) < \mathrm{Space}(\mathbf{P})$. Subtracting
+\eqref{eq:space-P} from \eqref{eq:space-S} and applying Lemma~\ref{lem:kl-identity}
+gives the following exact, parameter-free criterion.
+
+\begin{proposition}[Decision criterion]\label{prop:criterion}
+    Strategy $\mathbf{S}$ (all-shared) uses strictly less space than strategy
+    $\mathbf{P}$ (all-private) if and only if
+    \[
+        \boxed{
+            \delta_k n \sum_{j=1}^{m}\KL{p_j}{\pbar}
+            \;<\;
+            (m-1)\cdot|\Sigma|\bigl(\bL + \lceil\log_2|\Sigma|\rceil\bigr),
+        }
+    \]
+    where $\bL = \lceil\log_2 \Lmax\rceil$ and $\Lmax$ is the fixed maximum codeword
+    length.
+\end{proposition}
+
+The left-hand side is the \emph{total KL penalty} paid in the bit arrays by using a
+mismatched codebook. The right-hand side is the \emph{net codebook saving} from paying
+$\mathcal{C}$ once instead of $m$ times; it is a compile-time constant depending only
+on $|\Sigma|$ and $\Lmax$.

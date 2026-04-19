@@ -1,0 +1,21 @@
+\section{Background}
+
+A \emph{compressed static function} (CSF)~\cite{hreinsson2009storing} is a data structure
+that stores a mapping $f : X \to \Sigma$ from a finite key set $X$ of size $n$ to an
+alphabet $\Sigma$, using space per key close to the empirical entropy of the output
+values. The core construction encodes each output value with a variable-length
+prefix-free codeword and builds a bit array $A$ such that XOR-ing $k$ positions of
+$A$, at positions determined by hash functions of the key, recovers the codeword.
+This reduction from a function-storage problem to a system of linear equations over
+$\mathbb{Z}/2\mathbb{Z}$ (specifically a $k$-XORSAT instance) yields a bit array of
+size approximately
+\[
+    \delta_k \sum_{x \in X} |c(f(x))| \text{bits},
+\]
+where $c(\cdot)$ is the chosen prefix-free code. 
+
+When the code matches the empirical distribution of outputs, the average codeword
+length equals the empirical entropy $H_0$, so the bit array consumes $\approx \delta_k
+n H_0 \text{bits}$ in total. Beyond the bit array, one must also store the \emph{codebook}:
+the Huffman decoding table and the mapping from codewords to elements of $\Sigma$.
+
