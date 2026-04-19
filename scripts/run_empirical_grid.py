@@ -41,7 +41,12 @@ STRATEGIES = [
 OUTPUT_JSON = "scripts/empirical_grid_results.json"
 
 
-def run_one(dataset_name, M, strategy_name, permutation, shared_codebook, npy_path):
+def _slug(strategy_name):
+    return strategy_name.lower().replace("+", "_")
+
+
+def run_one(dataset_name, M, strategy_name, permutation, shared_codebook,
+            npy_path, save_dir=None):
     print(f"  Loading {npy_path}...", flush=True)
     # 'r' = read-only mmap for non-permute runs (zero anon RSS).
     # 'c' = copy-on-write for permute runs so the in-place permutation
@@ -67,18 +72,36 @@ def run_one(dataset_name, M, strategy_name, permutation, shared_codebook, npy_pa
     perm_s = csf.permutation_seconds
     build_s = csf.build_seconds
 
-    # Serialized size
-    import shutil
-    tmp_path = tempfile.mkdtemp(suffix=".csf")
-    shutil.rmtree(tmp_path)
-    try:
-        csf.save(tmp_path)
+    # Serialize to measure bytes. If save_dir is set, persist the CSF there so
+    # a failed downstream step can be re-analyzed without rebuilding. Else use
+    # a tmp dir and clean up.
+    if save_dir is not None:
+        os.makedirs(save_dir, exist_ok=True)
+        csf_path = os.path.join(
+            save_dir, f"{dataset_name}_m{M}_{_slug(strategy_name)}.csf")
+        # Fresh save target: remove if it already exists so we don't leak
+        # stale files from a prior run.
+        import shutil
+        if os.path.exists(csf_path):
+            shutil.rmtree(csf_path)
+        csf.save(csf_path)
         size_bytes = sum(
-            os.path.getsize(os.path.join(tmp_path, f))
-            for f in os.listdir(tmp_path)
+            os.path.getsize(os.path.join(csf_path, f))
+            for f in os.listdir(csf_path)
         )
-    finally:
-        shutil.rmtree(tmp_path, ignore_errors=True)
+        print(f"  Saved CSF to {csf_path}", flush=True)
+    else:
+        import shutil
+        tmp_path = tempfile.mkdtemp(suffix=".csf")
+        shutil.rmtree(tmp_path)
+        try:
+            csf.save(tmp_path)
+            size_bytes = sum(
+                os.path.getsize(os.path.join(tmp_path, f))
+                for f in os.listdir(tmp_path)
+            )
+        finally:
+            shutil.rmtree(tmp_path, ignore_errors=True)
     bits_per_key = (size_bytes * 8) / N
 
     # Query latency
@@ -202,6 +225,10 @@ def main():
     parser.add_argument("--strategy", nargs="+", default=None,
                         choices=[s[0] for s in STRATEGIES],
                         help="Restrict to these strategies (default: all)")
+    parser.add_argument("--save-dir", default=None,
+                        help="Persist built CSFs here instead of a tmp dir "
+                             "(one subdir per config). If omitted, CSFs are "
+                             "deleted after measurement.")
     args = parser.parse_args()
 
     m_order = args.m_order or M_VALUES
@@ -240,7 +267,8 @@ def main():
         elapsed = time.perf_counter() - t_global
         print(f"\n[{i+1}/{total}] {ds_name} M={m} {strat_name} ({elapsed:.0f}s elapsed)", flush=True)
 
-        result = run_one(ds_name, m, strat_name, perm, shared_cb, npy_path)
+        result = run_one(ds_name, m, strat_name, perm, shared_cb, npy_path,
+                         save_dir=args.save_dir)
         all_results.append(result)
 
         with open(args.output_json, "w") as f:
