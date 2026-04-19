@@ -196,9 +196,17 @@ def main():
     parser.add_argument("--output-md", default="artifacts/multiset-benchmark-empirical.md")
     parser.add_argument("--m-order", type=int, nargs="+", default=None,
                         help="Order of M values to run (default: 10 25 50 100)")
+    parser.add_argument("--dataset", nargs="+", default=None,
+                        choices=[d[0] for d in DATASETS],
+                        help="Restrict to these datasets (default: all)")
+    parser.add_argument("--strategy", nargs="+", default=None,
+                        choices=[s[0] for s in STRATEGIES],
+                        help="Restrict to these strategies (default: all)")
     args = parser.parse_args()
 
     m_order = args.m_order or M_VALUES
+    datasets = [d for d in DATASETS if args.dataset is None or d[0] in args.dataset]
+    strategies = [s for s in STRATEGIES if args.strategy is None or s[0] in args.strategy]
 
     # Load existing results to skip completed configs
     all_results = []
@@ -213,9 +221,9 @@ def main():
     # Build run list: iterate M values in specified order, both datasets per M
     run_list = []
     for m in m_order:
-        for ds_name, ds_prefix in DATASETS:
+        for ds_name, ds_prefix in datasets:
             npy_path = os.path.join(args.dataset_dir, f"{ds_prefix}_100m_m{m}.npy")
-            for strat_name, perm, shared_cb in STRATEGIES:
+            for strat_name, perm, shared_cb in strategies:
                 if (ds_name, m, strat_name) in completed:
                     continue
                 run_list.append((ds_name, ds_prefix, m, strat_name, perm, shared_cb, npy_path))
