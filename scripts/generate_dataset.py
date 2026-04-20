@@ -87,19 +87,35 @@ def _rejection_fix(ids, dup_rows, draw_one_fn, M, rng):
 
 
 def sample_csv_chunk(starts, counts, probs, n, M, rng):
+    # Oversample + dedup per row. On heavy-tailed distributions where a few
+    # tiers dominate the weight, sampling exactly M per row leads to many dup
+    # rows, and each per-call rng.choice(p=probs) to rejection-fix is O(tiers).
+    # Oversampling by 2x absorbs the vast majority of dups into one vectorized
+    # choice call; the rare short rows still use per-call rejection.
     num_tiers = len(counts)
-    tiers = rng.choice(num_tiers, size=(n, M), p=probs)
-    offsets = (rng.random((n, M)) * counts[tiers]).astype(np.int64)
-    ids = (starts[tiers] + offsets).astype(np.uint32)
+    draws_per_row = max(int(M * 2), M + 8)
+    total = n * draws_per_row
+    tiers = rng.choice(num_tiers, size=total, p=probs)
+    offsets = (rng.random(total) * counts[tiers]).astype(np.int64)
+    cand = (starts[tiers] + offsets).astype(np.uint32).reshape(n, draws_per_row)
 
-    sorted_ids = np.sort(ids, axis=1)
-    dup_rows = np.where(np.any(sorted_ids[:, 1:] == sorted_ids[:, :-1], axis=1))[0]
+    ids = np.empty((n, M), dtype=np.uint32)
+    short_rows = []
+    for i in range(n):
+        _, first_idx = np.unique(cand[i], return_index=True)
+        uniq = cand[i][np.sort(first_idx)]
+        if len(uniq) >= M:
+            ids[i] = uniq[:M]
+        else:
+            short_rows.append((i, uniq))
 
-    def draw_one(rng):
-        t = rng.choice(num_tiers, p=probs)
-        return int(starts[t] + rng.integers(counts[t]))
-
-    _rejection_fix(ids, dup_rows, draw_one, M, rng)
+    for i, uniq in short_rows:
+        seen = set(int(x) for x in uniq)
+        while len(seen) < M:
+            t = rng.choice(num_tiers, p=probs)
+            gid = int(starts[t] + rng.integers(counts[t]))
+            seen.add(gid)
+        ids[i] = np.fromiter(seen, dtype=np.uint32, count=M)
     return ids
 
 

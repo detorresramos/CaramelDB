@@ -79,5 +79,3 @@ This is useless and doesn't help the reader. Only add comments when:
 # Other Guidelines
 
 * We don't care about backwards compatibility
-
-When you commit, don't put claude as coauthor. when creating PRs 
