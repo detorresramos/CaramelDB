@@ -21,14 +21,14 @@ template <typename T> using CodeDict = std::unordered_map<T, BitArray>;
     - https://github.com/madler/brotli/blob/master/huff.c
     - https://people.eng.unimelb.edu.au/ammoffat/inplace.c
 */
-inline void minRedundancyCodewordLengths(std::vector<uint32_t> &A) {
+inline void minRedundancyCodewordLengths(std::vector<uint64_t> &A) {
   int n = A.size();
   int root;      /* next root node to be used */
   int leaf;      /* next leaf to be used */
   int next;      /* next value to be assigned */
   int avbl;      /* number of available nodes */
   int used;      /* number of internal nodes */
-  uint32_t dpth; /* current depth of leaves */
+  uint64_t dpth; /* current depth of leaves */
 
   /* check for pathological cases */
   if (n == 0) {
@@ -195,13 +195,13 @@ private:
 
 template <typename T>
 CsfCodebook<T> canonicalHuffman(const std::vector<T> &symbols) {
-  std::unordered_map<T, uint32_t> frequencies;
+  std::unordered_map<T, uint64_t> frequencies;
   for (const auto &symbol : symbols) {
     ++frequencies[symbol];
   }
 
   // TODO(david) unwrap this into a two separate vectors since we end up copying
-  std::vector<std::pair<T, uint32_t>> symbol_frequency_pairs(
+  std::vector<std::pair<T, uint64_t>> symbol_frequency_pairs(
       frequencies.begin(), frequencies.end());
   // Sort the pairs by frequency first, then by symbol.
   // This is required for the decoder to reconstruct the codes
@@ -211,7 +211,7 @@ CsfCodebook<T> canonicalHuffman(const std::vector<T> &symbols) {
                                           : a.first < b.first;
             });
 
-  std::vector<uint32_t> codeword_lengths;
+  std::vector<uint64_t> codeword_lengths;
   for (auto [_, freq] : symbol_frequency_pairs) {
     codeword_lengths.push_back(freq);
   }
@@ -229,7 +229,7 @@ CsfCodebook<T> canonicalHuffman(const std::vector<T> &symbols) {
   std::vector<uint32_t> code_length_counts(codeword_lengths.back() + 1, 0);
   for (uint32_t i = 0; i < symbol_frequency_pairs.size(); i++) {
     auto &[symbol, _] = symbol_frequency_pairs[i];
-    uint32_t current_length = codeword_lengths[i];
+    uint32_t current_length = static_cast<uint32_t>(codeword_lengths[i]);
     codedict.emplace(symbol, BitArray::fromNumber(code, current_length));
     code_length_counts[current_length]++;
     if (i + 1 < codeword_lengths.size()) {
