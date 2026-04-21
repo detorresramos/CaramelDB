@@ -194,12 +194,8 @@ private:
 };
 
 template <typename T>
-CsfCodebook<T> canonicalHuffman(const std::vector<T> &symbols) {
-  std::unordered_map<T, uint64_t> frequencies;
-  for (const auto &symbol : symbols) {
-    ++frequencies[symbol];
-  }
-
+CsfCodebook<T>
+canonicalHuffmanFromFrequencies(const std::unordered_map<T, uint64_t> &frequencies) {
   // TODO(david) unwrap this into a two separate vectors since we end up copying
   std::vector<std::pair<T, uint64_t>> symbol_frequency_pairs(
       frequencies.begin(), frequencies.end());
@@ -250,6 +246,15 @@ CsfCodebook<T> canonicalHuffman(const std::vector<T> &symbols) {
   cb.codedict = std::move(codedict);
   cb.buildLookupTable();
   return cb;
+}
+
+template <typename T>
+CsfCodebook<T> canonicalHuffman(const std::vector<T> &symbols) {
+  std::unordered_map<T, uint64_t> frequencies;
+  for (const auto &symbol : symbols) {
+    ++frequencies[symbol];
+  }
+  return canonicalHuffmanFromFrequencies<T>(frequencies);
 }
 
 } // namespace caramel
