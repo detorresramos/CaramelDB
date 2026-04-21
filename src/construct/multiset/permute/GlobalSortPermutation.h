@@ -24,14 +24,20 @@ inline void mergeCountsMap(std::unordered_map<K, V> &dst,
 // `row_offsets` has num_rows+1 entries; row i spans
 // M[row_offsets[i] .. row_offsets[i+1]).
 // `max_cols` is the maximum row length (number of column buckets for scoring).
+//
+// All internal indices/counts are int64_t. Any cumulative cell position
+// (anything derived from row_offsets[]) would silently overflow a 32-bit
+// int for N*M > 2^31 (e.g. 50M rows x 100 cols); using int64_t everywhere
+// avoids the class of narrowing bugs where one missed site corrupts an
+// offset and dereferences garbage.
 template <typename T>
-void globalSortPermutationRagged(T *M, const int64_t *row_offsets, int num_rows,
-                                 int max_cols,
+void globalSortPermutationRagged(T *M, const int64_t *row_offsets,
+                                 int64_t num_rows, int64_t max_cols,
                                  int refinement_iterations = 5) {
   // Phase 1: Global Frequency Sort
   int64_t total = row_offsets[num_rows];
-  std::unordered_map<T, int> global_counts;
-#pragma omp declare reduction(countsmerge : std::unordered_map<T, int> :       \
+  std::unordered_map<T, int64_t> global_counts;
+#pragma omp declare reduction(countsmerge : std::unordered_map<T, int64_t> :   \
     mergeCountsMap(omp_out, omp_in))
 #pragma omp parallel for reduction(countsmerge : global_counts)
   for (int64_t i = 0; i < total; i++) {
@@ -42,12 +48,12 @@ void globalSortPermutationRagged(T *M, const int64_t *row_offsets, int num_rows,
   // sorts (~100 elements typical).
 #pragma omp parallel for schedule(static, 64) default(none)                    \
     shared(M, global_counts, row_offsets, num_rows)
-  for (int row = 0; row < num_rows; row++) {
+  for (int64_t row = 0; row < num_rows; row++) {
     T *row_start = M + row_offsets[row];
-    int row_len = row_offsets[row + 1] - row_offsets[row];
+    int64_t row_len = row_offsets[row + 1] - row_offsets[row];
     std::sort(row_start, row_start + row_len, [&](const T &a, const T &b) {
-      int ca = global_counts.at(a);
-      int cb = global_counts.at(b);
+      int64_t ca = global_counts.at(a);
+      int64_t cb = global_counts.at(b);
       if (ca != cb)
         return ca > cb;
       return a < b;
@@ -59,28 +65,28 @@ void globalSortPermutationRagged(T *M, const int64_t *row_offsets, int num_rows,
   // reassign items within each row to their preferred columns.
   struct ColScore {
     float score;
-    int col_idx;
+    int64_t col_idx;
     bool operator>(const ColScore &other) const { return score > other.score; }
   };
 
   struct PQItem {
     float score;
-    int item_idx;
-    int pref_idx;
+    int64_t item_idx;
+    int64_t pref_idx;
     bool operator<(const PQItem &other) const { return score < other.score; }
   };
 
   for (int iter = 0; iter < refinement_iterations; iter++) {
     // Build per-column frequency maps. Parallelized by column: each thread
     // owns a disjoint subset of `counts` entries, so no synchronization needed.
-    std::vector<std::unordered_map<T, int>> counts(max_cols);
+    std::vector<std::unordered_map<T, int64_t>> counts(max_cols);
 #pragma omp parallel for schedule(static) default(none)                        \
     shared(counts, M, row_offsets, num_rows, max_cols)
-    for (int col = 0; col < max_cols; col++) {
+    for (int64_t col = 0; col < max_cols; col++) {
       auto &col_map = counts[col];
-      for (int row = 0; row < num_rows; row++) {
-        int off = row_offsets[row];
-        int row_len = row_offsets[row + 1] - off;
+      for (int64_t row = 0; row < num_rows; row++) {
+        int64_t off = row_offsets[row];
+        int64_t row_len = row_offsets[row + 1] - off;
         if (col < row_len) {
           col_map[M[off + col]]++;
         }
@@ -104,9 +110,9 @@ void globalSortPermutationRagged(T *M, const int64_t *row_offsets, int num_rows,
     for (size_t i = 0; i < unique_values.size(); i++) {
       const T value = unique_values[i];
       auto &prefs = value_prefs.at(value);
-      for (int col = 0; col < max_cols; col++) {
+      for (int64_t col = 0; col < max_cols; col++) {
         auto it = counts[col].find(value);
-        int count = (it != counts[col].end()) ? it->second : 0;
+        int64_t count = (it != counts[col].end()) ? it->second : 0;
         float score =
             (count > 0) ? std::log(static_cast<float>(count) + 1.0f) : 0.0f;
         prefs[col] = {score, col};
@@ -116,9 +122,9 @@ void globalSortPermutationRagged(T *M, const int64_t *row_offsets, int num_rows,
 
 #pragma omp parallel for default(none)                                         \
     shared(M, value_prefs, row_offsets, num_rows)
-    for (int row = 0; row < num_rows; row++) {
+    for (int64_t row = 0; row < num_rows; row++) {
       T *row_start = M + row_offsets[row];
-      int row_len = row_offsets[row + 1] - row_offsets[row];
+      int64_t row_len = row_offsets[row + 1] - row_offsets[row];
 
       std::priority_queue<PQItem> pq;
       std::vector<bool> col_used(row_len, false);
@@ -126,13 +132,13 @@ void globalSortPermutationRagged(T *M, const int64_t *row_offsets, int num_rows,
       // Cache each item's prefs pointer once per row so the PQ loop doesn't
       // re-run value_prefs.at() on every pop.
       std::vector<const std::vector<ColScore> *> prefs_ptrs(row_len);
-      for (int i = 0; i < row_len; i++) {
+      for (int64_t i = 0; i < row_len; i++) {
         prefs_ptrs[i] = &value_prefs.at(row_start[i]);
       }
 
-      for (int item_idx = 0; item_idx < row_len; item_idx++) {
+      for (int64_t item_idx = 0; item_idx < row_len; item_idx++) {
         const auto &prefs = *prefs_ptrs[item_idx];
-        for (int p = 0; p < static_cast<int>(prefs.size()); p++) {
+        for (int64_t p = 0; p < static_cast<int64_t>(prefs.size()); p++) {
           if (prefs[p].col_idx < row_len) {
             pq.push({prefs[p].score, item_idx, p});
             break;
@@ -140,22 +146,22 @@ void globalSortPermutationRagged(T *M, const int64_t *row_offsets, int num_rows,
         }
       }
 
-      int assigned = 0;
+      int64_t assigned = 0;
       while (assigned < row_len && !pq.empty()) {
         PQItem top = pq.top();
         pq.pop();
 
         T val = row_start[top.item_idx];
         const auto &prefs = *prefs_ptrs[top.item_idx];
-        int col_idx = prefs[top.pref_idx].col_idx;
+        int64_t col_idx = prefs[top.pref_idx].col_idx;
 
         if (col_idx < row_len && !col_used[col_idx]) {
           col_used[col_idx] = true;
           new_row[col_idx] = val;
           assigned++;
         } else {
-          for (int next = top.pref_idx + 1;
-               next < static_cast<int>(prefs.size()); next++) {
+          for (int64_t next = top.pref_idx + 1;
+               next < static_cast<int64_t>(prefs.size()); next++) {
             if (prefs[next].col_idx < row_len) {
               pq.push({prefs[next].score, top.item_idx, next});
               break;
@@ -171,11 +177,11 @@ void globalSortPermutationRagged(T *M, const int64_t *row_offsets, int num_rows,
 
 // Fixed-length convenience wrapper: all rows have the same number of columns.
 template <typename T>
-void globalSortPermutation(T *M, int num_rows, int num_cols,
+void globalSortPermutation(T *M, int64_t num_rows, int64_t num_cols,
                            int refinement_iterations = 5) {
   std::vector<int64_t> row_offsets(num_rows + 1);
-  for (int i = 0; i <= num_rows; i++) {
-    row_offsets[i] = static_cast<int64_t>(i) * num_cols;
+  for (int64_t i = 0; i <= num_rows; i++) {
+    row_offsets[i] = i * num_cols;
   }
   globalSortPermutationRagged<T>(M, row_offsets.data(), num_rows, num_cols,
                                  refinement_iterations);

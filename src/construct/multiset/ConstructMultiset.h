@@ -442,13 +442,14 @@ constructMultisetCsfRowMajor(const std::vector<std::string> &keys,
     columns[i].solutions_and_seeds = std::move(solutions_and_seeds);
     columns[i].hash_store_seed = hash_store.seed;
     columns[i].codebook = col_codebook;
+    columns[i].uses_shared_codebook = config.shared_codebook;
     columns[i].filter = col_inputs.filter;
     columns[i].most_common_value = col_inputs.most_common_value;
     columns[i].buildQueryCache();
   }
 
   result.build_seconds = timer.seconds();
-  result.csf = std::make_shared<MultisetCsf<T>>(std::move(columns));
+  result.csf = std::make_shared<MultisetCsf<T>>(std::move(columns), shared_cb);
   return result;
 }
 

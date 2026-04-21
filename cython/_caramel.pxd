@@ -1,7 +1,7 @@
 # distutils: language = c++
 
 from libc.stddef cimport size_t
-from libc.stdint cimport uint32_t, uint64_t
+from libc.stdint cimport int64_t, uint32_t, uint64_t
 from libcpp cimport bool as cbool
 from libcpp.memory cimport shared_ptr
 from libcpp.string cimport string
@@ -460,7 +460,7 @@ cdef extern from "src/construct/multiset/permute/EntropyPermutation.h" namespace
     void entropyPermutation_Char12 "caramel::entropyPermutation<Char12>"(Char12 *M, int num_rows, int num_cols) nogil
 
 cdef extern from "src/construct/multiset/permute/GlobalSortPermutation.h" namespace "caramel":
-    void globalSortPermutation_uint32 "caramel::globalSortPermutation<uint32_t>"(unsigned int *M, int num_rows, int num_cols, int refinement_iterations) nogil
-    void globalSortPermutation_uint64 "caramel::globalSortPermutation<uint64_t>"(uint64_t *M, int num_rows, int num_cols, int refinement_iterations) nogil
-    void globalSortPermutation_Char10 "caramel::globalSortPermutation<Char10>"(Char10 *M, int num_rows, int num_cols, int refinement_iterations) nogil
-    void globalSortPermutation_Char12 "caramel::globalSortPermutation<Char12>"(Char12 *M, int num_rows, int num_cols, int refinement_iterations) nogil
+    void globalSortPermutation_uint32 "caramel::globalSortPermutation<uint32_t>"(unsigned int *M, int64_t num_rows, int64_t num_cols, int refinement_iterations) nogil
+    void globalSortPermutation_uint64 "caramel::globalSortPermutation<uint64_t>"(uint64_t *M, int64_t num_rows, int64_t num_cols, int refinement_iterations) nogil
+    void globalSortPermutation_Char10 "caramel::globalSortPermutation<Char10>"(Char10 *M, int64_t num_rows, int64_t num_cols, int refinement_iterations) nogil
+    void globalSortPermutation_Char12 "caramel::globalSortPermutation<Char12>"(Char12 *M, int64_t num_rows, int64_t num_cols, int refinement_iterations) nogil
