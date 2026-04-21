@@ -9,6 +9,17 @@
 
 namespace caramel {
 
+// Combiner for the OMP user-defined reduction used in Phase 1 count. Merges
+// one thread-local frequency map into another by summing values for shared
+// keys. Tree-reduced across threads by OpenMP.
+template <typename K, typename V>
+inline void mergeCountsMap(std::unordered_map<K, V> &dst,
+                           const std::unordered_map<K, V> &src) {
+  for (const auto &p : src) {
+    dst[p.first] += p.second;
+  }
+}
+
 // Core ragged implementation: each row has a (potentially different) length.
 // `row_offsets` has num_rows+1 entries; row i spans
 // M[row_offsets[i] .. row_offsets[i+1]).
@@ -20,11 +31,16 @@ void globalSortPermutationRagged(T *M, const int64_t *row_offsets, int num_rows,
   // Phase 1: Global Frequency Sort
   int64_t total = row_offsets[num_rows];
   std::unordered_map<T, int> global_counts;
+#pragma omp declare reduction(countsmerge : std::unordered_map<T, int> :       \
+    mergeCountsMap(omp_out, omp_in))
+#pragma omp parallel for reduction(countsmerge : global_counts)
   for (int64_t i = 0; i < total; i++) {
     global_counts[M[i]]++;
   }
 
-#pragma omp parallel for default(none)                                         \
+  // Chunked scheduling amortizes OMP dispatch overhead for short per-row
+  // sorts (~100 elements typical).
+#pragma omp parallel for schedule(static, 64) default(none)                    \
     shared(M, global_counts, row_offsets, num_rows)
   for (int row = 0; row < num_rows; row++) {
     T *row_start = M + row_offsets[row];
@@ -107,9 +123,15 @@ void globalSortPermutationRagged(T *M, const int64_t *row_offsets, int num_rows,
       std::priority_queue<PQItem> pq;
       std::vector<bool> col_used(row_len, false);
       std::vector<T> new_row(row_len);
+      // Cache each item's prefs pointer once per row so the PQ loop doesn't
+      // re-run value_prefs.at() on every pop.
+      std::vector<const std::vector<ColScore> *> prefs_ptrs(row_len);
+      for (int i = 0; i < row_len; i++) {
+        prefs_ptrs[i] = &value_prefs.at(row_start[i]);
+      }
 
       for (int item_idx = 0; item_idx < row_len; item_idx++) {
-        const auto &prefs = value_prefs.at(row_start[item_idx]);
+        const auto &prefs = *prefs_ptrs[item_idx];
         for (int p = 0; p < static_cast<int>(prefs.size()); p++) {
           if (prefs[p].col_idx < row_len) {
             pq.push({prefs[p].score, item_idx, p});
@@ -124,7 +146,7 @@ void globalSortPermutationRagged(T *M, const int64_t *row_offsets, int num_rows,
         pq.pop();
 
         T val = row_start[top.item_idx];
-        const auto &prefs = value_prefs.at(val);
+        const auto &prefs = *prefs_ptrs[top.item_idx];
         int col_idx = prefs[top.pref_idx].col_idx;
 
         if (col_idx < row_len && !col_used[col_idx]) {
