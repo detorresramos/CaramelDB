@@ -43,6 +43,7 @@ from ._caramel import (
     permute_char12,
     permute_uint32,
     permute_uint64,
+    shared_codebook_serialized_bytes,
 )
 
 CLASS_LIST = [

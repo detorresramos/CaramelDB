@@ -307,3 +307,40 @@ def test_backward_compat_default_settings(tmp_path):
     csf2 = carameldb.load(save_file)
     for key, row in zip(keys, values):
         assert csf2.query(key) == list(row)
+
+
+def test_shared_codebook_serialized_bytes():
+    """The retroactive helper returns positive bytes for any non-trivial input."""
+    num_rows = 1000
+    num_cols = 20
+    rng = np.random.default_rng(42)
+    values = rng.integers(1, 500, size=(num_rows, num_cols), dtype=np.uint32)
+
+    cb_bytes = carameldb.shared_codebook_serialized_bytes(values)
+    assert cb_bytes > 0
+    assert isinstance(cb_bytes, int)
+
+
+def test_shared_codebook_serialized_bytes_accepts_mmap(tmp_path):
+    """Helper must work on an mmap'd numpy array without copying."""
+    rng = np.random.default_rng(7)
+    values_src = rng.integers(0, 50, size=(500, 10), dtype=np.uint32)
+    path = tmp_path / "vals.npy"
+    np.save(path, values_src)
+
+    values_mmap = np.load(path, mmap_mode='r')
+    cb_bytes = carameldb.shared_codebook_serialized_bytes(values_mmap)
+    assert cb_bytes > 0
+
+    cb_bytes_ram = carameldb.shared_codebook_serialized_bytes(values_src)
+    assert cb_bytes == cb_bytes_ram
+
+
+def test_shared_codebook_serialized_bytes_dtype():
+    rng = np.random.default_rng(0)
+    vals32 = rng.integers(0, 100, size=(200, 5), dtype=np.uint32)
+    vals64 = vals32.astype(np.uint64)
+    b32 = carameldb.shared_codebook_serialized_bytes(vals32)
+    b64 = carameldb.shared_codebook_serialized_bytes(vals64)
+    assert b32 > 0 and b64 > 0
+    assert b64 > b32

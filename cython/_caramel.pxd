@@ -1,6 +1,7 @@
 # distutils: language = c++
 
 from libc.stddef cimport size_t
+from libc.stdint cimport uint64_t
 from libcpp cimport bool as cbool
 from libcpp.memory cimport shared_ptr
 from libcpp.string cimport string
@@ -25,6 +26,14 @@ cdef extern from "<optional>" namespace "std" nogil:
         optional(T&)
         cbool has_value()
         T& value()
+
+# ── Shared-codebook retroactive size helper ───────────────────────────────
+
+cdef extern from "src/construct/CsfCodebook.h" namespace "caramel":
+    size_t sharedCodebookSerializedBytes_uint32 "caramel::sharedCodebookSerializedBytes<uint32_t>"(
+        const unsigned int *data, size_t n, size_t m) nogil
+    size_t sharedCodebookSerializedBytes_uint64 "caramel::sharedCodebookSerializedBytes<uint64_t>"(
+        const uint64_t *data, size_t n, size_t m) nogil
 
 # ── Stats ──────────────────────────────────────────────────────────────────
 
