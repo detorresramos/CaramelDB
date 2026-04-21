@@ -5,7 +5,7 @@ file (N rows x M cols; each row is the multiset of values for one key) and
 reports construction time, serialized size, query latency, and correctness.
 
 Usage:
-    python scripts/run_caramel.py --npy datasets/asin_100m_m10.npy \\
+    python scripts/benchmark_multiset.py --npy datasets/asin_100m_m10.npy \\
         --permutation global_sort --shared-codebook \\
         --save-dir results/asin_m10_permute_sharedcb \\
         --output-json results/asin_m10_permute_sharedcb.json
