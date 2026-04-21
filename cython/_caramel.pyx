@@ -1093,7 +1093,7 @@ cdef class MultisetCSFUint64:
     def __init__(self, list keys, values, prefilter=None, permutation=None,
                  bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
         cdef vector[string] cpp_keys = _to_cpp_strings(keys)
-        cdef vector[vector[unsigned long long]] cpp_values
+        cdef vector[vector[uint64_t]] cpp_values
 
         values = np.ascontiguousarray(values, dtype=np.uint64)
         if values.ndim != 2:
@@ -1101,12 +1101,12 @@ cdef class MultisetCSFUint64:
 
         cdef int num_rows = values.shape[0]
         cdef int num_cols = values.shape[1]
-        cdef vector[unsigned long long] col_vec
+        cdef vector[uint64_t] col_vec
         cpp_values.reserve(num_cols)
         for col_idx in range(num_cols):
             arr_col = np.ascontiguousarray(values[:, col_idx])
             col_vec.resize(num_rows)
-            memcpy(col_vec.data(), (<np.ndarray>arr_col).data, num_rows * sizeof(unsigned long long))
+            memcpy(col_vec.data(), (<np.ndarray>arr_col).data, num_rows * sizeof(uint64_t))
             cpp_values.push_back(col_vec)
 
         cdef cpp.MultisetConfig config
