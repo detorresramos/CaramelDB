@@ -189,7 +189,6 @@ private:
 
   template <class Archive> void load(Archive &archive) {
     archive(code_length_counts, ordered_symbols, max_codelength);
-    buildLookupTable();
   }
 };
 
@@ -244,7 +243,6 @@ canonicalHuffmanFromFrequencies(const std::unordered_map<T, uint32_t> &frequenci
   cb.ordered_symbols = std::move(ordered_symbols);
   cb.max_codelength = cb.code_length_counts.size() - 1;
   cb.codedict = std::move(codedict);
-  cb.buildLookupTable();
   return cb;
 }
 

@@ -268,6 +268,9 @@ constructMultisetCsf(const std::vector<std::string> &keys,
     columns[i].filter = col_inputs.filter;
     columns[i].most_common_value = col_inputs.most_common_value;
     columns[i].buildQueryCache();
+    if (config.build_lookup_table && columns[i].codebook) {
+      columns[i].codebook->buildLookupTable();
+    }
   }
 
   return std::make_shared<MultisetCsf<T>>(std::move(columns));

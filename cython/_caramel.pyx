@@ -1034,7 +1034,8 @@ cdef class MultisetCSFUint32:
     cdef shared_ptr[cpp.MultisetCsf_uint32] _ptr
 
     def __init__(self, list keys, values, prefilter=None, permutation=None,
-                 bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
+                 bint shared_codebook=False, bint shared_filter=False,
+                 bint build_lookup_table=True, bint verbose=True):
         cdef vector[string] cpp_keys = _to_cpp_strings(keys)
         cdef vector[vector[unsigned int]] cpp_values
 
@@ -1058,6 +1059,7 @@ cdef class MultisetCSFUint32:
         config.verbose = verbose
         config.shared_codebook = shared_codebook
         config.shared_filter = shared_filter
+        config.build_lookup_table = build_lookup_table
         if prefilter is not None and isinstance(prefilter, PreFilterConfig):
             config.filter_config = (<PreFilterConfig>prefilter)._ptr
 
@@ -1073,10 +1075,10 @@ cdef class MultisetCSFUint32:
         self._ptr.get().save(filename.encode('utf-8'), 101)
 
     @staticmethod
-    def load(str filename):
+    def load(str filename, bint build_lookup_table=True):
         cdef MultisetCSFUint32 obj = MultisetCSFUint32.__new__(MultisetCSFUint32)
         try:
-            obj._ptr = cpp.MultisetCsf_uint32.load(filename.encode('utf-8'), 101)
+            obj._ptr = cpp.MultisetCsf_uint32.load(filename.encode('utf-8'), 101, build_lookup_table)
         except RuntimeError as e:
             raise CsfDeserializationException(str(e))
         return obj
@@ -1090,7 +1092,8 @@ cdef class MultisetCSFUint64:
     cdef shared_ptr[cpp.MultisetCsf_uint64] _ptr
 
     def __init__(self, list keys, values, prefilter=None, permutation=None,
-                 bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
+                 bint shared_codebook=False, bint shared_filter=False,
+                 bint build_lookup_table=True, bint verbose=True):
         cdef vector[string] cpp_keys = _to_cpp_strings(keys)
         cdef vector[vector[unsigned long long]] cpp_values
 
@@ -1114,6 +1117,7 @@ cdef class MultisetCSFUint64:
         config.verbose = verbose
         config.shared_codebook = shared_codebook
         config.shared_filter = shared_filter
+        config.build_lookup_table = build_lookup_table
         if prefilter is not None and isinstance(prefilter, PreFilterConfig):
             config.filter_config = (<PreFilterConfig>prefilter)._ptr
 
@@ -1129,10 +1133,10 @@ cdef class MultisetCSFUint64:
         self._ptr.get().save(filename.encode('utf-8'), 102)
 
     @staticmethod
-    def load(str filename):
+    def load(str filename, bint build_lookup_table=True):
         cdef MultisetCSFUint64 obj = MultisetCSFUint64.__new__(MultisetCSFUint64)
         try:
-            obj._ptr = cpp.MultisetCsf_uint64.load(filename.encode('utf-8'), 102)
+            obj._ptr = cpp.MultisetCsf_uint64.load(filename.encode('utf-8'), 102, build_lookup_table)
         except RuntimeError as e:
             raise CsfDeserializationException(str(e))
         return obj
@@ -1146,7 +1150,8 @@ cdef class MultisetCSFChar10:
     cdef shared_ptr[cpp.MultisetCsf_Char10] _ptr
 
     def __init__(self, list keys, values, prefilter=None, permutation=None,
-                 bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
+                 bint shared_codebook=False, bint shared_filter=False,
+                 bint build_lookup_table=True, bint verbose=True):
         cdef vector[string] cpp_keys = _to_cpp_strings(keys)
         cdef vector[vector[cpp.Char10]] cpp_values
 
@@ -1169,6 +1174,7 @@ cdef class MultisetCSFChar10:
         config.verbose = verbose
         config.shared_codebook = shared_codebook
         config.shared_filter = shared_filter
+        config.build_lookup_table = build_lookup_table
         if prefilter is not None and isinstance(prefilter, PreFilterConfig):
             config.filter_config = (<PreFilterConfig>prefilter)._ptr
 
@@ -1205,7 +1211,8 @@ cdef class MultisetCSFChar12:
     cdef shared_ptr[cpp.MultisetCsf_Char12] _ptr
 
     def __init__(self, list keys, values, prefilter=None, permutation=None,
-                 bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
+                 bint shared_codebook=False, bint shared_filter=False,
+                 bint build_lookup_table=True, bint verbose=True):
         cdef vector[string] cpp_keys = _to_cpp_strings(keys)
         cdef vector[vector[cpp.Char12]] cpp_values
 
@@ -1228,6 +1235,7 @@ cdef class MultisetCSFChar12:
         config.verbose = verbose
         config.shared_codebook = shared_codebook
         config.shared_filter = shared_filter
+        config.build_lookup_table = build_lookup_table
         if prefilter is not None and isinstance(prefilter, PreFilterConfig):
             config.filter_config = (<PreFilterConfig>prefilter)._ptr
 
@@ -1264,7 +1272,8 @@ cdef class MultisetCSFString:
     cdef shared_ptr[cpp.MultisetCsf_string] _ptr
 
     def __init__(self, list keys, values, prefilter=None, permutation=None,
-                 bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
+                 bint shared_codebook=False, bint shared_filter=False,
+                 bint build_lookup_table=True, bint verbose=True):
         cdef vector[string] cpp_keys = _to_cpp_strings(keys)
         cdef vector[vector[string]] cpp_values
 
@@ -1291,6 +1300,7 @@ cdef class MultisetCSFString:
         config.verbose = verbose
         config.shared_codebook = shared_codebook
         config.shared_filter = shared_filter
+        config.build_lookup_table = build_lookup_table
         if prefilter is not None and isinstance(prefilter, PreFilterConfig):
             config.filter_config = (<PreFilterConfig>prefilter)._ptr
 
@@ -1326,7 +1336,8 @@ cdef class RaggedMultisetCSFUint32:
     cdef shared_ptr[cpp.RaggedMultisetCsf_uint32] _ptr
 
     def __init__(self, list keys, values, prefilter=None, permutation=None,
-                 bint shared_codebook=False, bint verbose=True):
+                 bint shared_codebook=False, bint build_lookup_table=True,
+                 bint verbose=True):
         cdef vector[string] cpp_keys = _to_cpp_strings(keys)
         cdef vector[vector[unsigned int]] cpp_values
 
@@ -1338,6 +1349,7 @@ cdef class RaggedMultisetCSFUint32:
             config.permutation_config = (<PermutationConfig>permutation)._ptr
         config.verbose = verbose
         config.shared_codebook = shared_codebook
+        config.build_lookup_table = build_lookup_table
         if prefilter is not None and isinstance(prefilter, PreFilterConfig):
             config.filter_config = (<PreFilterConfig>prefilter)._ptr
 
