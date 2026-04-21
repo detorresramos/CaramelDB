@@ -80,7 +80,7 @@ def get_compile_args():
                 args += ["-Xpreprocessor", "-fopenmp", f"-I{prefix}/include"]
                 break
     else:
-        args += ["-fopenmp"]
+        args += ["-fopenmp", "-fpermissive"]
 
     return args
 
