@@ -1,6 +1,7 @@
 # distutils: language = c++
 
 from libc.stddef cimport size_t
+from libc.stdint cimport uint32_t, uint64_t
 from libcpp cimport bool as cbool
 from libcpp.memory cimport shared_ptr
 from libcpp.string cimport string
@@ -91,7 +92,7 @@ cdef extern from "src/construct/filter/PreFilter.h" namespace "caramel":
 
     cppclass PreFilter_uint64 "caramel::PreFilter<uint64_t>":
         cbool contains(const string &key)
-        optional[unsigned long long] getMostCommonValue()
+        optional[uint64_t] getMostCommonValue()
         optional[FilterStats] getStats()
 
     cppclass PreFilter_Char10 "caramel::PreFilter<Char10>":
@@ -233,8 +234,8 @@ cdef extern from "src/construct/Csf.h" namespace "caramel":
         shared_ptr[Csf_uint32] load(const string &filename, unsigned int type_id) except +
 
     cppclass Csf_uint64 "caramel::Csf<uint64_t>":
-        unsigned long long query(const char *data, size_t length) except +
-        unsigned long long query(const string &key) except +
+        uint64_t query(const char *data, size_t length) except +
+        uint64_t query(const string &key) except +
         shared_ptr[PreFilter_uint64] getFilter()
         CsfStats getStats()
         void save(const string &filename, unsigned int type_id) except +
@@ -280,7 +281,7 @@ cdef extern from "src/construct/Construct.h" namespace "caramel":
         shared_ptr[PreFilterConfig] filter_config, cbool verbose) except +
 
     shared_ptr[Csf_uint64] constructCsf_uint64 "caramel::constructCsf<uint64_t>"(
-        const vector[string] &keys, const vector[unsigned long long] &values,
+        const vector[string] &keys, const vector[uint64_t] &values,
         shared_ptr[PreFilterConfig] filter_config, cbool verbose) except +
 
     shared_ptr[Csf_Char10] constructCsf_Char10 "caramel::constructCsf<Char10>"(
@@ -307,8 +308,8 @@ cdef extern from "src/construct/multiset/MultisetCsf.h" namespace "caramel":
         shared_ptr[MultisetCsf_uint32] load(const string &filename, unsigned int type_id) except +
 
     cppclass MultisetCsf_uint64 "caramel::MultisetCsf<uint64_t>":
-        vector[unsigned long long] query(const char *data, size_t length, cbool parallelize) except +
-        vector[unsigned long long] query(const string &key, cbool parallelize) except +
+        vector[uint64_t] query(const char *data, size_t length, cbool parallelize) except +
+        vector[uint64_t] query(const string &key, cbool parallelize) except +
         void save(const string &filename, unsigned int type_id) except +
 
         @staticmethod
@@ -369,7 +370,7 @@ cdef extern from "src/construct/multiset/ConstructMultiset.h" namespace "caramel
         const MultisetConfig &config) except +
 
     shared_ptr[MultisetCsf_uint64] constructMultisetCsfConfig_uint64 "caramel::constructMultisetCsf<uint64_t>"(
-        const vector[string] &keys, const vector[vector[unsigned long long]] &values,
+        const vector[string] &keys, const vector[vector[uint64_t]] &values,
         const MultisetConfig &config) except +
 
     shared_ptr[MultisetCsf_Char10] constructMultisetCsfConfig_Char10 "caramel::constructMultisetCsf<Char10>"(
@@ -432,12 +433,12 @@ cdef extern from "src/baselines/UnorderedMapBaseline.h" namespace "caramel":
 
 cdef extern from "src/construct/multiset/permute/EntropyPermutation.h" namespace "caramel":
     void entropyPermutation_uint32 "caramel::entropyPermutation<uint32_t>"(unsigned int *M, int num_rows, int num_cols) nogil
-    void entropyPermutation_uint64 "caramel::entropyPermutation<uint64_t>"(unsigned long long *M, int num_rows, int num_cols) nogil
+    void entropyPermutation_uint64 "caramel::entropyPermutation<uint64_t>"(uint64_t *M, int num_rows, int num_cols) nogil
     void entropyPermutation_Char10 "caramel::entropyPermutation<Char10>"(Char10 *M, int num_rows, int num_cols) nogil
     void entropyPermutation_Char12 "caramel::entropyPermutation<Char12>"(Char12 *M, int num_rows, int num_cols) nogil
 
 cdef extern from "src/construct/multiset/permute/GlobalSortPermutation.h" namespace "caramel":
     void globalSortPermutation_uint32 "caramel::globalSortPermutation<uint32_t>"(unsigned int *M, int num_rows, int num_cols, int refinement_iterations) nogil
-    void globalSortPermutation_uint64 "caramel::globalSortPermutation<uint64_t>"(unsigned long long *M, int num_rows, int num_cols, int refinement_iterations) nogil
+    void globalSortPermutation_uint64 "caramel::globalSortPermutation<uint64_t>"(uint64_t *M, int num_rows, int num_cols, int refinement_iterations) nogil
     void globalSortPermutation_Char10 "caramel::globalSortPermutation<Char10>"(Char10 *M, int num_rows, int num_cols, int refinement_iterations) nogil
     void globalSortPermutation_Char12 "caramel::globalSortPermutation<Char12>"(Char12 *M, int num_rows, int num_cols, int refinement_iterations) nogil
