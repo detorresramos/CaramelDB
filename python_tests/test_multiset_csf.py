@@ -59,15 +59,18 @@ def test_multiset_csf_permute(tmp_path):
 
     values = np.array(values)
 
+    def dir_size(path):
+        return sum(p.stat().st_size for p in path.iterdir())
+
     csf_permute = carameldb.Caramel(keys, values, permutation=carameldb.EntropyPermutationConfig(), verbose=False)
     csf_permute_file = tmp_path / "csf_permute.csf"
     csf_permute.save(str(csf_permute_file))
-    csf_permute_size = csf_permute_file.stat().st_size
+    csf_permute_size = dir_size(csf_permute_file)
 
     csf_no_permute = carameldb.Caramel(keys, values, verbose=False)
     csf_no_permute_file = tmp_path / "csf_no_permute.csf"
     csf_no_permute.save(str(csf_no_permute_file))
-    csf_no_permute_size = csf_no_permute_file.stat().st_size
+    csf_no_permute_size = dir_size(csf_no_permute_file)
 
     assert csf_permute_size < csf_no_permute_size
 
@@ -307,3 +310,50 @@ def test_backward_compat_default_settings(tmp_path):
     csf2 = carameldb.load(save_file)
     for key, row in zip(keys, values):
         assert csf2.query(key) == list(row)
+
+
+def test_shared_codebook_save_is_smaller_than_private(tmp_path):
+    """With the serialization fix, shared_codebook=True saves fewer bytes than
+    shared_codebook=False (one codebook on disk, not M copies)."""
+    num_rows = 2000
+    num_cols = 30
+    rng = np.random.default_rng(7)
+    values = rng.integers(0, 300, size=(num_rows, num_cols), dtype=np.uint32)
+    keys = [f"k{i}" for i in range(num_rows)]
+
+    def dir_size(path):
+        return sum(p.stat().st_size for p in path.iterdir())
+
+    csf_shared = carameldb.Caramel(keys, values, shared_codebook=True, verbose=False)
+    shared_dir = tmp_path / "shared.csf"
+    csf_shared.save(str(shared_dir))
+    shared_total = dir_size(shared_dir)
+    assert (shared_dir / "shared_codebook.bin").exists()
+
+    csf_private = carameldb.Caramel(keys, values, shared_codebook=False, verbose=False)
+    private_dir = tmp_path / "private.csf"
+    csf_private.save(str(private_dir))
+    private_total = dir_size(private_dir)
+    assert not (private_dir / "shared_codebook.bin").exists()
+
+    assert shared_total < private_total, \
+        f"shared_total={shared_total} should be less than private_total={private_total}"
+
+
+def test_shared_codebook_save_load_roundtrip(tmp_path):
+    """Shared-codebook CSF must load correctly and return identical queries."""
+    num_rows = 500
+    num_cols = 15
+    rng = np.random.default_rng(11)
+    values = rng.integers(0, 100, size=(num_rows, num_cols), dtype=np.uint32)
+    keys = [f"k{i}" for i in range(num_rows)]
+
+    csf = carameldb.Caramel(keys, values, shared_codebook=True, verbose=False)
+    save_dir = tmp_path / "roundtrip.csf"
+    csf.save(str(save_dir))
+    loaded = carameldb.load(str(save_dir))
+
+    for i in range(num_rows):
+        expected = sorted(values[i].tolist())
+        actual = sorted(loaded.query(keys[i]))
+        assert actual == expected, f"row {i}: expected {expected}, got {actual}"
