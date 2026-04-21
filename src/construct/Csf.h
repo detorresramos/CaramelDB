@@ -189,7 +189,8 @@ private:
     }
 
     return queryCsfCore<T>(data, length, _hash_store_seed, _bucket_info,
-                           _num_buckets, _max_codelength, _lookup_table);
+                           _num_buckets, _max_codelength, _code_length_counts,
+                           _ordered_symbols);
   }
 
   // Private constructor for cereal
@@ -197,10 +198,6 @@ private:
 
   void _buildQueryCache() {
     _num_buckets = _solutions_and_seeds.size();
-    if (!_code_length_counts.empty() && _max_codelength > 0) {
-      _lookup_table = HuffmanLookupTable<T>(_code_length_counts,
-                                            _ordered_symbols, _max_codelength);
-    }
     _bucket_info.resize(_num_buckets);
     for (uint32_t i = 0; i < _num_buckets; i++) {
       auto &[solution, seed] = _solutions_and_seeds[i];
@@ -233,7 +230,6 @@ private:
   // Query cache (built from _solutions_and_seeds, not serialized)
   uint32_t _num_buckets = 0;
   std::vector<BucketQueryInfo> _bucket_info;
-  HuffmanLookupTable<T> _lookup_table;
 };
 
 } // namespace caramel

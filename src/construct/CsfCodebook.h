@@ -135,61 +135,19 @@ inline T canonicalDecodeFromNumber(
   throw std::invalid_argument("Invalid Code Passed");
 }
 
-template <typename T> struct HuffmanLookupTable {
-  std::vector<T> symbols_by_code;
-  uint32_t max_codelength;
-
-  HuffmanLookupTable() : max_codelength(0) {}
-
-  HuffmanLookupTable(const std::vector<uint32_t> &code_length_counts,
-                     const std::vector<T> &ordered_symbols,
-                     uint32_t max_cl)
-      : max_codelength(max_cl) {
-    if (max_codelength == 0 || ordered_symbols.empty())
-      return;
-    uint64_t table_size = 1ULL << max_codelength;
-    symbols_by_code.resize(table_size, ordered_symbols[0]);
-    for (uint64_t val = 0; val < table_size; val++) {
-      try {
-        symbols_by_code[val] = canonicalDecodeFromNumber(
-            val, code_length_counts, ordered_symbols, max_codelength);
-      } catch (const std::invalid_argument &) {
-        // Invalid code - leave as default. Will never be queried for valid keys.
-      }
-    }
-  }
-
-  inline T decode(uint64_t encoded_value) const {
-    return symbols_by_code[encoded_value];
-  }
-};
-
 template <typename T> struct CsfCodebook {
   std::vector<uint32_t> code_length_counts;
   std::vector<T> ordered_symbols;
   uint32_t max_codelength = 0;
-  HuffmanLookupTable<T> lookup_table;
   CodeDict<T> codedict;
 
   CsfCodebook() = default;
 
-  void buildLookupTable() {
-    if (!code_length_counts.empty() && max_codelength > 0) {
-      lookup_table = HuffmanLookupTable<T>(code_length_counts, ordered_symbols,
-                                           max_codelength);
-    }
-  }
-
 private:
   friend class cereal::access;
 
-  template <class Archive> void save(Archive &archive) const {
+  template <class Archive> void serialize(Archive &archive) {
     archive(code_length_counts, ordered_symbols, max_codelength);
-  }
-
-  template <class Archive> void load(Archive &archive) {
-    archive(code_length_counts, ordered_symbols, max_codelength);
-    buildLookupTable();
   }
 };
 
@@ -244,7 +202,6 @@ canonicalHuffmanFromFrequencies(const std::unordered_map<T, uint64_t> &frequenci
   cb.ordered_symbols = std::move(ordered_symbols);
   cb.max_codelength = cb.code_length_counts.size() - 1;
   cb.codedict = std::move(codedict);
-  cb.buildLookupTable();
   return cb;
 }
 
