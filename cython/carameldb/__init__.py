@@ -121,7 +121,10 @@ def Caramel(
         raise ValueError("Values must be non-empty but found length 0.")
     if len(keys) != len(values):
         raise ValueError("Keys and values must have the same length.")
-    if not isinstance(keys[0], (str, bytes)):
+    if isinstance(keys, np.ndarray):
+        if keys.ndim != 1 or keys.dtype not in (np.uint32,):
+            raise ValueError(f"Key array must be 1D uint32, got shape={keys.shape} dtype={keys.dtype}")
+    elif not isinstance(keys[0], (str, bytes)):
         raise ValueError(f"Keys must be str or bytes, found {type(keys[0])}")
 
     is_ragged = _is_ragged(values)

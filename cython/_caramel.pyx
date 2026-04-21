@@ -50,6 +50,16 @@ cdef vector[string] _to_cpp_strings(keys) except *:
         result.push_back(_to_cpp_string(k))
     return result
 
+cdef vector[string] _uint32_array_to_cpp_strings(np.ndarray keys):
+    cdef Py_ssize_t n = keys.shape[0]
+    cdef vector[string] result
+    result.reserve(n)
+    cdef unsigned int* ptr = <unsigned int*>keys.data
+    cdef Py_ssize_t i
+    for i in range(n):
+        result.push_back(string(<const char*>&ptr[i], 4))
+    return result
+
 
 
 # ── Exception ──────────────────────────────────────────────────────────────
@@ -1034,9 +1044,13 @@ cdef class CSFString:
 cdef class MultisetCSFUint32:
     cdef shared_ptr[cpp.MultisetCsf_uint32] _ptr
 
-    def __init__(self, list keys, values, prefilter=None, permutation=None,
+    def __init__(self, keys, values, prefilter=None, permutation=None,
                  bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
-        cdef vector[string] cpp_keys = _to_cpp_strings(keys)
+        cdef vector[string] cpp_keys
+        if isinstance(keys, np.ndarray) and (<np.ndarray>keys).dtype == np.uint32:
+            cpp_keys = _uint32_array_to_cpp_strings(np.ascontiguousarray(keys))
+        else:
+            cpp_keys = _to_cpp_strings(keys)
         cdef vector[vector[unsigned int]] cpp_values
 
         values = np.ascontiguousarray(values, dtype=np.uint32)
@@ -1065,6 +1079,10 @@ cdef class MultisetCSFUint32:
         self._ptr = cpp.constructMultisetCsfConfig_uint32(cpp_keys, cpp_values, config)
 
     def query(self, key, bint parallel=False):
+        cdef unsigned int uint_key
+        if isinstance(key, (int, np.integer)):
+            uint_key = <unsigned int>key
+            return list(self._ptr.get().query(<const char*>&uint_key, 4, parallel))
         cdef const char* buf
         cdef Py_ssize_t length
         _key_to_buf(key, &buf, &length)
@@ -1090,9 +1108,13 @@ cdef class MultisetCSFUint32:
 cdef class MultisetCSFUint64:
     cdef shared_ptr[cpp.MultisetCsf_uint64] _ptr
 
-    def __init__(self, list keys, values, prefilter=None, permutation=None,
+    def __init__(self, keys, values, prefilter=None, permutation=None,
                  bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
-        cdef vector[string] cpp_keys = _to_cpp_strings(keys)
+        cdef vector[string] cpp_keys
+        if isinstance(keys, np.ndarray) and (<np.ndarray>keys).dtype == np.uint32:
+            cpp_keys = _uint32_array_to_cpp_strings(np.ascontiguousarray(keys))
+        else:
+            cpp_keys = _to_cpp_strings(keys)
         cdef vector[vector[uint64_t]] cpp_values
 
         values = np.ascontiguousarray(values, dtype=np.uint64)
@@ -1121,6 +1143,10 @@ cdef class MultisetCSFUint64:
         self._ptr = cpp.constructMultisetCsfConfig_uint64(cpp_keys, cpp_values, config)
 
     def query(self, key, bint parallel=False):
+        cdef unsigned int uint_key
+        if isinstance(key, (int, np.integer)):
+            uint_key = <unsigned int>key
+            return list(self._ptr.get().query(<const char*>&uint_key, 4, parallel))
         cdef const char* buf
         cdef Py_ssize_t length
         _key_to_buf(key, &buf, &length)
