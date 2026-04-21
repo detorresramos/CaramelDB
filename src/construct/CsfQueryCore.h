@@ -17,7 +17,8 @@ template <typename T>
 T queryCsfCore(const char *data, size_t length, uint32_t hash_store_seed,
                const std::vector<BucketQueryInfo> &bucket_info,
                uint32_t num_buckets, uint32_t max_codelength,
-               const HuffmanLookupTable<T> &lookup_table) {
+               const std::vector<uint32_t> &code_length_counts,
+               const std::vector<T> &ordered_symbols) {
   __uint128_t signature = hashKey(data, length, hash_store_seed);
 
   uint32_t bucket_id = getBucketID(signature, num_buckets);
@@ -39,7 +40,8 @@ T queryCsfCore(const char *data, size_t length, uint32_t hash_store_seed,
 
   uint64_t encoded_value = getbits(e[0]) ^ getbits(e[1]) ^ getbits(e[2]);
 
-  return lookup_table.decode(encoded_value);
+  return canonicalDecodeFromNumber<T>(encoded_value, code_length_counts,
+                                      ordered_symbols, max_codelength);
 }
 
 } // namespace caramel
