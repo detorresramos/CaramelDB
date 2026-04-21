@@ -72,7 +72,9 @@ public:
         outputs[i] = queryCsfCore<T>(data, length, col.hash_store_seed,
                                      col.bucket_info, col.num_buckets,
                                      col.codebook->max_codelength,
-                                     col.codebook->lookup_table);
+                                     col.codebook->lookup_table,
+                                     col.codebook->code_length_counts,
+                                     col.codebook->ordered_symbols);
       }
     }
 
@@ -88,7 +90,8 @@ public:
   }
 
   static MultisetCsfPtr<T> load(const std::string &filename,
-                                const uint32_t type_id = 0) {
+                                const uint32_t type_id = 0,
+                                bool build_lookup_table = true) {
     auto input_stream = SafeFileIO::ifstream(filename, std::ios::binary);
     uint32_t type_id_found = 0;
     input_stream.read(reinterpret_cast<char *>(&type_id_found),
@@ -102,6 +105,13 @@ public:
     cereal::BinaryInputArchive iarchive(input_stream);
     MultisetCsfPtr<T> deserialize_into(new MultisetCsf<T>());
     iarchive(*deserialize_into);
+    if (build_lookup_table) {
+      for (auto &col : deserialize_into->_columns) {
+        if (col.codebook) {
+          col.codebook->buildLookupTable();
+        }
+      }
+    }
     return deserialize_into;
   }
 

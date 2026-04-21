@@ -78,6 +78,7 @@ def Caramel(
     permutation=None,
     shared_codebook=False,
     shared_filter=False,
+    build_lookup_table=True,
     strategy=None,
     max_to_infer=None,
     verbose=True,
@@ -147,6 +148,7 @@ def Caramel(
             prefilter=prefilter,
             permutation=permutation,
             shared_codebook=shared_codebook,
+            build_lookup_table=build_lookup_table,
             verbose=verbose,
         )
 
@@ -167,6 +169,7 @@ def Caramel(
             permutation=permutation,
             shared_codebook=shared_codebook,
             shared_filter=shared_filter,
+            build_lookup_table=build_lookup_table,
             verbose=verbose,
         )
     else:

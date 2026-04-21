@@ -187,6 +187,9 @@ constructRaggedMultisetCsf(const std::vector<std::string> &keys,
     columns[c].filter = col_filter;
     columns[c].most_common_value = mcv;
     columns[c].buildQueryCache();
+    if (config.build_lookup_table && columns[c].codebook) {
+      columns[c].codebook->buildLookupTable();
+    }
   }
 
   return std::make_shared<RaggedMultisetCsf<T>>(std::move(length_csf),

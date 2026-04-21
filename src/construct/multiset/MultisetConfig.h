@@ -11,6 +11,10 @@ struct MultisetConfig {
   bool shared_codebook = false;
   bool shared_filter = false;
   bool verbose = true;
+  // If false, skip building Huffman lookup tables at reload time.
+  // Queries fall back to O(max_codelength) canonical decode.
+  // Saves ~2^max_codelength * sizeof(T) bytes per column.
+  bool build_lookup_table = true;
 };
 
 } // namespace caramel
