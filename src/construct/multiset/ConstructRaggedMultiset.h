@@ -105,8 +105,9 @@ constructRaggedMultisetCsf(const std::vector<std::string> &keys,
     shared_cb = std::make_shared<CsfCodebook<T>>(canonicalHuffman<T>(pooled));
   }
 
-  using ColumnState = typename RaggedMultisetCsf<T>::ColumnState;
-  std::vector<ColumnState> columns(max_length);
+  using Group = typename RaggedMultisetCsf<T>::Group;
+  using GroupColumn = typename MultisetCsf<T>::GroupColumn;
+  std::vector<Group> groups(max_length);
 
   for (size_t c = 0; c < max_length; c++) {
     const auto &active_keys = col_keys[c];
@@ -135,19 +136,32 @@ constructRaggedMultisetCsf(const std::vector<std::string> &keys,
     const auto &build_keys = using_filter ? filtered_keys : active_keys;
     const auto &build_values = using_filter ? filtered_values : active_values;
 
-    // Handle case where filter removed all keys
-    if (build_keys.empty()) {
-      columns[c].filter = col_filter;
-      columns[c].most_common_value = mcv;
-      columns[c].codebook = shared_cb ? shared_cb
-          : std::make_shared<CsfCodebook<T>>();
-      columns[c].buildQueryCache();
-      continue;
-    }
-
+    // Per-column codebook (or shared) + single-column group assembly.
     auto col_codebook = config.shared_codebook
         ? shared_cb
-        : std::make_shared<CsfCodebook<T>>(canonicalHuffman<T>(build_values));
+        : std::make_shared<CsfCodebook<T>>(
+              build_values.empty()
+                  ? CsfCodebook<T>{}
+                  : canonicalHuffman<T>(build_values));
+
+    Group group;
+    GroupColumn gc;
+    gc.output_index = static_cast<uint32_t>(c);
+    gc.codebook = col_codebook;
+    gc.filter = col_filter;
+    gc.most_common_value = mcv;
+    gc.uses_shared_codebook = config.shared_codebook;
+    gc.max_codelength = col_codebook ? col_codebook->max_codelength : 0;
+
+    if (build_keys.empty()) {
+      group.hash_store_seed = 0;
+      group.num_buckets = 0;
+      group.arena.num_cols = 1;
+      group.arena.num_buckets = 0;
+      group.columns.push_back(std::move(gc));
+      groups[c] = std::move(group);
+      continue;
+    }
 
     const CodeDict<T> &codedict = col_codebook->codedict;
     uint32_t max_cl = col_codebook->max_codelength;
@@ -181,16 +195,20 @@ constructRaggedMultisetCsf(const std::vector<std::string> &keys,
       std::rethrow_exception(exception);
     }
 
-    columns[c].solutions_and_seeds = std::move(solutions_and_seeds);
-    columns[c].hash_store_seed = hash_store.seed;
-    columns[c].codebook = col_codebook;
-    columns[c].filter = col_filter;
-    columns[c].most_common_value = mcv;
-    columns[c].buildQueryCache();
+    group.hash_store_seed = static_cast<uint32_t>(hash_store.seed);
+    group.num_buckets = static_cast<uint32_t>(hash_store.num_buckets);
+
+    std::vector<std::vector<SubsystemSolutionSeedPair>> per_col_solutions(1);
+    per_col_solutions[0] = std::move(solutions_and_seeds);
+    packArena<T>(group.arena, per_col_solutions,
+                 static_cast<uint32_t>(hash_store.num_buckets));
+
+    group.columns.push_back(std::move(gc));
+    groups[c] = std::move(group);
   }
 
   return std::make_shared<RaggedMultisetCsf<T>>(std::move(length_csf),
-                                                 std::move(columns));
+                                                 std::move(groups));
 }
 
 } // namespace caramel
