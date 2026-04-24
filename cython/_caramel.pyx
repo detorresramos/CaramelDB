@@ -1092,13 +1092,13 @@ cdef class MultisetCSFUint32:
         return list(self._ptr.get().query(buf, length, parallel))
 
     def save(self, str filename):
-        self._ptr.get().save(filename.encode('utf-8'), 101)
+        self._ptr.get().save(filename.encode('utf-8'), 1101)
 
     @staticmethod
     def load(str filename):
         cdef MultisetCSFUint32 obj = MultisetCSFUint32.__new__(MultisetCSFUint32)
         try:
-            obj._ptr = cpp.MultisetCsf_uint32.load(filename.encode('utf-8'), 101)
+            obj._ptr = cpp.MultisetCsf_uint32.load(filename.encode('utf-8'), 1101)
         except RuntimeError as e:
             raise CsfDeserializationException(str(e))
         obj.permutation_seconds = 0.0
@@ -1161,13 +1161,13 @@ cdef class MultisetCSFUint64:
         return list(self._ptr.get().query(buf, length, parallel))
 
     def save(self, str filename):
-        self._ptr.get().save(filename.encode('utf-8'), 102)
+        self._ptr.get().save(filename.encode('utf-8'), 1102)
 
     @staticmethod
     def load(str filename):
         cdef MultisetCSFUint64 obj = MultisetCSFUint64.__new__(MultisetCSFUint64)
         try:
-            obj._ptr = cpp.MultisetCsf_uint64.load(filename.encode('utf-8'), 102)
+            obj._ptr = cpp.MultisetCsf_uint64.load(filename.encode('utf-8'), 1102)
         except RuntimeError as e:
             raise CsfDeserializationException(str(e))
         obj.permutation_seconds = 0.0
@@ -1222,13 +1222,13 @@ cdef class MultisetCSFChar10:
         return py_results
 
     def save(self, str filename):
-        self._ptr.get().save(filename.encode('utf-8'), 103)
+        self._ptr.get().save(filename.encode('utf-8'), 1103)
 
     @staticmethod
     def load(str filename):
         cdef MultisetCSFChar10 obj = MultisetCSFChar10.__new__(MultisetCSFChar10)
         try:
-            obj._ptr = cpp.MultisetCsf_Char10.load(filename.encode('utf-8'), 103)
+            obj._ptr = cpp.MultisetCsf_Char10.load(filename.encode('utf-8'), 1103)
         except RuntimeError as e:
             raise CsfDeserializationException(str(e))
         return obj
@@ -1281,13 +1281,13 @@ cdef class MultisetCSFChar12:
         return py_results
 
     def save(self, str filename):
-        self._ptr.get().save(filename.encode('utf-8'), 104)
+        self._ptr.get().save(filename.encode('utf-8'), 1104)
 
     @staticmethod
     def load(str filename):
         cdef MultisetCSFChar12 obj = MultisetCSFChar12.__new__(MultisetCSFChar12)
         try:
-            obj._ptr = cpp.MultisetCsf_Char12.load(filename.encode('utf-8'), 104)
+            obj._ptr = cpp.MultisetCsf_Char12.load(filename.encode('utf-8'), 1104)
         except RuntimeError as e:
             raise CsfDeserializationException(str(e))
         return obj
@@ -1341,13 +1341,13 @@ cdef class MultisetCSFString:
         return [result[i].decode('utf-8') for i in range(result.size())]
 
     def save(self, str filename):
-        self._ptr.get().save(filename.encode('utf-8'), 105)
+        self._ptr.get().save(filename.encode('utf-8'), 1105)
 
     @staticmethod
     def load(str filename):
         cdef MultisetCSFString obj = MultisetCSFString.__new__(MultisetCSFString)
         try:
-            obj._ptr = cpp.MultisetCsf_string.load(filename.encode('utf-8'), 105)
+            obj._ptr = cpp.MultisetCsf_string.load(filename.encode('utf-8'), 1105)
         except RuntimeError as e:
             raise CsfDeserializationException(str(e))
         return obj
@@ -1387,13 +1387,13 @@ cdef class RaggedMultisetCSFUint32:
         return list(self._ptr.get().query(buf, length))
 
     def save(self, str filename):
-        self._ptr.get().save(filename.encode('utf-8'), 301)
+        self._ptr.get().save(filename.encode('utf-8'), 1301)
 
     @staticmethod
     def load(str filename):
         cdef RaggedMultisetCSFUint32 obj = RaggedMultisetCSFUint32.__new__(RaggedMultisetCSFUint32)
         try:
-            obj._ptr = cpp.RaggedMultisetCsf_uint32.load(filename.encode('utf-8'), 301)
+            obj._ptr = cpp.RaggedMultisetCsf_uint32.load(filename.encode('utf-8'), 1301)
         except RuntimeError as e:
             raise CsfDeserializationException(str(e))
         return obj
