@@ -231,18 +231,23 @@ void fillArena(
   arena.per_col_word_off.assign(cells, 0);
 
   // Size pass: a subsystem's solution width is fixed by its bucketed values
-  // before solving, so the entire bucket-major layout is known up front.
-  uint64_t total_words = 0;
+  // before solving, so the whole layout is known up front. The per-cell width
+  // (a codedict summation) is independent, so compute it in parallel; the
+  // bucket-major word offsets are then a cheap serial prefix sum.
+#pragma omp parallel for collapse(2) default(none)                            \
+    shared(value_buckets_per_col, codebooks, arena, num_buckets, M, DELTA)
   for (uint32_t b = 0; b < num_buckets; b++) {
     for (uint32_t c = 0; c < M; c++) {
       size_t idx = static_cast<size_t>(b) * M + c;
-      uint32_t bits = subsystemSolutionBits<T>(
+      arena.per_col_bits[idx] = subsystemSolutionBits<T>(
           value_buckets_per_col[c][b], codebooks[c]->codedict,
           codebooks[c]->max_codelength, DELTA);
-      arena.per_col_bits[idx] = bits;
-      arena.per_col_word_off[idx] = total_words;
-      total_words += (bits + 63u) / 64u;
     }
+  }
+  uint64_t total_words = 0;
+  for (size_t idx = 0; idx < cells; idx++) {
+    arena.per_col_word_off[idx] = total_words;
+    total_words += (arena.per_col_bits[idx] + 63u) / 64u;
   }
   // +1 trailing guard word: decode getbits() reads arr[w] and arr[w+1].
   arena.solution_bits.assign(total_words + 1, 0);
@@ -329,21 +334,24 @@ buildGroup(const std::vector<std::string> &active_keys,
   // key signatures.
   const uint32_t M = static_cast<uint32_t>(group_cols.size());
 
-  BucketedHashStore<T> base =
-      partitionToBuckets<T>(active_keys, group_cols[0]->values, num_buckets);
-  uint64_t chosen_seed = base.seed;
-  std::vector<std::vector<__uint128_t>> key_buckets =
-      std::move(base.key_buckets);
+  // Hash the keys ONCE (the dominant build cost) and reuse that partition to
+  // bucket every column's values in parallel, instead of re-hashing the same
+  // keys M times.
+  KeyPartition part =
+      partitionKeys(active_keys, static_cast<uint32_t>(num_buckets));
+  uint64_t chosen_seed = part.seed;
 
   std::vector<std::vector<std::vector<T>>> value_buckets_per_col(M);
-  value_buckets_per_col[0] = std::move(base.value_buckets);
-  for (uint32_t c = 1; c < M; c++) {
-    BucketedHashStore<T> store =
-        construct<T>(active_keys, group_cols[c]->values, num_buckets,
-                     chosen_seed, active_keys.size() / num_buckets + 1);
-    value_buckets_per_col[c] = std::move(store.value_buckets);
-    // store.key_buckets (identical to the shared partition) is freed here.
+#pragma omp parallel for default(none)                                        \
+    shared(value_buckets_per_col, group_cols, part, M)
+  for (uint32_t c = 0; c < M; c++) {
+    value_buckets_per_col[c] = scatterValues<T>(group_cols[c]->values, part);
   }
+  // Source values are now redundant with their bucketed copies; release them.
+  for (uint32_t c = 0; c < M; c++) {
+    group_cols[c]->values = std::vector<T>();
+  }
+  std::vector<std::vector<__uint128_t>> &key_buckets = part.key_buckets;
 
   std::vector<std::shared_ptr<CsfCodebook<T>>> codebooks;
   codebooks.reserve(M);
