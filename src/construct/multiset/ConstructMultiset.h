@@ -7,6 +7,7 @@
 #include "src/construct/multiset/MultisetConfig.h"
 #include "src/construct/filter/FilterFactory.h"
 #include "src/utils/Timer.h"
+#include <cassert>
 #include <iostream>
 #include <omp.h>
 
@@ -189,59 +190,93 @@ struct ResolvedColumn {
   std::shared_ptr<CsfCodebook<T>> codebook;
 };
 
-// Packs solved per-(bucket, col) BitArrays into a flat interleaved arena.
-// Each (bucket, col) range is word-aligned (start bit % 64 == 0) so the
-// query path can reuse queryCsfCore's bit-slicing unchanged. Intra-bucket
-// padding is at most 63 bits per column — negligible vs per-column
-// BitArrayPtr allocations.
+// Codebook for one column. A column whose keys were all filtered out has no
+// active values to encode, so it gets a null codebook (and a zero-bucket
+// degenerate group) rather than feeding canonicalHuffman an empty input.
 template <typename T>
-void packArena(
+std::shared_ptr<CsfCodebook<T>>
+columnCodebook(const std::vector<T> &values, bool shared,
+               const std::shared_ptr<CsfCodebook<T>> &shared_cb) {
+  if (shared) {
+    return shared_cb;
+  }
+  if (values.empty()) {
+    return nullptr;
+  }
+  return std::make_shared<CsfCodebook<T>>(canonicalHuffman<T>(values));
+}
+
+// Builds the interleaved arena in place: sizes the whole bucket-major layout
+// from the (already partitioned) per-column value buckets, allocates it once,
+// then solves every (bucket, col) subsystem directly into its precomputed,
+// word-aligned slot. Each solution BitArray is freed as it leaves scope; the
+// arena is never held alongside a full second copy of the solution bits (the
+// old solve-then-pack was, costing ~2x peak memory at scale). key_buckets is
+// the shared key partition, identical across the group's columns. The value
+// buckets are released when the group finishes (not per-cell, to avoid
+// hammering the allocator from inside the parallel region).
+template <typename T>
+void fillArena(
     typename MultisetCsf<T>::BucketArena &arena,
-    const std::vector<std::vector<SubsystemSolutionSeedPair>> &per_col_solutions,
-    uint32_t num_buckets) {
-  const uint32_t M = static_cast<uint32_t>(per_col_solutions.size());
+    const std::vector<std::vector<__uint128_t>> &key_buckets,
+    std::vector<std::vector<std::vector<T>>> &value_buckets_per_col,
+    const std::vector<std::shared_ptr<CsfCodebook<T>>> &codebooks,
+    uint32_t num_buckets, float DELTA) {
+  const uint32_t M = static_cast<uint32_t>(value_buckets_per_col.size());
+  const size_t cells = static_cast<size_t>(num_buckets) * M;
   arena.num_cols = M;
   arena.num_buckets = num_buckets;
-  arena.bucket_offsets.assign(num_buckets + 1, 0);
-  arena.per_col_bits.assign(static_cast<size_t>(num_buckets) * M, 0);
-  arena.per_col_seeds.assign(static_cast<size_t>(num_buckets) * M, 0);
+  arena.per_col_bits.assign(cells, 0);
+  arena.per_col_seeds.assign(cells, 0);
+  arena.per_col_word_off.assign(cells, 0);
 
-  // First pass: compute padded bit length for each (bucket, col) and the
-  // bucket block offsets. Each sub-range is padded up to a 64-bit word
-  // boundary so word-indexed reads in queryCsfCore work directly.
-  uint64_t cursor_bits = 0;
-  std::vector<uint32_t> padded_bits(static_cast<size_t>(num_buckets) * M, 0);
+  // Size pass: a subsystem's solution width is fixed by its bucketed values
+  // before solving, so the entire bucket-major layout is known up front.
+  uint64_t total_words = 0;
   for (uint32_t b = 0; b < num_buckets; b++) {
-    arena.bucket_offsets[b] = cursor_bits;
     for (uint32_t c = 0; c < M; c++) {
-      const auto &[solution, seed] = per_col_solutions[c][b];
-      uint32_t bits = solution->numBits();
-      arena.per_col_bits[b * M + c] = bits;
-      arena.per_col_seeds[b * M + c] = seed;
-      uint32_t padded = (bits + 63u) & ~63u;
-      padded_bits[b * M + c] = padded;
-      cursor_bits += padded;
+      size_t idx = static_cast<size_t>(b) * M + c;
+      uint32_t bits = subsystemSolutionBits<T>(
+          value_buckets_per_col[c][b], codebooks[c]->codedict,
+          codebooks[c]->max_codelength, DELTA);
+      arena.per_col_bits[idx] = bits;
+      arena.per_col_word_off[idx] = total_words;
+      total_words += (bits + 63u) / 64u;
     }
   }
-  arena.bucket_offsets[num_buckets] = cursor_bits;
+  // +1 trailing guard word: decode getbits() reads arr[w] and arr[w+1].
+  arena.solution_bits.assign(total_words + 1, 0);
 
-  // Second pass: allocate and copy bits. Each sub-range starts word-aligned,
-  // so we can memcpy word-by-word from the BitArray's backing array.
-  uint64_t total_words = cursor_bits / 64;
-  arena.solution_bits.assign(total_words, 0);
-
+  // Solve pass: each (bucket, col) writes into its own disjoint, precomputed
+  // slot, so no lock is needed for the copy (only for exception capture).
+  uint64_t *out = arena.solution_bits.data();
+  std::exception_ptr exception = nullptr;
+#pragma omp parallel for collapse(2) default(none)                            \
+    shared(key_buckets, value_buckets_per_col, codebooks, arena, out,         \
+           exception, num_buckets, M, DELTA)
   for (uint32_t b = 0; b < num_buckets; b++) {
-    uint64_t bit_off = arena.bucket_offsets[b];
     for (uint32_t c = 0; c < M; c++) {
-      const auto &solution = per_col_solutions[c][b].first;
-      uint32_t bits = solution->numBits();
-      uint32_t padded = padded_bits[b * M + c];
-      uint64_t word_off = bit_off / 64;
-      const uint64_t *src = solution->backingArrayPtr();
-      uint32_t src_words = (bits + 63u) / 64u;
-      std::copy(src, src + src_words, arena.solution_bits.data() + word_off);
-      bit_off += padded;
+      if (exception) {
+        continue;
+      }
+      try {
+        size_t idx = static_cast<size_t>(b) * M + c;
+        auto [solution, seed] = constructAndSolveSubsystem<T>(
+            key_buckets[b], value_buckets_per_col[c][b], codebooks[c]->codedict,
+            codebooks[c]->max_codelength, DELTA);
+        assert(solution->numBits() == arena.per_col_bits[idx]);
+        arena.per_col_seeds[idx] = seed;
+        const uint64_t *src = solution->backingArrayPtr();
+        std::copy(src, src + (arena.per_col_bits[idx] + 63u) / 64u,
+                  out + arena.per_col_word_off[idx]);
+      } catch (std::exception &) {
+#pragma omp critical
+        { exception = std::current_exception(); }
+      }
     }
+  }
+  if (exception) {
+    std::rethrow_exception(exception);
   }
 }
 
@@ -261,14 +296,15 @@ buildGroup(const std::vector<std::string> &active_keys,
   // every column fits in the shared bucket layout.
   uint64_t num_buckets = 0;
   for (const auto *col : group_cols) {
-    uint64_t nb = targetBucketCount(col->values, col->codebook->codedict);
+    uint64_t nb = col->codebook
+                      ? targetBucketCount(col->values, col->codebook->codedict)
+                      : 0;
     num_buckets = std::max(num_buckets, nb);
   }
 
   if (num_buckets == 0 || active_keys.empty()) {
     // Degenerate group: all keys were filtered out for every column. Keep
     // zero-bucket arena; query returns the most-common value per column.
-    group.num_buckets = 0;
     group.hash_store_seed = 0;
     group.arena.num_cols = static_cast<uint32_t>(group_cols.size());
     group.arena.num_buckets = 0;
@@ -286,65 +322,38 @@ buildGroup(const std::vector<std::string> &active_keys,
     return group;
   }
 
-  // Per-column hash stores share a seed and bucket layout. We build one
-  // BucketedHashStore per column (each column may have different values
-  // for the same key, so value_buckets differ), but all share the same
-  // key partitioning because active_keys is identical across the group.
-  std::vector<BucketedHashStore<T>> per_col_stores(group_cols.size());
-  uint64_t chosen_seed = 0;
-  {
-    // Try partitioning with the first column's values to pick a seed that
-    // passes the collision check. The collision check only depends on the
-    // 128-bit key hashes, so any column's values will accept the same seed.
-    per_col_stores[0] = partitionToBuckets<T>(active_keys, group_cols[0]->values,
-                                              num_buckets);
-    chosen_seed = per_col_stores[0].seed;
-  }
-  for (size_t i = 1; i < group_cols.size(); i++) {
-    // Reuse the chosen seed; rebuild buckets with column i's values. This
-    // guarantees all columns see the same key-to-bucket assignment.
-    per_col_stores[i] = construct<T>(
-        active_keys, group_cols[i]->values, num_buckets, chosen_seed,
-        active_keys.size() / num_buckets + 1);
-  }
-
-  // Solve each column's subsystems (bucket-parallel within each column).
+  // All columns of the group share the same key partition (identical
+  // active_keys + seed), so partition the keys once and reuse that assignment
+  // for every column; only the per-column values differ. We hold one shared
+  // key_buckets plus each column's value_buckets — never M copies of the large
+  // key signatures.
   const uint32_t M = static_cast<uint32_t>(group_cols.size());
-  std::vector<std::vector<SubsystemSolutionSeedPair>> per_col_solutions(M);
 
-  for (uint32_t c = 0; c < M; c++) {
-    per_col_solutions[c].assign(num_buckets, {});
-    const auto &store = per_col_stores[c];
-    const CodeDict<T> &codedict = group_cols[c]->codebook->codedict;
-    uint32_t max_cl = group_cols[c]->codebook->max_codelength;
-    std::exception_ptr exception = nullptr;
+  BucketedHashStore<T> base =
+      partitionToBuckets<T>(active_keys, group_cols[0]->values, num_buckets);
+  uint64_t chosen_seed = base.seed;
+  std::vector<std::vector<__uint128_t>> key_buckets =
+      std::move(base.key_buckets);
 
-#pragma omp parallel for default(none)                                         \
-    shared(store, per_col_solutions, c, exception, codedict, max_cl, DELTA,    \
-           num_buckets)
-    for (uint32_t j = 0; j < num_buckets; j++) {
-      if (exception) {
-        continue;
-      }
-      try {
-        per_col_solutions[c][j] = constructAndSolveSubsystem<T>(
-            store.key_buckets[j], store.value_buckets[j], codedict, max_cl,
-            DELTA);
-      } catch (std::exception &) {
-#pragma omp critical
-        { exception = std::current_exception(); }
-      }
-    }
+  std::vector<std::vector<std::vector<T>>> value_buckets_per_col(M);
+  value_buckets_per_col[0] = std::move(base.value_buckets);
+  for (uint32_t c = 1; c < M; c++) {
+    BucketedHashStore<T> store =
+        construct<T>(active_keys, group_cols[c]->values, num_buckets,
+                     chosen_seed, active_keys.size() / num_buckets + 1);
+    value_buckets_per_col[c] = std::move(store.value_buckets);
+    // store.key_buckets (identical to the shared partition) is freed here.
+  }
 
-    if (exception) {
-      std::rethrow_exception(exception);
-    }
+  std::vector<std::shared_ptr<CsfCodebook<T>>> codebooks;
+  codebooks.reserve(M);
+  for (const auto *col : group_cols) {
+    codebooks.push_back(col->codebook);
   }
 
   group.hash_store_seed = static_cast<uint32_t>(chosen_seed);
-  group.num_buckets = static_cast<uint32_t>(num_buckets);
-  packArena<T>(group.arena, per_col_solutions,
-               static_cast<uint32_t>(num_buckets));
+  fillArena<T>(group.arena, key_buckets, value_buckets_per_col, codebooks,
+               static_cast<uint32_t>(num_buckets), DELTA);
 
   group.columns.reserve(M);
   for (const auto *col : group_cols) {
@@ -382,6 +391,39 @@ groupColumnsByActiveKeys(std::vector<ResolvedColumn<T>> &cols) {
     groups.push_back(std::move(by_filter[key]));
   }
   return groups;
+}
+
+// Splits a filter-group into sub-groups of columns that want a similar bucket
+// count. Every column in a group shares one num_buckets (the group max) so a
+// query computes one bucket id and streams the bucket's columns contiguously;
+// without this split one high-entropy column would force the rest to
+// over-partition, inflating build time. Columns are binned so the max/min
+// target bucket count within a sub-group stays within kBucketRatio.
+template <typename T>
+std::vector<std::vector<ResolvedColumn<T> *>>
+subGroupByBucketCount(const std::vector<ResolvedColumn<T> *> &group_cols) {
+  constexpr uint64_t kBucketRatio = 2;
+  std::vector<std::pair<uint64_t, ResolvedColumn<T> *>> with_nb;
+  with_nb.reserve(group_cols.size());
+  for (auto *col : group_cols) {
+    uint64_t nb = col->codebook
+                      ? targetBucketCount(col->values, col->codebook->codedict)
+                      : 0;
+    with_nb.emplace_back(nb, col);
+  }
+  std::sort(with_nb.begin(), with_nb.end(),
+            [](const auto &a, const auto &b) { return a.first < b.first; });
+
+  std::vector<std::vector<ResolvedColumn<T> *>> sub_groups;
+  uint64_t sub_min = 0;
+  for (auto &[nb, col] : with_nb) {
+    if (sub_groups.empty() || nb > sub_min * kBucketRatio) {
+      sub_groups.push_back({});
+      sub_min = nb;
+    }
+    sub_groups.back().push_back(col);
+  }
+  return sub_groups;
 }
 
 template <typename T>
@@ -430,21 +472,26 @@ constructMultisetCsf(const std::vector<std::string> &keys,
     resolved[i].col_index = static_cast<uint32_t>(i);
     resolved[i].filter = col_inputs.filter;
     resolved[i].most_common_value = col_inputs.most_common_value;
-    resolved[i].keys = using_filter ? std::move(col_inputs.keys) : keys;
+    // No-filter columns share the full key set, so leave ResolvedColumn::keys
+    // empty and let buildGroup fall back to the shared `keys` reference
+    // (zero-copy). Only filtered columns own a distinct key subset.
+    if (using_filter) {
+      resolved[i].keys = std::move(col_inputs.keys);
+    }
     resolved[i].values =
         using_filter ? std::move(col_inputs.values) : std::move(values[i]);
-    resolved[i].codebook = config.shared_codebook
-        ? shared_cb
-        : std::make_shared<CsfCodebook<T>>(canonicalHuffman<T>(resolved[i].values));
+    resolved[i].codebook =
+        columnCodebook<T>(resolved[i].values, config.shared_codebook, shared_cb);
   }
 
-  auto col_groups = groupColumnsByActiveKeys<T>(resolved);
   std::vector<typename MultisetCsf<T>::Group> groups;
-  groups.reserve(col_groups.size());
-  for (auto &group_cols : col_groups) {
-    const auto &active_keys = group_cols.front()->keys;
-    groups.push_back(buildGroup<T>(active_keys, group_cols,
-                                    config.shared_codebook));
+  for (auto &filter_group : groupColumnsByActiveKeys<T>(resolved)) {
+    for (auto &group_cols : subGroupByBucketCount<T>(filter_group)) {
+      const auto &active_keys =
+          group_cols.front()->filter ? group_cols.front()->keys : keys;
+      groups.push_back(
+          buildGroup<T>(active_keys, group_cols, config.shared_codebook));
+    }
   }
 
   return std::make_shared<MultisetCsf<T>>(
@@ -573,21 +620,25 @@ constructMultisetCsfRowMajor(const std::vector<std::string> &keys,
     resolved[i].col_index = static_cast<uint32_t>(i);
     resolved[i].filter = col_inputs.filter;
     resolved[i].most_common_value = col_inputs.most_common_value;
-    resolved[i].keys = using_filter ? std::move(col_inputs.keys) : keys;
+    // No-filter columns share the full key set, so leave keys empty and let
+    // the call site fall back to the shared `keys` reference (zero-copy).
+    if (using_filter) {
+      resolved[i].keys = std::move(col_inputs.keys);
+    }
     resolved[i].values =
         using_filter ? std::move(col_inputs.values) : column_values;
-    resolved[i].codebook = config.shared_codebook
-        ? shared_cb
-        : std::make_shared<CsfCodebook<T>>(canonicalHuffman<T>(resolved[i].values));
+    resolved[i].codebook =
+        columnCodebook<T>(resolved[i].values, config.shared_codebook, shared_cb);
   }
 
-  auto col_groups = groupColumnsByActiveKeys<T>(resolved);
   std::vector<typename MultisetCsf<T>::Group> groups;
-  groups.reserve(col_groups.size());
-  for (auto &group_cols : col_groups) {
-    const auto &active_keys = group_cols.front()->keys;
-    groups.push_back(buildGroup<T>(active_keys, group_cols,
-                                    config.shared_codebook));
+  for (auto &filter_group : groupColumnsByActiveKeys<T>(resolved)) {
+    for (auto &group_cols : subGroupByBucketCount<T>(filter_group)) {
+      const auto &active_keys =
+          group_cols.front()->filter ? group_cols.front()->keys : keys;
+      groups.push_back(
+          buildGroup<T>(active_keys, group_cols, config.shared_codebook));
+    }
   }
 
   result.build_seconds = timer.seconds();

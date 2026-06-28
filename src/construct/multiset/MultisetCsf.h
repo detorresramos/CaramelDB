@@ -53,29 +53,27 @@ public:
     }
   };
 
-  // Flat bucket-contiguous arena:
-  //   - solution_bits: concatenation of all per-(bucket, col) bit ranges.
-  //   - bucket_offsets[b]: start bit position in solution_bits for bucket b's
-  //     block. bucket_offsets has size num_buckets+1 (last = total bits).
-  //   - per_col_bits[b*M + c]: length in bits of column c's sub-range in
-  //     bucket b. Column c's bits live at:
-  //       start = bucket_offsets[b] + sum_{c'<c} per_col_bits[b*M + c']
-  //       end   = start + per_col_bits[b*M + c]
-  //   - per_col_seeds[b*M + c]: subsystem solve seed for (b, c).
-  // Layout guarantees: for a single bucket b, columns 0..M-1 are stored
-  // contiguously, so the inner query loop streams through the bucket block.
+  // Flat bucket-contiguous arena. solution_bits concatenates every
+  // per-(bucket, col) bit range, bucket-major (all M columns of bucket 0, then
+  // bucket 1, ...) so one bucket's columns stream contiguously at query time.
+  // per_col_word_off[b*M + c] is the word offset of that range's start (each
+  // range word-aligned); per_col_bits its bit length; per_col_seeds its solve
+  // seed.
   struct BucketArena {
     std::vector<uint64_t> solution_bits;
-    std::vector<uint64_t> bucket_offsets;
     std::vector<uint32_t> per_col_bits;
     std::vector<uint32_t> per_col_seeds;
+    // Word index into solution_bits where (bucket b, col c)'s range starts.
+    // Computed once by fillArena (the authoritative offset walk) so the query
+    // cache never recomputes the padding arithmetic.
+    std::vector<uint64_t> per_col_word_off;
     uint32_t num_cols = 0;
     uint32_t num_buckets = 0;
 
    private:
     friend class cereal::access;
     template <class Archive> void serialize(Archive &archive) {
-      archive(solution_bits, bucket_offsets, per_col_bits, per_col_seeds,
+      archive(solution_bits, per_col_bits, per_col_seeds, per_col_word_off,
               num_cols, num_buckets);
     }
   };
@@ -85,9 +83,10 @@ public:
   // filter, or no filter at all).
   struct Group {
     uint32_t hash_store_seed = 0;
-    uint32_t num_buckets = 0;
     BucketArena arena;
     std::vector<GroupColumn> columns;
+
+    uint32_t num_buckets() const { return arena.num_buckets; }
 
     // Query caches: flat array of BucketQueryInfo laid out as
     // [bucket 0 col 0, bucket 0 col 1, ..., bucket 0 col M-1,
@@ -101,45 +100,50 @@ public:
       bucket_col_info.assign(static_cast<size_t>(M) * B, BucketQueryInfo{});
 
       const uint64_t *backing = arena.solution_bits.data();
-      // For each (bucket, col), the effective "data pointer" is the backing
-      // array offset to the start of that range, rounded down to 64-bit word.
-      // But we need bit-level indexing; we store word-aligned arr + a bit
-      // offset. To keep BucketQueryInfo unchanged, we wrap using a helper:
-      // for (b, c), the solution bits start at absolute bit position
-      //   start_bit = bucket_offsets[b] + prefix_sum(per_col_bits[b*M..b*M+c])
-      // num_variables = per_col_bits[b*M + c] - col_max_codelength.
-      //
-      // queryCsfCore wants a uint64_t* that lets it read bits with an
-      // absolute bit offset equal to the range start. The existing code uses
-      // `arr[word]` with `pos / 64` and `pos % 64`. We pass a pointer to the
-      // word containing the start, but only if the range starts at a word
-      // boundary. To avoid adding bit-shifting fixup to the hot path, we
-      // require start_bit % 64 == 0 (enforced by padding during build).
+      // Each range starts on a 64-bit word boundary (padded by fillArena), so
+      // the query "data pointer" is just backing + the precomputed word offset.
       for (uint32_t b = 0; b < B; b++) {
-        uint64_t bit_off = arena.bucket_offsets[b];
         for (uint32_t c = 0; c < M; c++) {
-          uint32_t len_bits = arena.per_col_bits[b * M + c];
-          uint32_t seed = arena.per_col_seeds[b * M + c];
-          uint32_t max_cl = columns[c].max_codelength;
-          uint64_t word = bit_off / 64;
-          bucket_col_info[b * M + c] = BucketQueryInfo{
-              backing + word,
-              static_cast<uint32_t>(len_bits - max_cl),
-              seed};
-          // Advance to the next word-aligned boundary — each (bucket, col)
-          // range is padded up to 64 bits so query reads are word-indexed.
-          bit_off += (len_bits + 63u) & ~static_cast<uint64_t>(63u);
+          size_t idx = static_cast<size_t>(b) * M + c;
+          uint32_t num_vars = arena.per_col_bits[idx] - columns[c].max_codelength;
+          bucket_col_info[idx] = BucketQueryInfo{
+              backing + arena.per_col_word_off[idx], num_vars,
+              arena.per_col_seeds[idx]};
         }
       }
     }
 
+    // Decodes column ci of this group for one key. signature/bucket_id are the
+    // group-level hash results (computed once per group by the caller). Shared
+    // by MultisetCsf::query and RaggedMultisetCsf::query.
+    T queryColumn(size_t ci, const char *data, size_t length,
+                  const __uint128_t &signature, uint32_t bucket_id) const {
+      const auto &col = columns[ci];
+      // A no-filter column has no most-common value; an empty/degenerate group
+      // then has nothing to return, so fall back to T{}.
+      if (col.filter && !col.filter->contains(data, length)) {
+        return col.most_common_value.value_or(T{});
+      }
+      if (arena.num_buckets == 0) {
+        return col.most_common_value.value_or(T{});
+      }
+      const uint32_t M = arena.num_cols;
+      const auto &info = bucket_col_info[bucket_id * M + ci];
+      // Defensive: a column with no codebook (degenerate / unset) has nothing
+      // to decode, so fall back to the most-common value instead of a null
+      // dereference in the decode tail.
+      if (!col.codebook) {
+        return col.most_common_value.value_or(T{});
+      }
+      return decodeBucketColumn<T>(signature, info, col.max_codelength,
+                                   col.codebook->code_length_counts,
+                                   col.codebook->ordered_symbols);
+    }
+
    private:
     friend class cereal::access;
-    template <class Archive> void save(Archive &archive) const {
-      archive(hash_store_seed, num_buckets, arena, columns);
-    }
-    template <class Archive> void load(Archive &archive) {
-      archive(hash_store_seed, num_buckets, arena, columns);
+    template <class Archive> void serialize(Archive &archive) {
+      archive(hash_store_seed, arena, columns);
     }
   };
 
@@ -174,40 +178,13 @@ public:
       // Group-level hash: compute signature + bucket_id once for the whole
       // group. This is the E2/E3 payoff — per-column query no longer rehashes.
       __uint128_t signature = hashKey(data, length, group.hash_store_seed);
-      uint32_t bucket_id = group.num_buckets
-                               ? getBucketID(signature, group.num_buckets)
+      uint32_t bucket_id = group.num_buckets()
+                               ? getBucketID(signature, group.num_buckets())
                                : 0;
-      const uint32_t M = group.arena.num_cols;
 
       for (size_t ci = 0; ci < group.columns.size(); ci++) {
-        const auto &col = group.columns[ci];
-        T value;
-        if (col.filter && !col.filter->contains(data, length)) {
-          value = *col.most_common_value;
-        } else if (group.num_buckets == 0) {
-          value = *col.most_common_value;
-        } else {
-          const auto &info = group.bucket_col_info[bucket_id * M + ci];
-          uint64_t e[3];
-          signatureToEquation(signature, info.seed, info.num_variables, e);
-
-          const uint64_t *arr = info.data;
-          const int l = 64 - static_cast<int>(col.max_codelength);
-          auto getbits = [arr, l](uint32_t pos)
-                             __attribute__((always_inline)) {
-            const uint64_t w = pos / 64;
-            const int b = pos % 64;
-            if (b <= l)
-              return arr[w] << b >> l;
-            return arr[w] << b >> l | arr[w + 1] >> (128 - (-l + 64) - b);
-          };
-          uint64_t encoded =
-              getbits(e[0]) ^ getbits(e[1]) ^ getbits(e[2]);
-          value = canonicalDecodeFromNumber<T>(
-              encoded, col.codebook->code_length_counts,
-              col.codebook->ordered_symbols, col.max_codelength);
-        }
-        outputs[col.output_index] = value;
+        outputs[group.columns[ci].output_index] =
+            group.queryColumn(ci, data, length, signature, bucket_id);
       }
     }
 

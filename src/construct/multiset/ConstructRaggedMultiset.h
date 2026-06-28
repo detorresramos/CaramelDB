@@ -155,7 +155,6 @@ constructRaggedMultisetCsf(const std::vector<std::string> &keys,
 
     if (build_keys.empty()) {
       group.hash_store_seed = 0;
-      group.num_buckets = 0;
       group.arena.num_cols = 1;
       group.arena.num_buckets = 0;
       group.columns.push_back(std::move(gc));
@@ -163,52 +162,27 @@ constructRaggedMultisetCsf(const std::vector<std::string> &keys,
       continue;
     }
 
-    const CodeDict<T> &codedict = col_codebook->codedict;
-    uint32_t max_cl = col_codebook->max_codelength;
-
-    uint64_t num_buckets = targetBucketCount(build_values, codedict);
+    uint64_t num_buckets =
+        targetBucketCount(build_values, col_codebook->codedict);
 
     BucketedHashStore<T> hash_store =
         partitionToBuckets<T>(build_keys, build_values, num_buckets);
-
-    std::exception_ptr exception = nullptr;
-    std::vector<SubsystemSolutionSeedPair> solutions_and_seeds(
-        hash_store.num_buckets);
-
-#pragma omp parallel for default(none)                                         \
-    shared(hash_store, solutions_and_seeds, exception, codedict, max_cl, DELTA)
-    for (uint32_t j = 0; j < hash_store.num_buckets; j++) {
-      if (exception) {
-        continue;
-      }
-      try {
-        solutions_and_seeds[j] = constructAndSolveSubsystem<T>(
-            hash_store.key_buckets[j], hash_store.value_buckets[j], codedict,
-            max_cl, DELTA);
-      } catch (std::exception &) {
-#pragma omp critical
-        { exception = std::current_exception(); }
-      }
-    }
-
-    if (exception) {
-      std::rethrow_exception(exception);
-    }
-
     group.hash_store_seed = static_cast<uint32_t>(hash_store.seed);
-    group.num_buckets = static_cast<uint32_t>(hash_store.num_buckets);
 
-    std::vector<std::vector<SubsystemSolutionSeedPair>> per_col_solutions(1);
-    per_col_solutions[0] = std::move(solutions_and_seeds);
-    packArena<T>(group.arena, per_col_solutions,
-                 static_cast<uint32_t>(hash_store.num_buckets));
+    // One group per column (M=1): solve directly into the arena.
+    std::vector<std::vector<std::vector<T>>> value_buckets_per_col(1);
+    value_buckets_per_col[0] = std::move(hash_store.value_buckets);
+    std::vector<std::shared_ptr<CsfCodebook<T>>> codebooks{col_codebook};
+    fillArena<T>(group.arena, hash_store.key_buckets, value_buckets_per_col,
+                 codebooks, static_cast<uint32_t>(hash_store.num_buckets),
+                 DELTA);
 
     group.columns.push_back(std::move(gc));
     groups[c] = std::move(group);
   }
 
-  return std::make_shared<RaggedMultisetCsf<T>>(std::move(length_csf),
-                                                 std::move(groups));
+  return std::make_shared<RaggedMultisetCsf<T>>(
+      std::move(length_csf), std::move(groups), shared_cb);
 }
 
 } // namespace caramel

@@ -28,21 +28,43 @@ Arguments:
     Returns:
             SparseSystemPtr to solve for each key's encoded bits.
 */
+// The width of a subsystem's solution is fully determined by its values' code
+// lengths (not the key contents and not the solve seed): the number of
+// equations scaled by DELTA. Exposed so the arena layout can be sized before
+// solving, from the same formula the solver uses.
+template <typename T>
+uint64_t subsystemNumVariables(const std::vector<T> &values,
+                               const CodeDict<T> &codedict, float DELTA) {
+  uint64_t num_equations = 0;
+  for (const auto &v : values) {
+    num_equations += codedict.find(v)->second.numBits();
+  }
+  return std::ceil(static_cast<double>(num_equations) * DELTA);
+}
+
+// Total bits in a solved subsystem's BitArray: the variables plus the
+// max_codelength slack the decode's bit-slice reads past the last variable.
+template <typename T>
+uint32_t subsystemSolutionBits(const std::vector<T> &values,
+                               const CodeDict<T> &codedict,
+                               uint32_t max_codelength, float DELTA) {
+  return static_cast<uint32_t>(
+             subsystemNumVariables<T>(values, codedict, DELTA)) +
+         max_codelength;
+}
+
 template <typename T>
 SparseSystemPtr
 constructModulo2System(const std::vector<__uint128_t> &key_signatures,
                        const std::vector<T> &values,
                        const CodeDict<T> &codedict, uint32_t max_codelength,
                        uint32_t seed, float DELTA) {
+  uint64_t num_variables = subsystemNumVariables<T>(values, codedict, DELTA);
+
   uint64_t num_equations = 0;
   for (const auto &v : values) {
     num_equations += codedict.find(v)->second.numBits();
   }
-
-  // TODO(david) should we add max_codelength to num_variables, was getting a
-  // core dumped error
-  uint64_t num_variables =
-      std::ceil(static_cast<double>(num_equations) * DELTA);
 
   auto sparse_system =
       SparseSystem::make(num_equations, num_variables + max_codelength);

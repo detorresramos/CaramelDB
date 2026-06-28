@@ -16,11 +16,11 @@ template <typename T> class RaggedMultisetCsf {
 public:
   using Group = typename MultisetCsf<T>::Group;
 
-  RaggedMultisetCsf(CsfPtr<uint32_t> length_csf, std::vector<Group> groups)
-      : _length_csf(std::move(length_csf)), _groups(std::move(groups)) {
-    for (auto &g : _groups) {
-      g.buildQueryCache();
-    }
+  RaggedMultisetCsf(CsfPtr<uint32_t> length_csf, std::vector<Group> groups,
+                    std::shared_ptr<CsfCodebook<T>> shared_codebook = nullptr)
+      : _length_csf(std::move(length_csf)), _groups(std::move(groups)),
+        _shared_codebook(std::move(shared_codebook)) {
+    injectSharedCodebookAndBuildCaches();
   }
 
   std::vector<T> query(const std::string &key) const {
@@ -35,33 +35,11 @@ public:
 
     for (size_t i = 0; i < num_values; i++) {
       const auto &group = _groups[i];
-      const auto &col = group.columns[0];
-      if (col.filter && !col.filter->contains(data, length)) {
-        outputs[i] = *col.most_common_value;
-      } else if (group.num_buckets == 0) {
-        outputs[i] = *col.most_common_value;
-      } else {
-        __uint128_t signature = hashKey(data, length, group.hash_store_seed);
-        uint32_t bucket_id = getBucketID(signature, group.num_buckets);
-        const auto &info = group.bucket_col_info[bucket_id];
-
-        uint64_t e[3];
-        signatureToEquation(signature, info.seed, info.num_variables, e);
-
-        const uint64_t *arr = info.data;
-        const int l = 64 - static_cast<int>(col.max_codelength);
-        auto getbits = [arr, l](uint32_t pos) __attribute__((always_inline)) {
-          const uint64_t w = pos / 64;
-          const int b = pos % 64;
-          if (b <= l)
-            return arr[w] << b >> l;
-          return arr[w] << b >> l | arr[w + 1] >> (128 - (-l + 64) - b);
-        };
-        uint64_t encoded = getbits(e[0]) ^ getbits(e[1]) ^ getbits(e[2]);
-        outputs[i] = canonicalDecodeFromNumber<T>(
-            encoded, col.codebook->code_length_counts,
-            col.codebook->ordered_symbols, col.max_codelength);
-      }
+      __uint128_t signature = hashKey(data, length, group.hash_store_seed);
+      uint32_t bucket_id = group.num_buckets()
+                               ? getBucketID(signature, group.num_buckets())
+                               : 0;
+      outputs[i] = group.queryColumn(0, data, length, signature, bucket_id);
     }
 
     return outputs;
@@ -96,23 +74,48 @@ public:
 private:
   RaggedMultisetCsf() {}
 
-  friend class cereal::access;
-  template <class Archive> void save(Archive &archive) const {
-    archive(_length_csf, _groups);
-  }
-
-  template <class Archive> void load(Archive &archive) {
-    archive(_length_csf, _groups);
-    // Codebooks are serialized inside each group's columns (Ragged does not
-    // use a shared codebook across the MultisetCsf); cereal's shared_ptr
-    // tracking already dedupes per-column codebooks where applicable.
+  // Inject the shared codebook into the columns that use it (their codebook
+  // ptr is null after load), then build the per-group query caches.
+  void injectSharedCodebookAndBuildCaches() {
     for (auto &g : _groups) {
+      if (_shared_codebook) {
+        for (auto &col : g.columns) {
+          if (col.uses_shared_codebook) {
+            col.codebook = _shared_codebook;
+          }
+        }
+      }
       g.buildQueryCache();
     }
   }
 
+  friend class cereal::access;
+  template <class Archive> void save(Archive &archive) const {
+    archive(_length_csf, _groups);
+    // Serialize the shared codebook by value behind a presence flag, rather
+    // than as a shared_ptr, to avoid cereal aliasing it with the same-typed
+    // codebook inside _length_csf.
+    bool has_shared = _shared_codebook != nullptr;
+    archive(has_shared);
+    if (has_shared) {
+      archive(*_shared_codebook);
+    }
+  }
+
+  template <class Archive> void load(Archive &archive) {
+    archive(_length_csf, _groups);
+    bool has_shared = false;
+    archive(has_shared);
+    if (has_shared) {
+      _shared_codebook = std::make_shared<CsfCodebook<T>>();
+      archive(*_shared_codebook);
+    }
+    injectSharedCodebookAndBuildCaches();
+  }
+
   CsfPtr<uint32_t> _length_csf;
   std::vector<Group> _groups;
+  std::shared_ptr<CsfCodebook<T>> _shared_codebook;
 };
 
 } // namespace caramel
