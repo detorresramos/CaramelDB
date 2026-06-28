@@ -9,6 +9,12 @@ namespace caramel {
 void inline signatureToEquation(const __uint128_t &signature,
                                 const uint64_t seed, uint64_t num_variables,
                                 uint64_t *e) {
+  if (num_variables == 0) {
+    // An empty bucket has no variables; __builtin_clzll(0) is undefined, so
+    // short-circuit. The caller decodes nothing from a zero-variable range.
+    e[0] = e[1] = e[2] = 0;
+    return;
+  }
   uint64_t hash[4];
   SpookyHash::SpookyShortRehash(signature, seed, hash);
   const int shift = __builtin_clzll(num_variables);

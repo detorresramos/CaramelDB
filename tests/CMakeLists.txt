@@ -4,6 +4,7 @@ include(GoogleTest)
 
 set(CARAMEL_TESTS
     AutoFilterSelectionTest
+    ConstructMultisetTest
     BitArrayTest
     BucketedHashStoreTest
     CodecTest
