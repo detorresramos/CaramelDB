@@ -123,6 +123,9 @@ def main():
     mmap_mode = "c" if args.permutation != "none" else "r"
     print(f"Loading {args.npy} (mmap mode={mmap_mode!r})...", flush=True)
     values = np.load(args.npy, mmap_mode=mmap_mode)
+    # Materialize into anonymous RAM so peak RSS isn't confounded by evictable
+    # mmap'd file pages (which vary with memory pressure, polluting the number).
+    values = np.ascontiguousarray(values)
     if values.ndim != 2:
         raise ValueError(f"Expected 2D array, got shape {values.shape}")
     N, M = values.shape

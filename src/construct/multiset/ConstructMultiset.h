@@ -187,8 +187,13 @@ struct ResolvedColumn {
   PreFilterPtr<T> filter;
   std::optional<T> most_common_value;
   std::vector<std::string> keys;  // active keys (filtered or full)
-  std::vector<T> values;          // active values
+  std::vector<T> values;          // active values (may be left empty for
+                                  // no-filter columns, re-extracted on demand
+                                  // from the row-major buffer to avoid holding
+                                  // all M columns' values at once)
   std::shared_ptr<CsfCodebook<T>> codebook;
+  uint64_t num_buckets = 0;       // precomputed so grouping/build never re-read
+                                  // values just to size buckets
 };
 
 // Codebook for one column. A column whose keys were all filtered out has no
@@ -222,6 +227,7 @@ void fillArena(
     typename MultisetCsf<T>::BucketArena &arena, const KeyPartition &part,
     std::vector<std::vector<T>> &source_values_per_col,
     const std::vector<std::shared_ptr<CsfCodebook<T>>> &codebooks,
+    const std::vector<uint32_t> &col_indices, const T *data, size_t num_columns,
     float DELTA) {
   const uint32_t M = static_cast<uint32_t>(source_values_per_col.size());
   const uint32_t num_buckets = part.num_buckets;
@@ -237,18 +243,33 @@ void fillArena(
   // per-cell equation count, and hand it to the solver so it never re-sums.
   std::vector<uint64_t> per_cell_equations(cells, 0);
   const std::vector<uint32_t> &bucket_of_key = part.bucket_of_key;
+  const size_t n = bucket_of_key.size();
 
   Timer size_timer;
   // Size pass: a subsystem's width is the coded bit-length of its bucket's
   // values, which we accumulate straight from each column's source values via
-  // bucket_of_key -- no bucketed copy required. Columns are independent (each
-  // writes only its own cells idx = b*M + c), so parallelize over them.
+  // bucket_of_key -- no bucketed copy required. A column's values are either
+  // provided (filtered columns) or re-extracted on demand from the row-major
+  // `data` buffer (no-filter columns, so we never hold all M at once). Columns
+  // are independent (each writes only its own cells idx = b*M + c), so
+  // parallelize over them.
 #pragma omp parallel for schedule(dynamic, 1) default(none)                    \
     shared(source_values_per_col, codebooks, arena, per_cell_equations,        \
-           bucket_of_key, num_buckets, M, DELTA)
+           bucket_of_key, col_indices, data, num_columns, n, num_buckets, M,   \
+           DELTA)
   for (uint32_t c = 0; c < M; c++) {
+    std::vector<T> owned;
+    const std::vector<T> *valsp = &source_values_per_col[c];
+    if (valsp->empty() && n > 0) {
+      owned.resize(n);
+      uint32_t ci = col_indices[c];
+      for (size_t r = 0; r < n; r++) {
+        owned[r] = data[r * num_columns + ci];
+      }
+      valsp = &owned;
+    }
     const auto &codedict = codebooks[c]->codedict;
-    const auto &vals = source_values_per_col[c];
+    const auto &vals = *valsp;
     std::vector<uint64_t> eqs(num_buckets, 0);
     for (size_t i = 0; i < vals.size(); i++) {
       eqs[bucket_of_key[i]] += codedict.find(vals[i])->second.numBits();
@@ -281,15 +302,26 @@ void fillArena(
   std::exception_ptr exception = nullptr;
 #pragma omp parallel for schedule(dynamic, 1) default(none)                    \
     shared(source_values_per_col, codebooks, arena, out, exception,            \
-           per_cell_equations, part, num_buckets, M, DELTA)
+           per_cell_equations, part, col_indices, data, num_columns, n,        \
+           num_buckets, M, DELTA)
   for (uint32_t c = 0; c < M; c++) {
     if (exception) {
       continue;
     }
     try {
-      std::vector<std::vector<T>> value_buckets =
-          scatterValues<T>(source_values_per_col[c], part);
+      std::vector<T> owned;
+      const std::vector<T> *valsp = &source_values_per_col[c];
+      if (valsp->empty() && n > 0) {
+        owned.resize(n);
+        uint32_t ci = col_indices[c];
+        for (size_t r = 0; r < n; r++) {
+          owned[r] = data[r * num_columns + ci];
+        }
+        valsp = &owned;
+      }
+      std::vector<std::vector<T>> value_buckets = scatterValues<T>(*valsp, part);
       source_values_per_col[c] = std::vector<T>();
+      owned = std::vector<T>();
       const auto &codedict = codebooks[c]->codedict;
       uint32_t max_cl = codebooks[c]->max_codelength;
       for (uint32_t b = 0; b < num_buckets; b++) {
@@ -329,19 +361,17 @@ template <typename T>
 typename MultisetCsf<T>::Group
 buildGroup(const std::vector<std::string> &active_keys,
            const std::vector<ResolvedColumn<T> *> &group_cols,
-           bool shared_codebook) {
+           bool shared_codebook, const T *data = nullptr,
+           size_t num_columns = 0) {
   using GroupT = typename MultisetCsf<T>::Group;
   using GroupColumnT = typename MultisetCsf<T>::GroupColumn;
   GroupT group;
 
-  // Group-level num_buckets = max across member columns. This guarantees
-  // every column fits in the shared bucket layout.
+  // Group-level num_buckets = max across member columns (precomputed at resolve
+  // time). This guarantees every column fits in the shared bucket layout.
   uint64_t num_buckets = 0;
   for (const auto *col : group_cols) {
-    uint64_t nb = col->codebook
-                      ? targetBucketCount(col->values, col->codebook->codedict)
-                      : 0;
-    num_buckets = std::max(num_buckets, nb);
+    num_buckets = std::max(num_buckets, col->num_buckets);
   }
 
   if (num_buckets == 0 || active_keys.empty()) {
@@ -382,11 +412,15 @@ buildGroup(const std::vector<std::string> &active_keys,
   uint64_t chosen_seed = part.seed;
   double partition_s = part_timer.seconds();
 
-  // Move each column's source values into a compact per-column buffer; fillArena
-  // consumes (and frees) them one column at a time.
+  // Hand each column's values to fillArena, which consumes them one column at a
+  // time. Columns that resolved to stored values (filtered columns) are moved
+  // in; no-filter columns are left empty and re-extracted on demand from `data`
+  // by fillArena, so all M columns' values are never resident at once.
   std::vector<std::vector<T>> source_values_per_col(M);
+  std::vector<uint32_t> col_indices(M);
   for (uint32_t c = 0; c < M; c++) {
     source_values_per_col[c] = std::move(group_cols[c]->values);
+    col_indices[c] = group_cols[c]->col_index;
   }
 
   std::vector<std::shared_ptr<CsfCodebook<T>>> codebooks;
@@ -409,7 +443,8 @@ buildGroup(const std::vector<std::string> &active_keys,
   }
 
   group.hash_store_seed = static_cast<uint32_t>(chosen_seed);
-  fillArena<T>(group.arena, part, source_values_per_col, codebooks, DELTA);
+  fillArena<T>(group.arena, part, source_values_per_col, codebooks, col_indices,
+               data, num_columns, DELTA);
 
   group.columns.reserve(M);
   for (const auto *col : group_cols) {
@@ -462,10 +497,7 @@ subGroupByBucketCount(const std::vector<ResolvedColumn<T> *> &group_cols) {
   std::vector<std::pair<uint64_t, ResolvedColumn<T> *>> with_nb;
   with_nb.reserve(group_cols.size());
   for (auto *col : group_cols) {
-    uint64_t nb = col->codebook
-                      ? targetBucketCount(col->values, col->codebook->codedict)
-                      : 0;
-    with_nb.emplace_back(nb, col);
+    with_nb.emplace_back(col->num_buckets, col);
   }
   std::sort(with_nb.begin(), with_nb.end(),
             [](const auto &a, const auto &b) { return a.first < b.first; });
@@ -538,6 +570,11 @@ constructMultisetCsf(const std::vector<std::string> &keys,
         using_filter ? std::move(col_inputs.values) : std::move(values[i]);
     resolved[i].codebook =
         columnCodebook<T>(resolved[i].values, config.shared_codebook, shared_cb);
+    resolved[i].num_buckets =
+        resolved[i].codebook
+            ? targetBucketCount(resolved[i].values,
+                                resolved[i].codebook->codedict)
+            : 0;
   }
 
   std::vector<typename MultisetCsf<T>::Group> groups;
@@ -681,10 +718,21 @@ constructMultisetCsfRowMajor(const std::vector<std::string> &keys,
     if (using_filter) {
       resolved[i].keys = std::move(col_inputs.keys);
     }
-    resolved[i].values =
-        using_filter ? std::move(col_inputs.values) : column_values;
+    // Codebook + bucket count are computed now, from the active values. For
+    // no-filter columns we then drop the values (left empty) -- buildGroup
+    // re-extracts them column-by-column from `data`, so we never hold all M
+    // columns' values at once. Filtered columns keep their (smaller) values.
+    const std::vector<T> &active_values =
+        using_filter ? col_inputs.values : column_values;
     resolved[i].codebook =
-        columnCodebook<T>(resolved[i].values, config.shared_codebook, shared_cb);
+        columnCodebook<T>(active_values, config.shared_codebook, shared_cb);
+    resolved[i].num_buckets =
+        resolved[i].codebook
+            ? targetBucketCount(active_values, resolved[i].codebook->codedict)
+            : 0;
+    if (using_filter) {
+      resolved[i].values = std::move(col_inputs.values);
+    }
   }
 
   std::vector<typename MultisetCsf<T>::Group> groups;
@@ -692,8 +740,8 @@ constructMultisetCsfRowMajor(const std::vector<std::string> &keys,
     for (auto &group_cols : subGroupByBucketCount<T>(filter_group)) {
       const auto &active_keys =
           group_cols.front()->filter ? group_cols.front()->keys : keys;
-      groups.push_back(
-          buildGroup<T>(active_keys, group_cols, config.shared_codebook));
+      groups.push_back(buildGroup<T>(active_keys, group_cols,
+                                     config.shared_codebook, data, num_columns));
     }
   }
 

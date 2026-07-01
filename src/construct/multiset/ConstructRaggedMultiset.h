@@ -169,11 +169,14 @@ constructRaggedMultisetCsf(const std::vector<std::string> &keys,
         partitionKeys(build_keys, static_cast<uint32_t>(num_buckets));
     group.hash_store_seed = static_cast<uint32_t>(part.seed);
 
-    // One group per column (M=1): stream-solve directly into the arena.
+    // One group per column (M=1): stream-solve directly into the arena. Values
+    // are provided here (no row-major buffer to re-extract from).
     std::vector<std::vector<T>> source_values_per_col(1);
     source_values_per_col[0] = std::move(build_values);
     std::vector<std::shared_ptr<CsfCodebook<T>>> codebooks{col_codebook};
-    fillArena<T>(group.arena, part, source_values_per_col, codebooks, DELTA);
+    std::vector<uint32_t> col_indices{0};
+    fillArena<T>(group.arena, part, source_values_per_col, codebooks,
+                 col_indices, /*data=*/nullptr, /*num_columns=*/0, DELTA);
 
     group.columns.push_back(std::move(gc));
     groups[c] = std::move(group);
