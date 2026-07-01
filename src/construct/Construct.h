@@ -28,6 +28,27 @@ Arguments:
     Returns:
             SparseSystemPtr to solve for each key's encoded bits.
 */
+// Number of equations in a subsystem: the total coded bit-length of its values.
+// This sum is the single expensive codedict pass; for high-entropy data it is
+// ~one DRAM-bound lookup per value, so callers that already have it (e.g. the
+// arena size pass) should reuse it rather than recomputing.
+template <typename T>
+uint64_t subsystemNumEquations(const std::vector<T> &values,
+                               const CodeDict<T> &codedict) {
+  uint64_t num_equations = 0;
+  for (const auto &v : values) {
+    num_equations += codedict.find(v)->second.numBits();
+  }
+  return num_equations;
+}
+
+// Variables (solution columns) for a given equation count: equations scaled by
+// DELTA. The single formula the solver and the size pass both use.
+inline uint64_t numVariablesFromEquations(uint64_t num_equations, float DELTA) {
+  return static_cast<uint64_t>(
+      std::ceil(static_cast<double>(num_equations) * DELTA));
+}
+
 // The width of a subsystem's solution is fully determined by its values' code
 // lengths (not the key contents and not the solve seed): the number of
 // equations scaled by DELTA. Exposed so the arena layout can be sized before
@@ -35,22 +56,25 @@ Arguments:
 template <typename T>
 uint64_t subsystemNumVariables(const std::vector<T> &values,
                                const CodeDict<T> &codedict, float DELTA) {
-  uint64_t num_equations = 0;
-  for (const auto &v : values) {
-    num_equations += codedict.find(v)->second.numBits();
-  }
-  return std::ceil(static_cast<double>(num_equations) * DELTA);
+  return numVariablesFromEquations(subsystemNumEquations<T>(values, codedict),
+                                   DELTA);
 }
 
 // Total bits in a solved subsystem's BitArray: the variables plus the
 // max_codelength slack the decode's bit-slice reads past the last variable.
+inline uint32_t solutionBitsFromEquations(uint64_t num_equations,
+                                          uint32_t max_codelength, float DELTA) {
+  return static_cast<uint32_t>(
+             numVariablesFromEquations(num_equations, DELTA)) +
+         max_codelength;
+}
+
 template <typename T>
 uint32_t subsystemSolutionBits(const std::vector<T> &values,
                                const CodeDict<T> &codedict,
                                uint32_t max_codelength, float DELTA) {
-  return static_cast<uint32_t>(
-             subsystemNumVariables<T>(values, codedict, DELTA)) +
-         max_codelength;
+  return solutionBitsFromEquations(subsystemNumEquations<T>(values, codedict),
+                                   max_codelength, DELTA);
 }
 
 template <typename T>
@@ -58,13 +82,13 @@ SparseSystemPtr
 constructModulo2System(const std::vector<__uint128_t> &key_signatures,
                        const std::vector<T> &values,
                        const CodeDict<T> &codedict, uint32_t max_codelength,
-                       uint32_t seed, float DELTA) {
-  uint64_t num_variables = subsystemNumVariables<T>(values, codedict, DELTA);
-
-  uint64_t num_equations = 0;
-  for (const auto &v : values) {
-    num_equations += codedict.find(v)->second.numBits();
+                       uint32_t seed, float DELTA, uint64_t num_equations = 0) {
+  // num_equations == 0 means "not precomputed". A non-empty bucket always has a
+  // positive coded length, so the sentinel never collides with a real count.
+  if (num_equations == 0) {
+    num_equations = subsystemNumEquations<T>(values, codedict);
   }
+  uint64_t num_variables = numVariablesFromEquations(num_equations, DELTA);
 
   auto sparse_system =
       SparseSystem::make(num_equations, num_variables + max_codelength);
@@ -90,14 +114,15 @@ SubsystemSolutionSeedPair
 constructAndSolveSubsystem(const std::vector<__uint128_t> &key_signatures,
                            const std::vector<T> &values,
                            const CodeDict<T> &codedict, uint32_t max_codelength,
-                           float DELTA) {
+                           float DELTA, uint64_t num_equations = 0) {
   uint32_t seed = 0;
   uint32_t num_tries = 0;
   uint32_t max_num_attempts = 128;
   while (true) {
     try {
       SparseSystemPtr sparse_system = constructModulo2System<T>(
-          key_signatures, values, codedict, max_codelength, seed, DELTA);
+          key_signatures, values, codedict, max_codelength, seed, DELTA,
+          num_equations);
 
       BitArrayPtr solution = solveModulo2System(sparse_system);
 

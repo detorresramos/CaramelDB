@@ -8,6 +8,7 @@
 #include "src/construct/filter/FilterFactory.h"
 #include "src/utils/Timer.h"
 #include <cassert>
+#include <cstdlib>
 #include <iostream>
 #include <omp.h>
 
@@ -230,18 +231,27 @@ void fillArena(
   arena.per_col_seeds.assign(cells, 0);
   arena.per_col_word_off.assign(cells, 0);
 
+  // The codedict summation (one DRAM-bound lookup per value for high-entropy
+  // data) is the single expensive sizing pass. Compute it once here, keep the
+  // per-cell equation count, and hand it to the solver so it never re-sums.
+  std::vector<uint64_t> per_cell_equations(cells, 0);
+
+  Timer size_timer;
   // Size pass: a subsystem's solution width is fixed by its bucketed values
   // before solving, so the whole layout is known up front. The per-cell width
-  // (a codedict summation) is independent, so compute it in parallel; the
-  // bucket-major word offsets are then a cheap serial prefix sum.
+  // is independent, so compute it in parallel; the bucket-major word offsets
+  // are then a cheap serial prefix sum.
 #pragma omp parallel for collapse(2) default(none)                            \
-    shared(value_buckets_per_col, codebooks, arena, num_buckets, M, DELTA)
+    shared(value_buckets_per_col, codebooks, arena, per_cell_equations,        \
+           num_buckets, M, DELTA)
   for (uint32_t b = 0; b < num_buckets; b++) {
     for (uint32_t c = 0; c < M; c++) {
       size_t idx = static_cast<size_t>(b) * M + c;
-      arena.per_col_bits[idx] = subsystemSolutionBits<T>(
-          value_buckets_per_col[c][b], codebooks[c]->codedict,
-          codebooks[c]->max_codelength, DELTA);
+      uint64_t eqs = subsystemNumEquations<T>(value_buckets_per_col[c][b],
+                                              codebooks[c]->codedict);
+      per_cell_equations[idx] = eqs;
+      arena.per_col_bits[idx] = solutionBitsFromEquations(
+          eqs, codebooks[c]->max_codelength, DELTA);
     }
   }
   uint64_t total_words = 0;
@@ -252,13 +262,17 @@ void fillArena(
   // +1 trailing guard word: decode getbits() reads arr[w] and arr[w+1].
   arena.solution_bits.assign(total_words + 1, 0);
 
+  const bool timing = std::getenv("CARAMEL_TIMING") != nullptr;
+  double size_s = size_timer.seconds();
+  Timer solve_timer;
+
   // Solve pass: each (bucket, col) writes into its own disjoint, precomputed
   // slot, so no lock is needed for the copy (only for exception capture).
   uint64_t *out = arena.solution_bits.data();
   std::exception_ptr exception = nullptr;
 #pragma omp parallel for collapse(2) default(none)                            \
     shared(key_buckets, value_buckets_per_col, codebooks, arena, out,         \
-           exception, num_buckets, M, DELTA)
+           exception, per_cell_equations, num_buckets, M, DELTA)
   for (uint32_t b = 0; b < num_buckets; b++) {
     for (uint32_t c = 0; c < M; c++) {
       if (exception) {
@@ -268,7 +282,7 @@ void fillArena(
         size_t idx = static_cast<size_t>(b) * M + c;
         auto [solution, seed] = constructAndSolveSubsystem<T>(
             key_buckets[b], value_buckets_per_col[c][b], codebooks[c]->codedict,
-            codebooks[c]->max_codelength, DELTA);
+            codebooks[c]->max_codelength, DELTA, per_cell_equations[idx]);
         assert(solution->numBits() == arena.per_col_bits[idx]);
         arena.per_col_seeds[idx] = seed;
         const uint64_t *src = solution->backingArrayPtr();
@@ -282,6 +296,12 @@ void fillArena(
   }
   if (exception) {
     std::rethrow_exception(exception);
+  }
+  if (timing) {
+    std::cerr << "[timing] fillArena M=" << M << " num_buckets=" << num_buckets
+              << " cells=" << cells << " words=" << total_words
+              << " size_pass=" << size_s
+              << "s solve_pass=" << solve_timer.seconds() << "s\n";
   }
 }
 
@@ -337,15 +357,24 @@ buildGroup(const std::vector<std::string> &active_keys,
   // Hash the keys ONCE (the dominant build cost) and reuse that partition to
   // bucket every column's values in parallel, instead of re-hashing the same
   // keys M times.
+  const bool timing = std::getenv("CARAMEL_TIMING") != nullptr;
+  Timer part_timer;
   KeyPartition part =
       partitionKeys(active_keys, static_cast<uint32_t>(num_buckets));
   uint64_t chosen_seed = part.seed;
+  double partition_s = part_timer.seconds();
 
+  Timer scatter_timer;
   std::vector<std::vector<std::vector<T>>> value_buckets_per_col(M);
 #pragma omp parallel for default(none)                                        \
     shared(value_buckets_per_col, group_cols, part, M)
   for (uint32_t c = 0; c < M; c++) {
     value_buckets_per_col[c] = scatterValues<T>(group_cols[c]->values, part);
+  }
+  if (timing) {
+    std::cerr << "[timing] buildGroup M=" << M << " keys=" << active_keys.size()
+              << " partition=" << partition_s
+              << "s scatter=" << scatter_timer.seconds() << "s\n";
   }
   // Source values are now redundant with their bucketed copies; release them.
   for (uint32_t c = 0; c < M; c++) {
