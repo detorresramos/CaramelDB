@@ -207,23 +207,24 @@ columnCodebook(const std::vector<T> &values, bool shared,
   return std::make_shared<CsfCodebook<T>>(canonicalHuffman<T>(values));
 }
 
-// Builds the interleaved arena in place: sizes the whole bucket-major layout
-// from the (already partitioned) per-column value buckets, allocates it once,
-// then solves every (bucket, col) subsystem directly into its precomputed,
-// word-aligned slot. Each solution BitArray is freed as it leaves scope; the
-// arena is never held alongside a full second copy of the solution bits (the
-// old solve-then-pack was, costing ~2x peak memory at scale). key_buckets is
-// the shared key partition, identical across the group's columns. The value
-// buckets are released when the group finishes (not per-cell, to avoid
-// hammering the allocator from inside the parallel region).
+// Builds the interleaved arena in place, streaming one column at a time so peak
+// memory stays ~1x: the whole bucket-major layout is sized directly from the
+// shared key partition (no bucketed value copy needed to size), the arena is
+// allocated once, then each column scatters its source values, solves every
+// bucket into its precomputed word-aligned slot, and frees its values before
+// the next column. At most O(threads) columns' value buckets and O(threads)
+// solution BitArrays are ever resident -- never all M columns at once, and
+// never a second full copy of the solution bits (the old solve-then-pack was,
+// costing ~2x peak at scale). `part` is the shared key partition (identical
+// across the group's columns); source_values_per_col[c] is consumed in place.
 template <typename T>
 void fillArena(
-    typename MultisetCsf<T>::BucketArena &arena,
-    const std::vector<std::vector<__uint128_t>> &key_buckets,
-    std::vector<std::vector<std::vector<T>>> &value_buckets_per_col,
+    typename MultisetCsf<T>::BucketArena &arena, const KeyPartition &part,
+    std::vector<std::vector<T>> &source_values_per_col,
     const std::vector<std::shared_ptr<CsfCodebook<T>>> &codebooks,
-    uint32_t num_buckets, float DELTA) {
-  const uint32_t M = static_cast<uint32_t>(value_buckets_per_col.size());
+    float DELTA) {
+  const uint32_t M = static_cast<uint32_t>(source_values_per_col.size());
+  const uint32_t num_buckets = part.num_buckets;
   const size_t cells = static_cast<size_t>(num_buckets) * M;
   arena.num_cols = M;
   arena.num_buckets = num_buckets;
@@ -235,23 +236,28 @@ void fillArena(
   // data) is the single expensive sizing pass. Compute it once here, keep the
   // per-cell equation count, and hand it to the solver so it never re-sums.
   std::vector<uint64_t> per_cell_equations(cells, 0);
+  const std::vector<uint32_t> &bucket_of_key = part.bucket_of_key;
 
   Timer size_timer;
-  // Size pass: a subsystem's solution width is fixed by its bucketed values
-  // before solving, so the whole layout is known up front. The per-cell width
-  // is independent, so compute it in parallel; the bucket-major word offsets
-  // are then a cheap serial prefix sum.
-#pragma omp parallel for collapse(2) default(none)                            \
-    shared(value_buckets_per_col, codebooks, arena, per_cell_equations,        \
-           num_buckets, M, DELTA)
-  for (uint32_t b = 0; b < num_buckets; b++) {
-    for (uint32_t c = 0; c < M; c++) {
+  // Size pass: a subsystem's width is the coded bit-length of its bucket's
+  // values, which we accumulate straight from each column's source values via
+  // bucket_of_key -- no bucketed copy required. Columns are independent (each
+  // writes only its own cells idx = b*M + c), so parallelize over them.
+#pragma omp parallel for schedule(dynamic, 1) default(none)                    \
+    shared(source_values_per_col, codebooks, arena, per_cell_equations,        \
+           bucket_of_key, num_buckets, M, DELTA)
+  for (uint32_t c = 0; c < M; c++) {
+    const auto &codedict = codebooks[c]->codedict;
+    const auto &vals = source_values_per_col[c];
+    std::vector<uint64_t> eqs(num_buckets, 0);
+    for (size_t i = 0; i < vals.size(); i++) {
+      eqs[bucket_of_key[i]] += codedict.find(vals[i])->second.numBits();
+    }
+    for (uint32_t b = 0; b < num_buckets; b++) {
       size_t idx = static_cast<size_t>(b) * M + c;
-      uint64_t eqs = subsystemNumEquations<T>(value_buckets_per_col[c][b],
-                                              codebooks[c]->codedict);
-      per_cell_equations[idx] = eqs;
-      arena.per_col_bits[idx] = solutionBitsFromEquations(
-          eqs, codebooks[c]->max_codelength, DELTA);
+      per_cell_equations[idx] = eqs[b];
+      arena.per_col_bits[idx] =
+          solutionBitsFromEquations(eqs[b], codebooks[c]->max_codelength, DELTA);
     }
   }
   uint64_t total_words = 0;
@@ -266,41 +272,52 @@ void fillArena(
   double size_s = size_timer.seconds();
   Timer solve_timer;
 
-  // Solve pass: each (bucket, col) writes into its own disjoint, precomputed
-  // slot, so no lock is needed for the copy (only for exception capture).
+  // Solve pass: one column at a time (parallel over columns). Each column
+  // scatters its source values into buckets -- aligned with part.key_buckets,
+  // since both preserve input order within a bucket -- solves each bucket into
+  // its disjoint arena slot, then frees its values. Disjoint slots need no lock
+  // (only exception capture does).
   uint64_t *out = arena.solution_bits.data();
   std::exception_ptr exception = nullptr;
-#pragma omp parallel for collapse(2) default(none)                            \
-    shared(key_buckets, value_buckets_per_col, codebooks, arena, out,         \
-           exception, per_cell_equations, num_buckets, M, DELTA)
-  for (uint32_t b = 0; b < num_buckets; b++) {
-    for (uint32_t c = 0; c < M; c++) {
-      if (exception) {
-        continue;
-      }
-      try {
+#pragma omp parallel for schedule(dynamic, 1) default(none)                    \
+    shared(source_values_per_col, codebooks, arena, out, exception,            \
+           per_cell_equations, part, num_buckets, M, DELTA)
+  for (uint32_t c = 0; c < M; c++) {
+    if (exception) {
+      continue;
+    }
+    try {
+      std::vector<std::vector<T>> value_buckets =
+          scatterValues<T>(source_values_per_col[c], part);
+      source_values_per_col[c] = std::vector<T>();
+      const auto &codedict = codebooks[c]->codedict;
+      uint32_t max_cl = codebooks[c]->max_codelength;
+      for (uint32_t b = 0; b < num_buckets; b++) {
         size_t idx = static_cast<size_t>(b) * M + c;
         auto [solution, seed] = constructAndSolveSubsystem<T>(
-            key_buckets[b], value_buckets_per_col[c][b], codebooks[c]->codedict,
-            codebooks[c]->max_codelength, DELTA, per_cell_equations[idx]);
+            part.key_buckets[b], value_buckets[b], codedict, max_cl, DELTA,
+            per_cell_equations[idx]);
         assert(solution->numBits() == arena.per_col_bits[idx]);
         arena.per_col_seeds[idx] = seed;
         const uint64_t *src = solution->backingArrayPtr();
         std::copy(src, src + (arena.per_col_bits[idx] + 63u) / 64u,
                   out + arena.per_col_word_off[idx]);
-      } catch (std::exception &) {
-#pragma omp critical
-        { exception = std::current_exception(); }
       }
+    } catch (std::exception &) {
+#pragma omp critical
+      { exception = std::current_exception(); }
     }
   }
   if (exception) {
     std::rethrow_exception(exception);
   }
   if (timing) {
+    uint64_t arena_bytes =
+        static_cast<uint64_t>(arena.solution_bits.size()) * 8 +
+        static_cast<uint64_t>(cells) * (4 + 4 + 8); // bits + seeds + word_off
     std::cerr << "[timing] fillArena M=" << M << " num_buckets=" << num_buckets
               << " cells=" << cells << " words=" << total_words
-              << " size_pass=" << size_s
+              << " arena=" << arena_bytes / 1e9 << "GB size_pass=" << size_s
               << "s solve_pass=" << solve_timer.seconds() << "s\n";
   }
 }
@@ -354,9 +371,10 @@ buildGroup(const std::vector<std::string> &active_keys,
   // key signatures.
   const uint32_t M = static_cast<uint32_t>(group_cols.size());
 
-  // Hash the keys ONCE (the dominant build cost) and reuse that partition to
-  // bucket every column's values in parallel, instead of re-hashing the same
-  // keys M times.
+  // Hash the keys ONCE (the dominant build cost) and reuse that partition for
+  // every column, instead of re-hashing the same keys M times. fillArena then
+  // scatters + solves one column at a time, so we never materialize all M
+  // columns' bucketed values at once.
   const bool timing = std::getenv("CARAMEL_TIMING") != nullptr;
   Timer part_timer;
   KeyPartition part =
@@ -364,23 +382,12 @@ buildGroup(const std::vector<std::string> &active_keys,
   uint64_t chosen_seed = part.seed;
   double partition_s = part_timer.seconds();
 
-  Timer scatter_timer;
-  std::vector<std::vector<std::vector<T>>> value_buckets_per_col(M);
-#pragma omp parallel for default(none)                                        \
-    shared(value_buckets_per_col, group_cols, part, M)
+  // Move each column's source values into a compact per-column buffer; fillArena
+  // consumes (and frees) them one column at a time.
+  std::vector<std::vector<T>> source_values_per_col(M);
   for (uint32_t c = 0; c < M; c++) {
-    value_buckets_per_col[c] = scatterValues<T>(group_cols[c]->values, part);
+    source_values_per_col[c] = std::move(group_cols[c]->values);
   }
-  if (timing) {
-    std::cerr << "[timing] buildGroup M=" << M << " keys=" << active_keys.size()
-              << " partition=" << partition_s
-              << "s scatter=" << scatter_timer.seconds() << "s\n";
-  }
-  // Source values are now redundant with their bucketed copies; release them.
-  for (uint32_t c = 0; c < M; c++) {
-    group_cols[c]->values = std::vector<T>();
-  }
-  std::vector<std::vector<__uint128_t>> &key_buckets = part.key_buckets;
 
   std::vector<std::shared_ptr<CsfCodebook<T>>> codebooks;
   codebooks.reserve(M);
@@ -388,9 +395,21 @@ buildGroup(const std::vector<std::string> &active_keys,
     codebooks.push_back(col->codebook);
   }
 
+  if (timing) {
+    uint64_t kb_bytes = 0;
+    for (const auto &bkt : part.key_buckets)
+      kb_bytes += static_cast<uint64_t>(bkt.capacity()) * sizeof(__uint128_t);
+    uint64_t cb_entries = 0;
+    for (const auto *col : group_cols)
+      if (col->codebook)
+        cb_entries += col->codebook->codedict.size();
+    std::cerr << "[timing] buildGroup M=" << M << " keys=" << active_keys.size()
+              << " partition=" << partition_s << "s key_buckets=" << kb_bytes / 1e9
+              << "GB codedict_entries=" << cb_entries << "\n";
+  }
+
   group.hash_store_seed = static_cast<uint32_t>(chosen_seed);
-  fillArena<T>(group.arena, key_buckets, value_buckets_per_col, codebooks,
-               static_cast<uint32_t>(num_buckets), DELTA);
+  fillArena<T>(group.arena, part, source_values_per_col, codebooks, DELTA);
 
   group.columns.reserve(M);
   for (const auto *col : group_cols) {
