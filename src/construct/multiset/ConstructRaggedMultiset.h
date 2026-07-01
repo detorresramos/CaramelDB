@@ -176,10 +176,17 @@ constructRaggedMultisetCsf(const std::vector<std::string> &keys,
     std::vector<std::shared_ptr<CsfCodebook<T>>> codebooks{col_codebook};
     std::vector<uint32_t> col_indices{0};
     fillArena<T>(group.arena, part, source_values_per_col, codebooks,
-                 col_indices, /*data=*/nullptr, /*num_columns=*/0, DELTA);
+                 col_indices, /*data=*/nullptr, /*num_columns=*/0,
+                 /*codebooks_disposable=*/!config.shared_codebook, DELTA);
 
     group.columns.push_back(std::move(gc));
     groups[c] = std::move(group);
+  }
+
+  // Shared codebook reused across columns; free its construction-only codedict
+  // now that every column is solved (queries never touch it).
+  if (config.shared_codebook && shared_cb) {
+    shared_cb->codedict = CodeDict<T>();
   }
 
   return std::make_shared<RaggedMultisetCsf<T>>(

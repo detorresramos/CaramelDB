@@ -228,7 +228,7 @@ void fillArena(
     std::vector<std::vector<T>> &source_values_per_col,
     const std::vector<std::shared_ptr<CsfCodebook<T>>> &codebooks,
     const std::vector<uint32_t> &col_indices, const T *data, size_t num_columns,
-    float DELTA) {
+    bool codebooks_disposable, float DELTA) {
   const uint32_t M = static_cast<uint32_t>(source_values_per_col.size());
   const uint32_t num_buckets = part.num_buckets;
   const size_t cells = static_cast<size_t>(num_buckets) * M;
@@ -303,7 +303,7 @@ void fillArena(
 #pragma omp parallel for schedule(dynamic, 1) default(none)                    \
     shared(source_values_per_col, codebooks, arena, out, exception,            \
            per_cell_equations, part, col_indices, data, num_columns, n,        \
-           num_buckets, M, DELTA)
+           num_buckets, M, codebooks_disposable, DELTA)
   for (uint32_t c = 0; c < M; c++) {
     if (exception) {
       continue;
@@ -334,6 +334,14 @@ void fillArena(
         const uint64_t *src = solution->backingArrayPtr();
         std::copy(src, src + (arena.per_col_bits[idx] + 63u) / 64u,
                   out + arena.per_col_word_off[idx]);
+      }
+      // The value->code map is construction-only (queries decode via
+      // ordered_symbols; codedict is never serialized). When these codebooks
+      // aren't shared with other columns, drop it as soon as the column is
+      // solved so the fat map shrinks during the solve -- this both lowers the
+      // build peak and leaves the served index ~codedict-free.
+      if (codebooks_disposable) {
+        codebooks[c]->codedict = CodeDict<T>();
       }
     } catch (std::exception &) {
 #pragma omp critical
@@ -443,8 +451,12 @@ buildGroup(const std::vector<std::string> &active_keys,
   }
 
   group.hash_store_seed = static_cast<uint32_t>(chosen_seed);
+  // Per-column codebooks are unique to their column, so fillArena may free each
+  // codedict as it finishes. A shared codebook is reused across columns/groups,
+  // so it must outlive the whole build (freed once at the end by the caller).
   fillArena<T>(group.arena, part, source_values_per_col, codebooks, col_indices,
-               data, num_columns, DELTA);
+               data, num_columns, /*codebooks_disposable=*/!shared_codebook,
+               DELTA);
 
   group.columns.reserve(M);
   for (const auto *col : group_cols) {
@@ -585,6 +597,12 @@ constructMultisetCsf(const std::vector<std::string> &keys,
       groups.push_back(
           buildGroup<T>(active_keys, group_cols, config.shared_codebook));
     }
+  }
+
+  // Shared codebook reused across groups; free its construction-only codedict
+  // now that every group is solved (queries never touch it).
+  if (config.shared_codebook && shared_cb) {
+    shared_cb->codedict = CodeDict<T>();
   }
 
   return std::make_shared<MultisetCsf<T>>(
@@ -743,6 +761,13 @@ constructMultisetCsfRowMajor(const std::vector<std::string> &keys,
       groups.push_back(buildGroup<T>(active_keys, group_cols,
                                      config.shared_codebook, data, num_columns));
     }
+  }
+
+  // A shared codebook is reused across all groups, so it's freed here (once all
+  // groups are solved) rather than progressively inside fillArena. codedict is
+  // construction-only; queries never touch it.
+  if (config.shared_codebook && shared_cb) {
+    shared_cb->codedict = CodeDict<T>();
   }
 
   result.build_seconds = timer.seconds();
