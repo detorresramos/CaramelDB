@@ -107,6 +107,7 @@ include_directories(${CMAKE_BINARY_DIR})
 
 add_subdirectory(src)
 add_subdirectory(tests)
+add_subdirectory(benchmarks)
 
 set(CARAMEL_SOURCES
     ${PROJECT_SOURCE_DIR}/src/Modulo2System.cc

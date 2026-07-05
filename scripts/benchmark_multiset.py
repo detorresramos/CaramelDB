@@ -58,22 +58,46 @@ def dir_size_bytes(path: str) -> int:
     )
 
 
-def measure_query_ns(csf, keys, num_sample: int, warmup: int, measured: int, seed: int) -> float:
-    """Median ns/query over `measured` trials, each querying a fresh random
-    sample of `num_sample` keys. Warmup trials are discarded."""
-    n_sample = min(num_sample, len(keys))
+def measure_query_ns(csf, keys, num_queries: int, warmup: int, seed: int) -> dict:
+    """Time individual queries over a random sample and return a distribution
+    (min/median/mean/p90/p99/max, ns). `warmup` queries are run first and
+    discarded before the `num_queries` measured queries.
+
+    GC is disabled during measurement to keep tail latencies from being
+    inflated by unrelated Python collections.
+    """
+    import gc as _gc
+    n = min(num_queries, len(keys))
     rng = np.random.RandomState(seed)
-    trial_ns = []
-    for t in range(warmup + measured):
-        indices = rng.choice(len(keys), size=n_sample, replace=False)
-        query_keys = [keys[i] for i in indices]
-        start = time.perf_counter()
-        for k in query_keys:
+    warmup_indices = rng.choice(len(keys), size=min(warmup, len(keys)),
+                                replace=False)
+    for i in warmup_indices:
+        csf.query(keys[i])
+
+    indices = rng.choice(len(keys), size=n, replace=False)
+    query_keys = [keys[i] for i in indices]
+    timings = np.empty(n, dtype=np.int64)
+    perf = time.perf_counter_ns
+    gc_was_enabled = _gc.isenabled()
+    _gc.disable()
+    try:
+        for j, k in enumerate(query_keys):
+            t0 = perf()
             csf.query(k)
-        elapsed = time.perf_counter() - start
-        if t >= warmup:
-            trial_ns.append((elapsed / n_sample) * 1e9)
-    return float(np.median(trial_ns))
+            timings[j] = perf() - t0
+    finally:
+        if gc_was_enabled:
+            _gc.enable()
+
+    return {
+        "count": int(n),
+        "min_ns": float(np.min(timings)),
+        "median_ns": float(np.median(timings)),
+        "mean_ns": float(np.mean(timings)),
+        "p90_ns": float(np.percentile(timings, 90)),
+        "p99_ns": float(np.percentile(timings, 99)),
+        "max_ns": float(np.max(timings)),
+    }
 
 
 def verify_correctness(csf, keys, values, num_checks: int, seed: int):
@@ -108,10 +132,11 @@ def main():
                         "temp dir, measured, and deleted.")
     p.add_argument("--output-json", default=None,
                    help="Write metrics JSON here (default: print to stdout only)")
-    p.add_argument("--query-sample", type=int, default=250,
-                   help="Keys per trial for query latency (default 250)")
-    p.add_argument("--query-warmup", type=int, default=3)
-    p.add_argument("--query-trials", type=int, default=10)
+    p.add_argument("--query-count", type=int, default=1000,
+                   help="Individually-timed queries for latency distribution "
+                        "(default 1000)")
+    p.add_argument("--query-warmup", type=int, default=200,
+                   help="Warmup queries before timing (default 200)")
     p.add_argument("--correctness-checks", type=int, default=50,
                    help="Random keys to spot-check after build (0 to skip)")
     p.add_argument("--seed", type=int, default=42)
@@ -188,11 +213,11 @@ def main():
                            args.correctness_checks, args.seed + 1)
 
     print(f"Measuring query latency "
-          f"({args.query_warmup} warmup + {args.query_trials} trials × "
-          f"{args.query_sample} keys)...", flush=True)
-    query_ns = measure_query_ns(
+          f"({args.query_warmup} warmup + {args.query_count} timed queries)...",
+          flush=True)
+    query_stats = measure_query_ns(
         csf, keys,
-        args.query_sample, args.query_warmup, args.query_trials, args.seed,
+        args.query_count, args.query_warmup, args.seed,
     )
 
     # Peak resident set of this process over the whole build+measure. ru_maxrss
@@ -217,7 +242,7 @@ def main():
         "wall_s": round(wall_s, 3),
         "size_bytes": int(size_bytes),
         "bits_per_key": round(bits_per_key, 3),
-        "query_ns_median": round(query_ns, 1),
+        "query_stats_ns": {k: round(v, 1) for k, v in query_stats.items()},
         "peak_rss_bytes": peak_rss_bytes,
         "save_dir": os.path.abspath(args.save_dir) if args.save_dir else None,
     }
@@ -228,7 +253,11 @@ def main():
     print(f"Build time       : {build_s:.2f} s")
     print(f"Wall time        : {wall_s:.2f} s")
     print(f"Serialized size  : {size_bytes:,} bytes  ({bits_per_key:.2f} bits/key)")
-    print(f"Query latency    : {query_ns:.1f} ns/query (median)")
+    print(f"Query latency    : median {query_stats['median_ns']/1e3:.2f} µs, "
+          f"p90 {query_stats['p90_ns']/1e3:.2f} µs, "
+          f"p99 {query_stats['p99_ns']/1e3:.2f} µs, "
+          f"mean {query_stats['mean_ns']/1e3:.2f} µs "
+          f"(n={query_stats['count']})")
     print(f"Peak RSS         : {peak_rss_bytes / 1e6:.1f} MB")
 
     if args.output_json:

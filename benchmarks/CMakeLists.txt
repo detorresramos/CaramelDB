@@ -1,0 +1,3 @@
+add_executable(QueryLatencyBenchmark QueryLatencyBenchmark.cc)
+target_link_libraries(QueryLatencyBenchmark PRIVATE caramel_lib)
+target_compile_options(QueryLatencyBenchmark PRIVATE ${CARAMEL_COMPILE_OPTIONS})

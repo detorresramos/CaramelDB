@@ -9,7 +9,10 @@
 #include <unordered_set>
 #include <vector>
 
-#if defined(__GNUC__) && !defined(__clang__)
+// libstdc++ 11+ provides std::hash<__uint128_t> natively, so the shim only
+// fires on older stdlibs (gcc, non-clang, pre-11 libstdc++).
+#if defined(__GNUC__) && !defined(__clang__) && \
+    (!defined(_GLIBCXX_RELEASE) || _GLIBCXX_RELEASE < 11)
 namespace std {
 template <> struct hash<__uint128_t> {
   size_t operator()(__uint128_t v) const noexcept {

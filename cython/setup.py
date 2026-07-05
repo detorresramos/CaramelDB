@@ -62,7 +62,10 @@ class CMakeCythonBuild(build_ext):
 
 def get_compile_args():
     mode = get_build_mode()
-    args = ["-std=c++17"]
+    # -std=gnu++17 (not plain -std=c++17) so libstdc++ provides
+    # std::hash<__int128> — the strict-ANSI variant declares it with a deleted
+    # default ctor and breaks BucketedHashStore's use of unordered_set<__uint128_t>.
+    args = ["-std=gnu++17"]
     if mode in ("Release", "RelWithDebInfo"):
         args += ["-DNDEBUG", "-O3", "-ffast-math", "-funroll-loops", "-ftree-vectorize"]
     if mode in ("Debug", "DebugWithAsan"):

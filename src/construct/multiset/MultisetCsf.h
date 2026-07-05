@@ -171,22 +171,48 @@ public:
                        bool parallelize = true) const {
     std::vector<T> outputs(_total_cols);
 
+    // The hot path per column is the 3 hash-scattered getbits loads inside
+    // decodeBucketColumn (~65% of query time by perf). Precompute their
+    // addresses K columns ahead and __builtin_prefetch so those loads land
+    // in cache by the time we actually decode. K is a compile-time macro so
+    // it flows through the OpenMP parallel region without a shared(...) entry.
+#define CARAMEL_QUERY_ARENA_LOOKAHEAD 8
+
 #pragma omp parallel for default(none)                                         \
     shared(data, length, _groups, outputs) if (parallelize)
     for (size_t gi = 0; gi < _groups.size(); gi++) {
       const auto &group = _groups[gi];
-      // Group-level hash: compute signature + bucket_id once for the whole
-      // group. This is the E2/E3 payoff — per-column query no longer rehashes.
       __uint128_t signature = hashKey(data, length, group.hash_store_seed);
       uint32_t bucket_id = group.num_buckets()
                                ? getBucketID(signature, group.num_buckets())
                                : 0;
 
-      for (size_t ci = 0; ci < group.columns.size(); ci++) {
+      const size_t ncols = group.columns.size();
+      const uint32_t M = group.arena.num_cols;
+
+      auto prefetch_arena = [&](size_t ci) {
+        const auto &info = group.bucket_col_info[bucket_id * M + ci];
+        if (!info.data || info.num_variables == 0) return;
+        uint64_t e[3];
+        signatureToEquation(signature, info.seed, info.num_variables, e);
+        __builtin_prefetch(info.data + (e[0] >> 6), 0, 0);
+        __builtin_prefetch(info.data + (e[1] >> 6), 0, 0);
+        __builtin_prefetch(info.data + (e[2] >> 6), 0, 0);
+      };
+
+      const size_t prime =
+          std::min<size_t>(CARAMEL_QUERY_ARENA_LOOKAHEAD, ncols);
+      if (group.arena.num_buckets != 0) {
+        for (size_t ci = 0; ci < prime; ci++) prefetch_arena(ci);
+      }
+      for (size_t ci = 0; ci < ncols; ci++) {
+        size_t pf = ci + CARAMEL_QUERY_ARENA_LOOKAHEAD;
+        if (pf < ncols && group.arena.num_buckets != 0) prefetch_arena(pf);
         outputs[group.columns[ci].output_index] =
             group.queryColumn(ci, data, length, signature, bucket_id);
       }
     }
+#undef CARAMEL_QUERY_ARENA_LOOKAHEAD
 
     return outputs;
   }
