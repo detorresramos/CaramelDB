@@ -71,6 +71,30 @@ grew in relative terms precisely because the C++ side got 2.35x faster. (The C++
 fixed cost of 37 ns is the key hash, bucket selection and result vector
 allocation, which is why m=5 shows a high 33 ns/column.)
 
+That per-column term is not computation — the m values are already computed when
+the C++ query returns. It is materialization. Cython generates this for
+`return list(...query(...))` (`cython/_caramel.cpp:5778`):
+
+    o = PyList_New(v_size_signed);
+    for (i = 0; i < v_size_signed; i++) {
+        item = __Pyx_PyLong_From_unsigned_int(v[i]);   // -> PyLong_FromLong
+        __Pyx_PyList_SET_ITEM(o, i, item);
+    }
+
+Compiled C, but one `PyObject` allocation per column. `array.tolist()` does the
+same work, and timing it on 100 uint32 values isolates the cost:
+
+| | per element |
+|---|---|
+| 100 large ints -> list (allocates each PyLong) | 7.08 ns |
+| 100 small ints -> list (< 257, CPython's cached objects) | 2.08 ns |
+| `list(list_of_100)` (pointer copy, no object creation) | 2.08 ns |
+
+7.08 ns against the 7.10 ns/column measured above. So ~5 ns per column is the
+`PyLong` heap allocation (the values here exceed the small-int cache) and ~2 ns
+is the loop, list store and refcounting. It cannot be made O(1) while `query()`
+returns `list[int]`: m Python objects have to exist for the caller to index.
+
 Returning a numpy array instead of a list measured 1764 ns at m=100 (saving
 ~500 ns, 22%) and 482 ns at m=20 (a wash — `np.empty` has a fixed ~150 ns cost
 that only pays off for large m). Not changed here; it would alter the public
