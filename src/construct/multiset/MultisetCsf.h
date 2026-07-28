@@ -88,11 +88,13 @@ public:
 
     uint32_t num_buckets() const { return arena.num_buckets; }
 
-    // Query caches: flat array of BucketQueryInfo laid out as
-    // [bucket 0 col 0, bucket 0 col 1, ..., bucket 0 col M-1,
-    //  bucket 1 col 0, ...]. Same interleaved layout as the arena itself.
-    // Not serialized.
+    // Query cache: one BucketQueryInfo per (bucket, col), laid out interleaved
+    // like the arena itself, so a query reads M consecutive entries. Not
+    // serialized.
     std::vector<BucketQueryInfo> bucket_col_info;
+    // True when every column can take the batched decode path: no prefilters,
+    // a non-empty arena, and a codebook on every column.
+    bool fast_path = false;
 
     void buildQueryCache() {
       const uint32_t M = arena.num_cols;
@@ -110,6 +112,15 @@ public:
               backing + arena.per_col_word_off[idx], num_vars,
               arena.per_col_seeds[idx]};
         }
+      }
+
+      fast_path = B > 0;
+      for (auto &col : columns) {
+        if (col.filter || !col.codebook) {
+          fast_path = false;
+          continue;
+        }
+        col.codebook->buildDecodeTables();
       }
     }
 
@@ -138,6 +149,114 @@ public:
       return decodeBucketColumn<T>(signature, info, col.max_codelength,
                                    col.codebook->code_length_counts,
                                    col.codebook->ordered_symbols);
+    }
+
+    // Decodes every column of the group into outputs[col.output_index].
+    //
+    // The columns of a bucket are independent, but the per-column work is
+    // hash -> load -> decode, so issuing them one at a time leaves each
+    // column's arena read exposed. Instead we walk the group in chunks: first
+    // compute the three variable positions for every column in the chunk and
+    // prefetch them, then decode. The chunk's loads are in flight while the
+    // remaining hashes run.
+    void queryAll(const char *data, size_t length, const __uint128_t &signature,
+                  uint32_t bucket_id, std::vector<T> &outputs) const {
+      const size_t num_columns = columns.size();
+      if (!fast_path) {
+        for (size_t ci = 0; ci < num_columns; ci++) {
+          outputs[columns[ci].output_index] =
+              queryColumn(ci, data, length, signature, bucket_id);
+        }
+        return;
+      }
+
+      constexpr size_t CHUNK = 12;
+      const uint32_t M = arena.num_cols;
+      const BucketQueryInfo *bucket_base =
+          bucket_col_info.data() + static_cast<size_t>(bucket_id) * M;
+      uint64_t e[CHUNK][3];
+
+      // Software pipeline: the positions (and prefetches) for the next
+      // chunk are issued before the current chunk is decoded, so a chunk's
+      // arena reads have a full chunk of hashing and decoding to complete in.
+      uint64_t e_alt[CHUNK][3];
+      uint64_t (*cur)[3] = e;
+      uint64_t (*next)[3] = e_alt;
+
+      auto issue = [&](size_t base, size_t end, uint64_t (*dst)[3]) {
+        for (size_t ci = base; ci < end; ci++) {
+          const auto &info = bucket_base[ci];
+          uint64_t *ei = dst[ci - base];
+          signatureToEquation(signature, info.seed, info.num_variables, ei);
+          __builtin_prefetch(info.data + (ei[0] >> 6));
+          __builtin_prefetch(info.data + (ei[1] >> 6));
+          __builtin_prefetch(info.data + (ei[2] >> 6));
+        }
+      };
+
+      issue(0, std::min(CHUNK, num_columns), cur);
+      for (size_t base = 0; base < num_columns; base += CHUNK) {
+        const size_t end = std::min(base + CHUNK, num_columns);
+        const size_t next_base = end;
+        if (next_base < num_columns) {
+          issue(next_base, std::min(next_base + CHUNK, num_columns), next);
+        }
+        for (size_t ci = base; ci < end; ci++) {
+          const auto &col = columns[ci];
+          uint64_t encoded = gatherEncodedValue(
+              bucket_base[ci].data, cur[ci - base], col.max_codelength);
+          const auto &cb = *col.codebook;
+          outputs[col.output_index] = canonicalDecodeBranchless<T>(
+              encoded, cb.decode_tables, cb.ordered_symbols);
+        }
+        std::swap(cur, next);
+      }
+    }
+
+    // Decodes `num_keys` keys through this group at once. Requires fast_path.
+    // outputs is key-major with `stride` values per key.
+    void queryWave(const std::string *keys, size_t num_keys, T *outputs,
+                   size_t stride) const {
+      constexpr size_t MAX_KEYS = 16;
+      constexpr size_t WAVE_CHUNK = 4;
+      const uint32_t M = arena.num_cols;
+      const size_t num_columns = columns.size();
+
+      __uint128_t signature[MAX_KEYS];
+      const BucketQueryInfo *bucket_base[MAX_KEYS];
+      for (size_t k = 0; k < num_keys; k++) {
+        signature[k] = hashKey(keys[k].data(), keys[k].size(), hash_store_seed);
+        uint32_t bucket_id = getBucketID(signature[k], arena.num_buckets);
+        bucket_base[k] =
+            bucket_col_info.data() + static_cast<size_t>(bucket_id) * M;
+        __builtin_prefetch(bucket_base[k]);
+      }
+
+      uint64_t e[MAX_KEYS][WAVE_CHUNK][3];
+      for (size_t base = 0; base < num_columns; base += WAVE_CHUNK) {
+        const size_t end = std::min(base + WAVE_CHUNK, num_columns);
+        for (size_t k = 0; k < num_keys; k++) {
+          for (size_t ci = base; ci < end; ci++) {
+            const auto &info = bucket_base[k][ci];
+            uint64_t *ei = e[k][ci - base];
+            signatureToEquation(signature[k], info.seed, info.num_variables, ei);
+            __builtin_prefetch(info.data + (ei[0] >> 6));
+            __builtin_prefetch(info.data + (ei[1] >> 6));
+            __builtin_prefetch(info.data + (ei[2] >> 6));
+          }
+        }
+        for (size_t k = 0; k < num_keys; k++) {
+          for (size_t ci = base; ci < end; ci++) {
+            const auto &col = columns[ci];
+            uint64_t encoded = gatherEncodedValue(
+                bucket_base[k][ci].data, e[k][ci - base], col.max_codelength);
+            const auto &cb = *col.codebook;
+            outputs[k * stride + col.output_index] =
+                canonicalDecodeBranchless<T>(encoded, cb.decode_tables,
+                                             cb.ordered_symbols);
+          }
+        }
+      }
     }
 
    private:
@@ -182,13 +301,49 @@ public:
                                ? getBucketID(signature, group.num_buckets())
                                : 0;
 
-      for (size_t ci = 0; ci < group.columns.size(); ci++) {
-        outputs[group.columns[ci].output_index] =
-            group.queryColumn(ci, data, length, signature, bucket_id);
-      }
+      group.queryAll(data, length, signature, bucket_id, outputs);
     }
 
     return outputs;
+  }
+
+  // Answers a batch of keys, interleaving them so that several keys' arena
+  // reads are in flight at once. A single query can only keep ~one chunk of
+  // columns' reads outstanding; with KEYS_PER_WAVE keys advancing together the
+  // same chunk loop issues that many times more independent loads, which is
+  // where the memory system's parallelism actually is.
+  //
+  // Writes _total_cols values per key into `outputs`, key-major.
+  void queryBatch(const std::vector<std::string> &keys,
+                  std::vector<T> &outputs) const {
+    outputs.assign(keys.size() * _total_cols, T{});
+    if (keys.empty()) {
+      return;
+    }
+
+    constexpr size_t KEYS_PER_WAVE = 8;
+    std::vector<T> scratch(_total_cols);
+    for (const auto &group : _groups) {
+      if (!group.fast_path) {
+        for (size_t k = 0; k < keys.size(); k++) {
+          __uint128_t signature =
+              hashKey(keys[k].data(), keys[k].size(), group.hash_store_seed);
+          uint32_t bucket_id = group.num_buckets()
+                                   ? getBucketID(signature, group.num_buckets())
+                                   : 0;
+          group.queryAll(keys[k].data(), keys[k].size(), signature, bucket_id,
+                         scratch);
+          std::copy(scratch.begin(), scratch.end(),
+                    outputs.begin() + k * _total_cols);
+        }
+        continue;
+      }
+      for (size_t k0 = 0; k0 < keys.size(); k0 += KEYS_PER_WAVE) {
+        const size_t k1 = std::min(k0 + KEYS_PER_WAVE, keys.size());
+        group.queryWave(keys.data() + k0, k1 - k0, outputs.data() + k0 * _total_cols,
+                        _total_cols);
+      }
+    }
   }
 
   void save(const std::string &path, const uint32_t type_id = 0) const {

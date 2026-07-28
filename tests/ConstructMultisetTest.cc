@@ -106,4 +106,66 @@ TEST(ConstructMultisetTest, HeterogeneousBucketCountsRoundTrip) {
   buildCheckQuery<uint32_t>(columns);
 }
 
+// The batched decode path in queryAll() reaches the same values as the
+// per-column path, over a codebook wide enough to exercise several chunks.
+TEST(ConstructMultisetTest, BatchedAndPerColumnPathsAgree) {
+  const size_t num_rows = 400, num_cols = 40;
+  std::vector<std::vector<uint32_t>> columns(num_cols,
+                                             std::vector<uint32_t>(num_rows));
+  for (size_t c = 0; c < num_cols; c++) {
+    for (size_t r = 0; r < num_rows; r++) {
+      columns[c][r] = static_cast<uint32_t>((r * (c + 3)) % (7 + c));
+    }
+  }
+  auto keys = makeKeys(num_rows);
+  MultisetConfig config;
+  config.verbose = false;
+  auto csf = constructMultisetCsf<uint32_t>(keys, columns, config);
+
+  for (size_t r = 0; r < num_rows; r++) {
+    std::vector<uint32_t> per_column(num_cols);
+    for (const auto &group : csf->groups()) {
+      __uint128_t signature =
+          hashKey(keys[r].data(), keys[r].size(), group.hash_store_seed);
+      uint32_t bucket_id =
+          group.num_buckets() ? getBucketID(signature, group.num_buckets()) : 0;
+      for (size_t ci = 0; ci < group.columns.size(); ci++) {
+        per_column[group.columns[ci].output_index] = group.queryColumn(
+            ci, keys[r].data(), keys[r].size(), signature, bucket_id);
+      }
+    }
+    EXPECT_EQ(csf->query(keys[r]), per_column) << "row " << r;
+  }
+}
+
+// queryBatch() interleaves several keys through the arena at once; it must
+// return exactly what the one-key-at-a-time path returns.
+TEST(ConstructMultisetTest, QueryBatchMatchesSingleQuery) {
+  const size_t num_rows = 300, num_cols = 12;
+  std::vector<std::vector<uint32_t>> columns(num_cols,
+                                             std::vector<uint32_t>(num_rows));
+  for (size_t c = 0; c < num_cols; c++) {
+    for (size_t r = 0; r < num_rows; r++) {
+      columns[c][r] = static_cast<uint32_t>((r * 11 + c * 5) % 37);
+    }
+  }
+  auto keys = makeKeys(num_rows);
+  MultisetConfig config;
+  config.verbose = false;
+  auto csf = constructMultisetCsf<uint32_t>(keys, columns, config);
+
+  // A key count that is not a multiple of the wave size, so the tail is
+  // exercised too.
+  std::vector<std::string> batch(keys.begin(), keys.begin() + 53);
+  std::vector<uint32_t> batched;
+  csf->queryBatch(batch, batched);
+  ASSERT_EQ(batched.size(), batch.size() * num_cols);
+
+  for (size_t k = 0; k < batch.size(); k++) {
+    std::vector<uint32_t> got(batched.begin() + k * num_cols,
+                              batched.begin() + (k + 1) * num_cols);
+    EXPECT_EQ(got, csf->query(batch[k])) << "key " << k;
+  }
+}
+
 }  // namespace caramel::tests

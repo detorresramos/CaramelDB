@@ -135,3 +135,11 @@ foreach(SOURCE_FILE IN LISTS CPP_SOURCE)
     message("\t ${SOURCE_FILE}")
 endforeach(SOURCE_FILE IN LISTS CPP_SOURCE)
 
+
+add_executable(QueryBench ${PROJECT_SOURCE_DIR}/bench/QueryBench.cc)
+target_link_libraries(QueryBench PRIVATE caramel_lib)
+target_compile_options(QueryBench PRIVATE ${CARAMEL_COMPILE_OPTIONS})
+
+add_executable(FusedProbe ${PROJECT_SOURCE_DIR}/bench/FusedProbe.cc)
+target_link_libraries(FusedProbe PRIVATE caramel_lib)
+target_compile_options(FusedProbe PRIVATE ${CARAMEL_COMPILE_OPTIONS})

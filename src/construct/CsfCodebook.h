@@ -135,11 +135,71 @@ inline T canonicalDecodeFromNumber(
   throw std::invalid_argument("Invalid Code Passed");
 }
 
+// Branchless replacement for canonicalDecodeFromNumber's bit-at-a-time loop.
+//
+// For a canonical code, a value's codeword length is the smallest l with
+// left_aligned_limit[l] > value, and left_aligned_limit is non-decreasing, so
+// the length is just a count of the limits the value clears. Two small tables
+// (max_codelength+1 entries each, so they stay resident) replace ~max_codelength
+// iterations of data-dependent branching.
+struct CanonicalDecodeTables {
+  // limit[l] = (first_code[l] + count[l]) << (max_codelength - l)
+  std::vector<uint64_t> limit;
+  // symbol_index = index_bias[l] + (value >> (max_codelength - l))
+  std::vector<int64_t> index_bias;
+  uint32_t max_codelength = 0;
+  uint32_t last_symbol = 0;
+
+  void build(const std::vector<uint32_t> &code_length_counts,
+             size_t num_symbols, uint32_t max_cl) {
+    max_codelength = max_cl;
+    last_symbol = num_symbols ? static_cast<uint32_t>(num_symbols - 1) : 0;
+    limit.assign(max_cl + 1, 0);
+    index_bias.assign(max_cl + 1, 0);
+    uint64_t first = 0;
+    int64_t index = 0;
+    for (uint32_t l = 1; l <= max_cl && l < code_length_counts.size(); l++) {
+      uint64_t count = code_length_counts[l];
+      limit[l] = (first + count) << (max_cl - l);
+      index_bias[l] = index - static_cast<int64_t>(first);
+      index += static_cast<int64_t>(count);
+      first = (first + count) << 1;
+    }
+  }
+};
+
+template <typename T>
+inline T __attribute__((always_inline))
+canonicalDecodeBranchless(uint64_t encoded_value,
+                          const CanonicalDecodeTables &tables,
+                          const std::vector<T> &symbols) {
+  uint32_t length = 1;
+  for (uint32_t l = 1; l < tables.max_codelength; l++) {
+    length += (encoded_value >= tables.limit[l]);
+  }
+  int64_t idx = tables.index_bias[length] +
+                static_cast<int64_t>(encoded_value >>
+                                     (tables.max_codelength - length));
+  // Keys not in the CSF decode to an arbitrary codeword, which can land past
+  // the symbol table; clamp rather than read out of bounds.
+  if (idx < 0 || idx > tables.last_symbol) {
+    idx = tables.last_symbol;
+  }
+  return symbols[idx];
+}
+
 template <typename T> struct CsfCodebook {
   std::vector<uint32_t> code_length_counts;
   std::vector<T> ordered_symbols;
   uint32_t max_codelength = 0;
   CodeDict<T> codedict;
+  // Query-time only, rebuilt on load rather than serialized.
+  CanonicalDecodeTables decode_tables;
+
+  void buildDecodeTables() {
+    decode_tables.build(code_length_counts, ordered_symbols.size(),
+                        max_codelength);
+  }
 
   CsfCodebook() = default;
 
