@@ -44,18 +44,32 @@ measured identically before and after, so the ratio holds.
 
 ## Binding cost
 
-Measured in one process against the m=100 index, comparing `query()` against a
-probe that runs the same C++ query but returns a single value instead of a list:
+Measured in one process, comparing `query()` against a probe that runs the same
+C++ query but returns a single value instead of a list:
 
-| | `query()` | C++ only | binding | per column |
-|---|---|---|---|---|
-| m=100 | 2268 ns | 1609 ns | 660 ns (29%) | 6.6 ns |
-| m=20 | 487 ns | 311 ns | 176 ns (36%) | 8.8 ns |
+| m | `query()` | C++ only | binding | binding/col | C++/col |
+|---|---|---|---|---|---|
+| 5 | 211 ns | 167 ns | 44 ns | 8.79 ns | 33.5 ns |
+| 20 | 496 ns | 336 ns | 160 ns | 7.99 ns | 16.8 ns |
+| 50 | 1149 ns | 776 ns | 373 ns | 7.46 ns | 15.5 ns |
+| 100 | 2392 ns | 1671 ns | 721 ns | 7.21 ns | 16.7 ns |
 
-The Cython call itself is ~13 ns; effectively all of the binding cost is
-building the result list — one `PyLong` per column, and the values here exceed
-CPython's small-int cache. Against ~16 ns per column of actual lookup work, that
-is ~40% overhead, not the dominant term.
+Least squares over those four points:
+
+- binding: **14 ns fixed + 7.10 ns per column**
+- C++ query: **37 ns fixed + 16.01 ns per column**
+
+The binding cost is almost entirely per-column, and that is not an artifact of
+the bindings being slow — the Cython call itself is the 14 ns. The per-column
+term is building the returned list: one `PyLong_FromUnsignedLong` plus a list
+store for each of the m values, and the values here exceed CPython's small-int
+cache, so each is a heap allocation. The *lookup* is internal; the *result
+marshalling* is inherently O(m) work at the language boundary.
+
+So the binding is ~30% of a Python-visible query at m=100 and ~36% at m=20 — it
+grew in relative terms precisely because the C++ side got 2.35x faster. (The C++
+fixed cost of 37 ns is the key hash, bucket selection and result vector
+allocation, which is why m=5 shows a high 33 ns/column.)
 
 Returning a numpy array instead of a list measured 1764 ns at m=100 (saving
 ~500 ns, 22%) and 482 ns at m=20 (a wash — `np.empty` has a fixed ~150 ns cost
