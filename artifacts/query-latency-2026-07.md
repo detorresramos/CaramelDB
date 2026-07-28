@@ -37,10 +37,30 @@ unchanged rather than moved. Build time is unchanged. Size is down because the
 arena's per-(bucket, column) word offsets are no longer serialized and the solve
 seeds are stored as one byte.
 
-Note the python-level number is now dominated by the binding: 3438 ns per query
-against 1752 ns in C++, i.e. ~1.7 µs to turn the returned `vector<uint32_t>` into
-a 100-element Python list. Anyone measuring from Python is measuring that as much
-as the index.
+The python-level numbers above come from `scripts/benchmark_multiset.py`, which
+times 250 freshly-sampled keys per trial in the process that just did the build;
+they are inflated relative to a steady-state measurement (see below) but are
+measured identically before and after, so the ratio holds.
+
+## Binding cost
+
+Measured in one process against the m=100 index, comparing `query()` against a
+probe that runs the same C++ query but returns a single value instead of a list:
+
+| | `query()` | C++ only | binding | per column |
+|---|---|---|---|---|
+| m=100 | 2268 ns | 1609 ns | 660 ns (29%) | 6.6 ns |
+| m=20 | 487 ns | 311 ns | 176 ns (36%) | 8.8 ns |
+
+The Cython call itself is ~13 ns; effectively all of the binding cost is
+building the result list — one `PyLong` per column, and the values here exceed
+CPython's small-int cache. Against ~16 ns per column of actual lookup work, that
+is ~40% overhead, not the dominant term.
+
+Returning a numpy array instead of a list measured 1764 ns at m=100 (saving
+~500 ns, 22%) and 482 ns at m=20 (a wash — `np.empty` has a fixed ~150 ns cost
+that only pays off for large m). Not changed here; it would alter the public
+return type.
 
 ## Where the time goes
 
