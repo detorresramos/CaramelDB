@@ -56,25 +56,40 @@ public:
   // Flat bucket-contiguous arena. solution_bits concatenates every
   // per-(bucket, col) bit range, bucket-major (all M columns of bucket 0, then
   // bucket 1, ...) so one bucket's columns stream contiguously at query time.
-  // per_col_word_off[b*M + c] is the word offset of that range's start (each
-  // range word-aligned); per_col_bits its bit length; per_col_seeds its solve
-  // seed.
+  // per_col_bits[b*M + c] is the range's bit length and per_col_seeds its solve
+  // seed (a retry counter, bounded by the solver's attempt limit, so one byte).
+  // per_col_word_off[b*M + c] is the word offset of that range's start; it is a
+  // running sum of the whole-word range sizes, so it is rebuilt from
+  // per_col_bits on load rather than serialized.
   struct BucketArena {
     std::vector<uint64_t> solution_bits;
     std::vector<uint32_t> per_col_bits;
-    std::vector<uint32_t> per_col_seeds;
-    // Word index into solution_bits where (bucket b, col c)'s range starts.
-    // Computed once by fillArena (the authoritative offset walk) so the query
-    // cache never recomputes the padding arithmetic.
+    std::vector<uint8_t> per_col_seeds;
     std::vector<uint64_t> per_col_word_off;
     uint32_t num_cols = 0;
     uint32_t num_buckets = 0;
 
+    // The offset walk fillArena performs while sizing the arena. Also the
+    // single definition of the layout, so load can reproduce it exactly.
+    void rebuildWordOffsets() {
+      per_col_word_off.resize(per_col_bits.size());
+      uint64_t cursor = 0;
+      for (size_t idx = 0; idx < per_col_bits.size(); idx++) {
+        per_col_word_off[idx] = cursor;
+        cursor += (per_col_bits[idx] + 63u) / 64u;
+      }
+    }
+
    private:
     friend class cereal::access;
-    template <class Archive> void serialize(Archive &archive) {
-      archive(solution_bits, per_col_bits, per_col_seeds, per_col_word_off,
-              num_cols, num_buckets);
+    template <class Archive> void save(Archive &archive) const {
+      archive(solution_bits, per_col_bits, per_col_seeds, num_cols,
+              num_buckets);
+    }
+    template <class Archive> void load(Archive &archive) {
+      archive(solution_bits, per_col_bits, per_col_seeds, num_cols,
+              num_buckets);
+      rebuildWordOffsets();
     }
   };
 

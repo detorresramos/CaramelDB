@@ -330,7 +330,10 @@ void fillArena(
             part.key_buckets[b], value_buckets[b], codedict, max_cl, DELTA,
             per_cell_equations[idx]);
         assert(solution->numBits() == arena.per_col_bits[idx]);
-        arena.per_col_seeds[idx] = seed;
+        if (seed > UINT8_MAX) {
+          throw std::runtime_error("Solve seed exceeded one byte.");
+        }
+        arena.per_col_seeds[idx] = static_cast<uint8_t>(seed);
         const uint64_t *src = solution->backingArrayPtr();
         std::copy(src, src + (arena.per_col_bits[idx] + 63u) / 64u,
                   out + arena.per_col_word_off[idx]);

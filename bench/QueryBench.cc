@@ -58,25 +58,52 @@ int main(int argc, char **argv) {
     k = pick(rng);
   }
 
-  std::vector<double> trial_ns;
   uint64_t checksum = 0;
-  for (size_t r = 0; r < reps; r++) {
-    auto start = std::chrono::steady_clock::now();
-    for (size_t i = 0; i < num_queries; i++) {
-      auto out = csf->query(reinterpret_cast<const char *>(&query_keys[i]), 4,
-                            /*parallelize=*/false);
-      checksum += out[0] + out.back();
-    }
-    auto elapsed = std::chrono::steady_clock::now() - start;
-    double ns =
-        std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count();
-    if (r > 0) { // first rep is warmup
-      trial_ns.push_back(ns / num_queries);
-    }
-  }
 
-  std::sort(trial_ns.begin(), trial_ns.end());
-  double median = trial_ns[trial_ns.size() / 2];
+  auto time_median = [&](auto &&body) {
+    std::vector<double> trial_ns;
+    for (size_t r = 0; r < reps; r++) {
+      auto start = std::chrono::steady_clock::now();
+      for (size_t i = 0; i < num_queries; i++) {
+        body(i);
+      }
+      auto elapsed = std::chrono::steady_clock::now() - start;
+      double ns =
+          std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count();
+      if (r > 0) { // first rep is warmup
+        trial_ns.push_back(ns / num_queries);
+      }
+    }
+    std::sort(trial_ns.begin(), trial_ns.end());
+    return trial_ns[trial_ns.size() / 2];
+  };
+
+  // Pre-change query path: one column at a time, no prefetch pipeline, and the
+  // bit-at-a-time canonical decode. Kept here so both paths can be timed in one
+  // binary against the same index.
+  double legacy = time_median([&](size_t i) {
+    const char *key = reinterpret_cast<const char *>(&query_keys[i]);
+    std::vector<uint32_t> outputs(csf->totalCols());
+    for (const auto &group : csf->groups()) {
+      __uint128_t signature = caramel::hashKey(key, 4, group.hash_store_seed);
+      uint32_t bucket_id =
+          group.num_buckets()
+              ? caramel::getBucketID(signature, group.num_buckets())
+              : 0;
+      for (size_t ci = 0; ci < group.columns.size(); ci++) {
+        outputs[group.columns[ci].output_index] =
+            group.queryColumn(ci, key, 4, signature, bucket_id);
+      }
+    }
+    checksum += outputs[0] + outputs.back();
+  });
+  std::printf("legacy_ns_median %.1f\n", legacy);
+
+  double median = time_median([&](size_t i) {
+    auto out = csf->query(reinterpret_cast<const char *>(&query_keys[i]), 4,
+                          /*parallelize=*/false);
+    checksum += out[0] + out.back();
+  });
   std::printf("query_ns_median %.1f\n", median);
 
   {
@@ -102,7 +129,6 @@ int main(int argc, char **argv) {
     std::printf("batch_ns_median %.1f\n", batch_ns[batch_ns.size() / 2]);
   }
 
-  std::printf("query_ns_min %.1f\n", trial_ns.front());
   std::printf("checksum %llu\n", static_cast<unsigned long long>(checksum));
   return 0;
 }
