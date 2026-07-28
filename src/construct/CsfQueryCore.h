@@ -20,14 +20,17 @@ inline uint64_t __attribute__((always_inline))
 gatherEncodedValue(const uint64_t *arr, const uint64_t *e,
                    uint32_t max_codelength) {
   const int l = 64 - static_cast<int>(max_codelength);
-  auto getbits = [arr, l](uint32_t pos) __attribute__((always_inline)) {
+  // Branch-free funnel window: the 64 bits starting at bit `pos`. The two-step
+  // `>> 1 >> (63 - b)` is `>> (64 - b)` without the b == 0 UB, so there is no
+  // data-dependent branch on the in-word offset (which is uniform and would
+  // mispredict). The `>> l` alignment distributes over XOR, so it is applied
+  // once at the end.
+  auto window = [arr](uint32_t pos) __attribute__((always_inline)) {
     const uint64_t w = pos / 64;
     const int b = pos % 64;
-    if (b <= l)
-      return arr[w] << b >> l;
-    return arr[w] << b >> l | arr[w + 1] >> (128 - (-l + 64) - b);
+    return arr[w] << b | arr[w + 1] >> 1 >> (63 - b);
   };
-  return getbits(e[0]) ^ getbits(e[1]) ^ getbits(e[2]);
+  return (window(e[0]) ^ window(e[1]) ^ window(e[2])) >> l;
 }
 
 // Decodes one bucket's value for a key whose signature is already known. The

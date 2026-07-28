@@ -141,6 +141,31 @@ arithmetic. The two changes below target the second and first of those.
    solver's 128-attempt limit, so they are stored as `uint8` (3 B/cell). −2.3%
    on disk at any bucket count.
 
+## Follow-up session (same day)
+
+- **Branch-free window extract.** `getbits` had `if (b <= l)` on the in-word
+  bit offset — uniform data, so it mispredicts. Replaced with a funnel window
+  (`arr[w] << b | arr[w+1] >> 1 >> (63-b)`), with the `>> l` alignment hoisted
+  out of the 3-way XOR. m=100: 1752 -> 1479 ns; m=20: 322 -> 250 ns. Free, no
+  format change.
+
+- **Pooled shared codebook: rejected for latency.** Hypothesis was that one
+  shared symbols array (vs 100 x ~19 KB arrays) would keep the decode tail
+  cache-resident. Measured: `--shared-codebook` at 1M x 100 costs **875 -> 1380
+  bits/key (+58%)** because the pooled code lengthens per-column codes
+  (13.3 vs 8.8 avg bits/symbol), and the in-process query was ~5.1 us — slower,
+  since the arena grew 1.5x. Dead as a latency lever on this data.
+
+- **BUG (must fix before merging the branch): shared-codebook round-trip.**
+  A `--shared-codebook --prefilter auto` index passes its in-memory
+  correctness checks, but the *reloaded* index returns wrong values
+  (`results/csfs/final_m100_sharedcb`). The C++-side `MultisetCsf::load` on the
+  same directory allocates unboundedly and gets OOM-killed (likely misparsing
+  the per-column filter stream — possibly missing polymorphic filter
+  registration in binaries that don't link the filter TUs). The python test
+  suite covers shared_codebook and filters separately but not together, which
+  is how this slipped through.
+
 ## What did not work
 
 - **Row fusion** — one linear system per bucket whose value is the concatenation
