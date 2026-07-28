@@ -178,12 +178,12 @@ Target: 10x on `exp/interleaved-layout`'s measured 4117 ns at 1M x 100, i.e.
    the identical derivation (this changes the index format; seed retry remains
    the solvability fallback). Build time unchanged at 1M x 100 (40.1 s), i.e.
    no retry inflation; all 111 C++ / 76 python tests pass.
-2. **10k-bucket geometry** (`CARAMEL_BUCKET_EQUATIONS` / `CARAMEL_MAX_BUCKET_DIVISOR`
-   env knobs, re-added). At 1M x 100 this is the N/100 clamp ceiling. Each
-   per-(bucket, col) range drops to ~751 bits so a column's probes sit in 1-2
-   cache lines. Side effects all favorable except size: build 40 -> 17.8 s,
-   peak RSS 3.6 -> 2.3 GB, size 109.4 -> 118.1 MB (+8%). 20k buckets measured
-   869/744 ns for +18% size -- not worth it; 10k is the spot.
+2. **Small-bucket geometry: measured, then REJECTED (size rule).** Forcing 10k
+   buckets at 1M x 100 measured 900/779 ns and also improved build (40 ->
+   17.8 s) and peak RSS (3.6 -> 2.3 GB), but costs +8% serialized size, and the
+   rule for this index is that size must not increase. The env knobs were
+   removed; bucket geometry stays at the defaults. (If the size budget is ever
+   revisited, this is the documented next ~15-30% of latency.)
 3. **Three-stage decode pipeline + packed query cache.** queryAll now runs
    issue(k+1) -> gather+index+symbol-prefetch(k) -> symbol-load(k); the
    per-cell query cache is 8 bytes (u32 word offset + vars<<7|seed) instead of
@@ -193,21 +193,23 @@ Target: 10x on `exp/interleaved-layout`'s measured 4117 ns at 1M x 100, i.e.
    shared_ptrs. The symbols[idx] load measured ~1.8 ns/col before prefetching.
 4. **queryInto** out-parameter API (skips the per-call vector alloc, ~60 ns).
 
-Result at 1M x 100 (10k buckets): **900 ns single / 779 batch** -- 4.6x / 5.3x
-vs the branch point. At 1M x 20 (default geometry is already at the clamp):
-224 / 157 ns, or 3.2x / 4.6x vs the 715 ns branch point.
+Final configuration (default geometry, so serialized size is 2.3% *smaller*
+than the branch point in both cases):
 
-Scorecard vs 10x = 412 ns: **not there; at ~5.3x** (batch). The remaining
-~1.9x is per-column compute: positions ~1.5 ns, cell load ~0.5, arena gather
-~2.5, decode index ~1.5, symbol ~0.5, store/loop ~1 = ~8 ns/col. Paths that
-could close it: NEON across columns (limited -- ARM has no 64-bit vector
-multiply, gathers don't vectorize), length-limited codes shrinking the decode
-loop 19 -> ~13 iterations, and thread-parallel columns (latency, not
-throughput). Throughput 10x is already trivial with cores. Note the 4117
-baseline is a 1M-scale number; at 50-100M the pre-change structure degraded
-into DRAM/TLB misses while the small-bucket layout keeps the per-query working
-set at ~2.5 KB + metadata, so the multiple at the scale that matters should be
-larger -- needs a 10M-scale A/B to state honestly.
+| | branch point | final single (`queryInto`) | final batch | size |
+|---|---|---|---|---|
+| 1M x 100 | 4117 ns | 1271 ns (3.2x) | 1104 ns (3.7x) | 109.35 MB vs 111.98 MB |
+| 1M x 20 | 715 ns | 217 ns (3.3x) | 151 ns (4.7x) | 27.64 MB vs 28.30 MB |
+
+Scorecard vs 10x = 412 ns at m=100: **3.7x under the no-size-increase
+constraint.** The next tiers, in order of measured/estimated value: bucket
+geometry if the +8% size rule is ever relaxed (900/779 measured), length-limited
+codes (decode loop 19 -> ~13 iterations), NEON (limited on ARM: no 64-bit
+vector multiply, gathers do not vectorize), thread-split columns. Throughput
+10x is available today via cores. The 4117 baseline is a 1M-scale measurement;
+at 50-100M the old layout degraded into DRAM/TLB misses while this one keeps
+the per-query working set small, so the multiple at scale should be larger --
+needs a 10M-scale A/B to state honestly.
 
 ## What did not work
 
