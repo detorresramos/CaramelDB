@@ -106,6 +106,13 @@ int main(int argc, char **argv) {
   });
   std::printf("query_ns_median %.1f\n", median);
 
+  std::vector<uint32_t> reuse;
+  double into = time_median([&](size_t i) {
+    csf->queryInto(reinterpret_cast<const char *>(&query_keys[i]), 4, reuse);
+    checksum += reuse[0] + reuse.back();
+  });
+  std::printf("query_into_ns_median %.1f\n", into);
+
   {
     std::vector<std::string> key_strings(num_queries);
     for (size_t i = 0; i < num_queries; i++) {

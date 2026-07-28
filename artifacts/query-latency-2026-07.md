@@ -166,6 +166,49 @@ arithmetic. The two changes below target the second and first of those.
   suite covers shared_codebook and filters separately but not together, which
   is how this slipped through.
 
+## Round 2: toward 10x on the branch point (same day)
+
+Target: 10x on `exp/interleaved-layout`'s measured 4117 ns at 1M x 100, i.e.
+~412 ns. Changes, in order landed:
+
+1. **Multiply-fold position derivation** (`signatureToEquation`). The 128-bit
+   key signature is already full-strength SpookyHash; deriving the three
+   equation positions per column needs decorrelation, not avalanche, so three
+   wyhash-style multiply-folds replace the 12-round ShortMix. Construction uses
+   the identical derivation (this changes the index format; seed retry remains
+   the solvability fallback). Build time unchanged at 1M x 100 (40.1 s), i.e.
+   no retry inflation; all 111 C++ / 76 python tests pass.
+2. **10k-bucket geometry** (`CARAMEL_BUCKET_EQUATIONS` / `CARAMEL_MAX_BUCKET_DIVISOR`
+   env knobs, re-added). At 1M x 100 this is the N/100 clamp ceiling. Each
+   per-(bucket, col) range drops to ~751 bits so a column's probes sit in 1-2
+   cache lines. Side effects all favorable except size: build 40 -> 17.8 s,
+   peak RSS 3.6 -> 2.3 GB, size 109.4 -> 118.1 MB (+8%). 20k buckets measured
+   869/744 ns for +18% size -- not worth it; 10k is the spot.
+3. **Three-stage decode pipeline + packed query cache.** queryAll now runs
+   issue(k+1) -> gather+index+symbol-prefetch(k) -> symbol-load(k); the
+   per-cell query cache is 8 bytes (u32 word offset + vars<<7|seed) instead of
+   a 16-byte pointer struct -- at 10k buckets that array is 8 MB and streamed
+   per query, so entry size is bandwidth; and per-column hot pointers
+   (limit/bias/symbols) live in one flat array instead of behind codebook
+   shared_ptrs. The symbols[idx] load measured ~1.8 ns/col before prefetching.
+4. **queryInto** out-parameter API (skips the per-call vector alloc, ~60 ns).
+
+Result at 1M x 100 (10k buckets): **900 ns single / 779 batch** -- 4.6x / 5.3x
+vs the branch point. At 1M x 20 (default geometry is already at the clamp):
+224 / 157 ns, or 3.2x / 4.6x vs the 715 ns branch point.
+
+Scorecard vs 10x = 412 ns: **not there; at ~5.3x** (batch). The remaining
+~1.9x is per-column compute: positions ~1.5 ns, cell load ~0.5, arena gather
+~2.5, decode index ~1.5, symbol ~0.5, store/loop ~1 = ~8 ns/col. Paths that
+could close it: NEON across columns (limited -- ARM has no 64-bit vector
+multiply, gathers don't vectorize), length-limited codes shrinking the decode
+loop 19 -> ~13 iterations, and thread-parallel columns (latency, not
+throughput). Throughput 10x is already trivial with cores. Note the 4117
+baseline is a 1M-scale number; at 50-100M the pre-change structure degraded
+into DRAM/TLB misses while the small-bucket layout keeps the per-query working
+set at ~2.5 KB + metadata, so the multiple at the scale that matters should be
+larger -- needs a 10M-scale A/B to state honestly.
+
 ## What did not work
 
 - **Row fusion** — one linear system per bucket whose value is the concatenation

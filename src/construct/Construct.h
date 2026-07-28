@@ -150,6 +150,26 @@ static constexpr double DELTA = 1.089;
 
 static constexpr uint64_t TARGET_EQUATIONS_PER_BUCKET = 3500;
 
+// Experiment knobs (env, temporary): CARAMEL_BUCKET_EQUATIONS overrides the
+// per-bucket equation target, CARAMEL_MAX_BUCKET_DIVISOR the num_keys/D upper
+// clamp. Smaller buckets shrink each per-(bucket, col) range so a query
+// touches fewer cache lines.
+inline uint64_t targetEquationsPerBucket() {
+  static const uint64_t v = []() {
+    const char *s = getenv("CARAMEL_BUCKET_EQUATIONS");
+    return s ? strtoull(s, nullptr, 10) : TARGET_EQUATIONS_PER_BUCKET;
+  }();
+  return v;
+}
+
+inline uint64_t maxBucketDivisor() {
+  static const uint64_t v = []() {
+    const char *s = getenv("CARAMEL_MAX_BUCKET_DIVISOR");
+    return s ? strtoull(s, nullptr, 10) : 100;
+  }();
+  return v;
+}
+
 template <typename T>
 uint64_t targetBucketCount(const std::vector<T> &values,
                            const CodeDict<T> &codedict) {
@@ -159,9 +179,9 @@ uint64_t targetBucketCount(const std::vector<T> &values,
   }
   uint64_t num_keys = values.size();
   return std::clamp(
-      total_equations / TARGET_EQUATIONS_PER_BUCKET,
+      total_equations / targetEquationsPerBucket(),
       num_keys / 1000 + 1,
-      num_keys / 100 + 1);
+      num_keys / maxBucketDivisor() + 1);
 }
 
 /**

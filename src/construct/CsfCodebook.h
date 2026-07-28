@@ -168,24 +168,37 @@ struct CanonicalDecodeTables {
   }
 };
 
+// Index into the ordered-symbols table for an encoded window: the codeword
+// length is the count of left-aligned limits the value clears, then the index
+// is a biased prefix. Split from the symbol load so callers can prefetch
+// symbols[idx] and read it later.
+inline uint32_t __attribute__((always_inline))
+canonicalDecodeIndex(uint64_t encoded_value, const uint64_t *limit,
+                     const int64_t *index_bias, uint32_t max_codelength,
+                     uint32_t last_symbol) {
+  uint32_t length = 1;
+  for (uint32_t l = 1; l < max_codelength; l++) {
+    length += (encoded_value >= limit[l]);
+  }
+  int64_t idx = index_bias[length] +
+                static_cast<int64_t>(encoded_value >> (max_codelength - length));
+  // Keys not in the CSF decode to an arbitrary codeword, which can land past
+  // the symbol table; clamp rather than read out of bounds.
+  if (idx < 0 || idx > last_symbol) {
+    idx = last_symbol;
+  }
+  return static_cast<uint32_t>(idx);
+}
+
 template <typename T>
 inline T __attribute__((always_inline))
 canonicalDecodeBranchless(uint64_t encoded_value,
                           const CanonicalDecodeTables &tables,
                           const std::vector<T> &symbols) {
-  uint32_t length = 1;
-  for (uint32_t l = 1; l < tables.max_codelength; l++) {
-    length += (encoded_value >= tables.limit[l]);
-  }
-  int64_t idx = tables.index_bias[length] +
-                static_cast<int64_t>(encoded_value >>
-                                     (tables.max_codelength - length));
-  // Keys not in the CSF decode to an arbitrary codeword, which can land past
-  // the symbol table; clamp rather than read out of bounds.
-  if (idx < 0 || idx > tables.last_symbol) {
-    idx = tables.last_symbol;
-  }
-  return symbols[idx];
+  return symbols[canonicalDecodeIndex(encoded_value, tables.limit.data(),
+                                      tables.index_bias.data(),
+                                      tables.max_codelength,
+                                      tables.last_symbol)];
 }
 
 template <typename T> struct CsfCodebook {

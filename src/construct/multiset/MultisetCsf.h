@@ -103,39 +103,74 @@ public:
 
     uint32_t num_buckets() const { return arena.num_buckets; }
 
-    // Query cache: one BucketQueryInfo per (bucket, col), laid out interleaved
-    // like the arena itself, so a query reads M consecutive entries. Not
-    // serialized.
-    std::vector<BucketQueryInfo> bucket_col_info;
+    // Query caches (not serialized).
+    //
+    // PackedCell: one 8-byte entry per (bucket, col), laid out interleaved
+    // like the arena. A query streams M consecutive entries, and at high
+    // bucket counts this array is tens of MB, so entry size is bandwidth: the
+    // arena position is a u32 word offset from arena_base and the solve seed
+    // (a retry counter < 128) rides in the low 7 bits of the variable count.
+    struct PackedCell {
+      uint32_t word_off;
+      uint32_t vars_seed; // num_variables << 7 | seed
+    };
+    // ColQuery: per-column hot pointers, so the decode loop never chases
+    // codebook shared_ptrs.
+    struct ColQuery {
+      const uint64_t *limit;
+      const int64_t *bias;
+      const T *symbols;
+      uint32_t max_codelength;
+      uint32_t last_symbol;
+      uint32_t output_index;
+    };
+    std::vector<PackedCell> packed_cells;
+    std::vector<ColQuery> col_query;
+    const uint64_t *arena_base = nullptr;
     // True when every column can take the batched decode path: no prefilters,
-    // a non-empty arena, and a codebook on every column.
+    // a non-empty arena, a codebook on every column, and offsets/vars that fit
+    // the packed cell.
     bool fast_path = false;
 
     void buildQueryCache() {
       const uint32_t M = arena.num_cols;
       const uint32_t B = arena.num_buckets;
-      bucket_col_info.assign(static_cast<size_t>(M) * B, BucketQueryInfo{});
-
-      const uint64_t *backing = arena.solution_bits.data();
-      // Each range starts on a 64-bit word boundary (padded by fillArena), so
-      // the query "data pointer" is just backing + the precomputed word offset.
-      for (uint32_t b = 0; b < B; b++) {
-        for (uint32_t c = 0; c < M; c++) {
-          size_t idx = static_cast<size_t>(b) * M + c;
-          uint32_t num_vars = arena.per_col_bits[idx] - columns[c].max_codelength;
-          bucket_col_info[idx] = BucketQueryInfo{
-              backing + arena.per_col_word_off[idx], num_vars,
-              arena.per_col_seeds[idx]};
-        }
-      }
+      const size_t cells = static_cast<size_t>(M) * B;
+      packed_cells.assign(cells, PackedCell{});
+      arena_base = arena.solution_bits.data();
 
       fast_path = B > 0;
-      for (auto &col : columns) {
+      // Each range starts on a 64-bit word boundary (padded by fillArena), so
+      // the query pointer is arena_base + the stored word offset.
+      for (size_t idx = 0; idx < cells; idx++) {
+        uint32_t c = idx % M;
+        uint32_t num_vars = arena.per_col_bits[idx] - columns[c].max_codelength;
+        uint32_t seed = arena.per_col_seeds[idx];
+        if (num_vars > (UINT32_MAX >> 7) || seed > 127 ||
+            arena.per_col_word_off[idx] > UINT32_MAX) {
+          fast_path = false;
+          break;
+        }
+        packed_cells[idx] = PackedCell{
+            static_cast<uint32_t>(arena.per_col_word_off[idx]),
+            (num_vars << 7) | seed};
+      }
+
+      col_query.assign(columns.size(), ColQuery{});
+      for (size_t c = 0; c < columns.size(); c++) {
+        auto &col = columns[c];
         if (col.filter || !col.codebook) {
           fast_path = false;
           continue;
         }
         col.codebook->buildDecodeTables();
+        const auto &cb = *col.codebook;
+        col_query[c] = ColQuery{cb.decode_tables.limit.data(),
+                                cb.decode_tables.index_bias.data(),
+                                cb.ordered_symbols.data(),
+                                col.max_codelength,
+                                cb.decode_tables.last_symbol,
+                                col.output_index};
       }
     }
 
@@ -154,7 +189,11 @@ public:
         return col.most_common_value.value_or(T{});
       }
       const uint32_t M = arena.num_cols;
-      const auto &info = bucket_col_info[bucket_id * M + ci];
+      size_t idx = static_cast<size_t>(bucket_id) * M + ci;
+      BucketQueryInfo info{
+          arena.solution_bits.data() + arena.per_col_word_off[idx],
+          arena.per_col_bits[idx] - col.max_codelength,
+          arena.per_col_seeds[idx]};
       // Defensive: a column with no codebook (degenerate / unset) has nothing
       // to decode, so fall back to the most-common value instead of a null
       // dereference in the decode tail.
@@ -187,42 +226,51 @@ public:
 
       constexpr size_t CHUNK = 12;
       const uint32_t M = arena.num_cols;
-      const BucketQueryInfo *bucket_base =
-          bucket_col_info.data() + static_cast<size_t>(bucket_id) * M;
-      uint64_t e[CHUNK][3];
+      const PackedCell *bucket_base =
+          packed_cells.data() + static_cast<size_t>(bucket_id) * M;
+      const uint64_t *base = arena_base;
+      // Three-stage software pipeline over chunks of columns:
+      //   issue(k+1): positions + arena prefetch
+      //   gather(k) : arena reads -> symbol index + symbol prefetch
+      //   emit(k)   : symbol loads -> outputs
+      // so both memory levels (arena range, symbol table) always have a chunk
+      // of independent work in flight over them.
+      uint64_t e_a[CHUNK][3], e_b[CHUNK][3];
+      uint32_t sym_idx[CHUNK];
+      uint64_t (*cur)[3] = e_a;
+      uint64_t (*next)[3] = e_b;
 
-      // Software pipeline: the positions (and prefetches) for the next
-      // chunk are issued before the current chunk is decoded, so a chunk's
-      // arena reads have a full chunk of hashing and decoding to complete in.
-      uint64_t e_alt[CHUNK][3];
-      uint64_t (*cur)[3] = e;
-      uint64_t (*next)[3] = e_alt;
-
-      auto issue = [&](size_t base, size_t end, uint64_t (*dst)[3]) {
-        for (size_t ci = base; ci < end; ci++) {
-          const auto &info = bucket_base[ci];
-          uint64_t *ei = dst[ci - base];
-          signatureToEquation(signature, info.seed, info.num_variables, ei);
-          __builtin_prefetch(info.data + (ei[0] >> 6));
-          __builtin_prefetch(info.data + (ei[1] >> 6));
-          __builtin_prefetch(info.data + (ei[2] >> 6));
+      auto issue = [&](size_t lo, size_t hi, uint64_t (*dst)[3]) {
+        for (size_t ci = lo; ci < hi; ci++) {
+          const PackedCell cell = bucket_base[ci];
+          const uint64_t *arr = base + cell.word_off;
+          uint64_t *ei = dst[ci - lo];
+          signatureToEquation(signature, cell.vars_seed & 127,
+                              cell.vars_seed >> 7, ei);
+          __builtin_prefetch(arr + (ei[0] >> 6));
+          __builtin_prefetch(arr + (ei[1] >> 6));
+          __builtin_prefetch(arr + (ei[2] >> 6));
         }
       };
 
       issue(0, std::min(CHUNK, num_columns), cur);
-      for (size_t base = 0; base < num_columns; base += CHUNK) {
-        const size_t end = std::min(base + CHUNK, num_columns);
-        const size_t next_base = end;
-        if (next_base < num_columns) {
-          issue(next_base, std::min(next_base + CHUNK, num_columns), next);
+      for (size_t lo = 0; lo < num_columns; lo += CHUNK) {
+        const size_t hi = std::min(lo + CHUNK, num_columns);
+        if (hi < num_columns) {
+          issue(hi, std::min(hi + CHUNK, num_columns), next);
         }
-        for (size_t ci = base; ci < end; ci++) {
-          const auto &col = columns[ci];
+        for (size_t ci = lo; ci < hi; ci++) {
+          const ColQuery &cq = col_query[ci];
           uint64_t encoded = gatherEncodedValue(
-              bucket_base[ci].data, cur[ci - base], col.max_codelength);
-          const auto &cb = *col.codebook;
-          outputs[col.output_index] = canonicalDecodeBranchless<T>(
-              encoded, cb.decode_tables, cb.ordered_symbols);
+              base + bucket_base[ci].word_off, cur[ci - lo], cq.max_codelength);
+          uint32_t idx = canonicalDecodeIndex(encoded, cq.limit, cq.bias,
+                                              cq.max_codelength, cq.last_symbol);
+          sym_idx[ci - lo] = idx;
+          __builtin_prefetch(cq.symbols + idx);
+        }
+        for (size_t ci = lo; ci < hi; ci++) {
+          const ColQuery &cq = col_query[ci];
+          outputs[cq.output_index] = cq.symbols[sym_idx[ci - lo]];
         }
         std::swap(cur, next);
       }
@@ -236,39 +284,51 @@ public:
       constexpr size_t WAVE_CHUNK = 4;
       const uint32_t M = arena.num_cols;
       const size_t num_columns = columns.size();
+      const uint64_t *base = arena_base;
 
       __uint128_t signature[MAX_KEYS];
-      const BucketQueryInfo *bucket_base[MAX_KEYS];
+      const PackedCell *bucket_base[MAX_KEYS];
       for (size_t k = 0; k < num_keys; k++) {
         signature[k] = hashKey(keys[k].data(), keys[k].size(), hash_store_seed);
         uint32_t bucket_id = getBucketID(signature[k], arena.num_buckets);
         bucket_base[k] =
-            bucket_col_info.data() + static_cast<size_t>(bucket_id) * M;
+            packed_cells.data() + static_cast<size_t>(bucket_id) * M;
         __builtin_prefetch(bucket_base[k]);
       }
 
       uint64_t e[MAX_KEYS][WAVE_CHUNK][3];
-      for (size_t base = 0; base < num_columns; base += WAVE_CHUNK) {
-        const size_t end = std::min(base + WAVE_CHUNK, num_columns);
+      uint32_t sym_idx[MAX_KEYS][WAVE_CHUNK];
+      for (size_t lo = 0; lo < num_columns; lo += WAVE_CHUNK) {
+        const size_t hi = std::min(lo + WAVE_CHUNK, num_columns);
         for (size_t k = 0; k < num_keys; k++) {
-          for (size_t ci = base; ci < end; ci++) {
-            const auto &info = bucket_base[k][ci];
-            uint64_t *ei = e[k][ci - base];
-            signatureToEquation(signature[k], info.seed, info.num_variables, ei);
-            __builtin_prefetch(info.data + (ei[0] >> 6));
-            __builtin_prefetch(info.data + (ei[1] >> 6));
-            __builtin_prefetch(info.data + (ei[2] >> 6));
+          for (size_t ci = lo; ci < hi; ci++) {
+            const PackedCell cell = bucket_base[k][ci];
+            const uint64_t *arr = base + cell.word_off;
+            uint64_t *ei = e[k][ci - lo];
+            signatureToEquation(signature[k], cell.vars_seed & 127,
+                                cell.vars_seed >> 7, ei);
+            __builtin_prefetch(arr + (ei[0] >> 6));
+            __builtin_prefetch(arr + (ei[1] >> 6));
+            __builtin_prefetch(arr + (ei[2] >> 6));
           }
         }
         for (size_t k = 0; k < num_keys; k++) {
-          for (size_t ci = base; ci < end; ci++) {
-            const auto &col = columns[ci];
-            uint64_t encoded = gatherEncodedValue(
-                bucket_base[k][ci].data, e[k][ci - base], col.max_codelength);
-            const auto &cb = *col.codebook;
-            outputs[k * stride + col.output_index] =
-                canonicalDecodeBranchless<T>(encoded, cb.decode_tables,
-                                             cb.ordered_symbols);
+          for (size_t ci = lo; ci < hi; ci++) {
+            const ColQuery &cq = col_query[ci];
+            uint64_t encoded =
+                gatherEncodedValue(base + bucket_base[k][ci].word_off,
+                                   e[k][ci - lo], cq.max_codelength);
+            uint32_t idx = canonicalDecodeIndex(
+                encoded, cq.limit, cq.bias, cq.max_codelength, cq.last_symbol);
+            sym_idx[k][ci - lo] = idx;
+            __builtin_prefetch(cq.symbols + idx);
+          }
+        }
+        for (size_t k = 0; k < num_keys; k++) {
+          for (size_t ci = lo; ci < hi; ci++) {
+            const ColQuery &cq = col_query[ci];
+            outputs[k * stride + cq.output_index] =
+                cq.symbols[sym_idx[k][ci - lo]];
           }
         }
       }
@@ -304,6 +364,15 @@ public:
   std::vector<T> query(const char *data, size_t length,
                        bool parallelize = true) const {
     std::vector<T> outputs(_total_cols);
+    queryInto(data, length, outputs, parallelize);
+    return outputs;
+  }
+
+  // Same as query() but writes into caller-owned storage, so a hot loop pays
+  // no per-call allocation.
+  void queryInto(const char *data, size_t length, std::vector<T> &outputs,
+                 bool parallelize = false) const {
+    outputs.resize(_total_cols);
 
 #pragma omp parallel for default(none)                                         \
     shared(data, length, _groups, outputs) if (parallelize)
@@ -318,8 +387,6 @@ public:
 
       group.queryAll(data, length, signature, bucket_id, outputs);
     }
-
-    return outputs;
   }
 
   // Answers a batch of keys, interleaving them so that several keys' arena
