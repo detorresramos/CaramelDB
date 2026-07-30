@@ -9,7 +9,11 @@
 #include <unordered_set>
 #include <vector>
 
-#if defined(__GNUC__) && !defined(__clang__)
+// libstdc++ supplies its own hash<__int128 unsigned> whenever it exposes the
+// type as an extended integer (GNU dialects, where __GLIBCXX_TYPE_INT_N_0 is
+// defined); specializing it again is a redefinition error. Only fill the gap
+// when it is actually missing.
+#if defined(__GNUC__) && !defined(__clang__) && !defined(__GLIBCXX_TYPE_INT_N_0)
 namespace std {
 template <> struct hash<__uint128_t> {
   size_t operator()(__uint128_t v) const noexcept {

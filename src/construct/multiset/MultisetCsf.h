@@ -213,8 +213,11 @@ public:
     // compute the three variable positions for every column in the chunk and
     // prefetch them, then decode. The chunk's loads are in flight while the
     // remaining hashes run.
+    // `outputs` is the caller's full row of _total_cols values; this group
+    // writes only its own columns' output_index slots and leaves the rest
+    // untouched, so several groups can fill one row independently.
     void queryAll(const char *data, size_t length, const __uint128_t &signature,
-                  uint32_t bucket_id, std::vector<T> &outputs) const {
+                  uint32_t bucket_id, T *outputs) const {
       const size_t num_columns = columns.size();
       if (!fast_path) {
         for (size_t ci = 0; ci < num_columns; ci++) {
@@ -385,7 +388,7 @@ public:
                                ? getBucketID(signature, group.num_buckets())
                                : 0;
 
-      group.queryAll(data, length, signature, bucket_id, outputs);
+      group.queryAll(data, length, signature, bucket_id, outputs.data());
     }
   }
 
@@ -404,7 +407,6 @@ public:
     }
 
     constexpr size_t KEYS_PER_WAVE = 8;
-    std::vector<T> scratch(_total_cols);
     for (const auto &group : _groups) {
       if (!group.fast_path) {
         for (size_t k = 0; k < keys.size(); k++) {
@@ -414,9 +416,7 @@ public:
                                    ? getBucketID(signature, group.num_buckets())
                                    : 0;
           group.queryAll(keys[k].data(), keys[k].size(), signature, bucket_id,
-                         scratch);
-          std::copy(scratch.begin(), scratch.end(),
-                    outputs.begin() + k * _total_cols);
+                         outputs.data() + k * _total_cols);
         }
         continue;
       }

@@ -168,4 +168,47 @@ TEST(ConstructMultisetTest, QueryBatchMatchesSingleQuery) {
   }
 }
 
+// Same guarantee as above, but for the layout that puts each column in its own
+// group and off the batched path: an explicit per-column prefilter. queryBatch
+// has to compose one row out of several groups' partial writes, so a group must
+// touch only its own columns' slots.
+TEST(ConstructMultisetTest, QueryBatchMatchesSingleQueryWithPerColumnFilters) {
+  const size_t num_rows = 300, num_cols = 12;
+  std::vector<std::vector<uint32_t>> columns(num_cols,
+                                             std::vector<uint32_t>(num_rows));
+  for (size_t c = 0; c < num_cols; c++) {
+    for (size_t r = 0; r < num_rows; r++) {
+      // One dominant value per column so a prefilter is the right shape, with a
+      // spread of minority values for the CSF to actually encode.
+      columns[c][r] =
+          (r % 5 == 0) ? static_cast<uint32_t>((r + c) % 17 + 1) : 0;
+    }
+  }
+  auto keys = makeKeys(num_rows);
+  MultisetConfig config;
+  config.verbose = false;
+  config.filter_config = std::make_shared<BloomPreFilterConfig>(10, 7);
+  auto csf = constructMultisetCsf<uint32_t>(keys, columns, config);
+
+  // The layout this test exists to cover: more than one group, and at least one
+  // of them off the batched path.
+  ASSERT_GT(csf->groups().size(), 1u);
+  bool any_slow_path = false;
+  for (const auto &group : csf->groups()) {
+    any_slow_path |= !group.fast_path;
+  }
+  ASSERT_TRUE(any_slow_path);
+
+  std::vector<std::string> batch(keys.begin(), keys.begin() + 53);
+  std::vector<uint32_t> batched;
+  csf->queryBatch(batch, batched);
+  ASSERT_EQ(batched.size(), batch.size() * num_cols);
+
+  for (size_t k = 0; k < batch.size(); k++) {
+    std::vector<uint32_t> got(batched.begin() + k * num_cols,
+                              batched.begin() + (k + 1) * num_cols);
+    EXPECT_EQ(got, csf->query(batch[k])) << "key " << k;
+  }
+}
+
 }  // namespace caramel::tests
