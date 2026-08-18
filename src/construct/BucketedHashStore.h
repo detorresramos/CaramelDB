@@ -100,6 +100,74 @@ BucketedHashStore<T> construct(const std::vector<std::string> &keys,
   return {key_buckets, value_buckets, seed, key_buckets.size()};
 }
 
+// A key partition computed once and reused to bucket many columns' values.
+// All columns of a multiset group share the same keys + seed, so hashing the
+// keys per column (the dominant build cost) is wasteful; hash once here and
+// scatter each column's values with scatterValues().
+struct KeyPartition {
+  std::vector<std::vector<__uint128_t>> key_buckets;  // signatures, grouped
+  std::vector<uint32_t> bucket_of_key;                // bucket id per key (input order)
+  uint64_t seed = 0;
+  uint32_t num_buckets = 0;
+};
+
+inline KeyPartition partitionKeys(const std::vector<std::string> &keys,
+                                  uint32_t num_buckets,
+                                  uint32_t num_attempts = 3) {
+  uint64_t approximate_bucket_size = keys.size() / num_buckets + 1;
+  for (uint64_t seed = 0; seed < num_attempts; seed++) {
+    KeyPartition part;
+    part.seed = seed;
+    part.num_buckets = num_buckets;
+    part.key_buckets.assign(num_buckets, {});
+    part.bucket_of_key.resize(keys.size());
+    for (uint32_t b = 0; b < num_buckets; b++) {
+      part.key_buckets[b].reserve(approximate_bucket_size);
+    }
+
+    for (size_t i = 0; i < keys.size(); i++) {
+      __uint128_t signature = hashKey(keys[i], seed);
+      uint32_t bucket_id = getBucketID(signature, num_buckets);
+      part.key_buckets[bucket_id].push_back(signature);
+      part.bucket_of_key[i] = bucket_id;
+    }
+
+    bool collision = false;
+#pragma omp parallel for default(none) shared(num_buckets, part, collision)
+    for (size_t b = 0; b < num_buckets; b++) {
+      const auto &bucket = part.key_buckets[b];
+      std::unordered_set<__uint128_t> uniques(bucket.begin(), bucket.end());
+      if (uniques.size() != bucket.size()) {
+#pragma omp critical
+        collision = true;
+      }
+    }
+    if (!collision) {
+      return part;
+    }
+    if (seed == num_attempts - 1) {
+      throw std::runtime_error("Detected a key collision under 128-bit hash. "
+                               "Likely due to a duplicate key.");
+    }
+  }
+  throw std::invalid_argument("Fatal error: should never reach here.");
+}
+
+// Buckets one column's values under a precomputed key partition (no hashing).
+template <typename T>
+std::vector<std::vector<T>> scatterValues(const std::vector<T> &values,
+                                          const KeyPartition &part) {
+  std::vector<std::vector<T>> value_buckets(part.num_buckets);
+  uint64_t approximate_bucket_size = values.size() / part.num_buckets + 1;
+  for (auto &vb : value_buckets) {
+    vb.reserve(approximate_bucket_size);
+  }
+  for (size_t i = 0; i < values.size(); i++) {
+    value_buckets[part.bucket_of_key[i]].push_back(values[i]);
+  }
+  return value_buckets;
+}
+
 template <typename T>
 BucketedHashStore<T> partitionToBuckets(const std::vector<std::string> &keys,
                                         const std::vector<T> &values,

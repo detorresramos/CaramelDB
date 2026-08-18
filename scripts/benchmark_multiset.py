@@ -18,7 +18,9 @@ import argparse
 import gc
 import json
 import os
+import resource
 import shutil
+import sys
 import tempfile
 import time
 
@@ -121,6 +123,9 @@ def main():
     mmap_mode = "c" if args.permutation != "none" else "r"
     print(f"Loading {args.npy} (mmap mode={mmap_mode!r})...", flush=True)
     values = np.load(args.npy, mmap_mode=mmap_mode)
+    # Materialize into anonymous RAM so peak RSS isn't confounded by evictable
+    # mmap'd file pages (which vary with memory pressure, polluting the number).
+    values = np.ascontiguousarray(values)
     if values.ndim != 2:
         raise ValueError(f"Expected 2D array, got shape {values.shape}")
     N, M = values.shape
@@ -190,6 +195,12 @@ def main():
         args.query_sample, args.query_warmup, args.query_trials, args.seed,
     )
 
+    # Peak resident set of this process over the whole build+measure. ru_maxrss
+    # is bytes on macOS, kibibytes on Linux. Each benchmark runs in its own
+    # process, so this is the build's peak.
+    ru_maxrss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    peak_rss_bytes = ru_maxrss if sys.platform == "darwin" else ru_maxrss * 1024
+
     metrics = {
         "npy": os.path.abspath(args.npy),
         "N": int(N),
@@ -207,6 +218,7 @@ def main():
         "size_bytes": int(size_bytes),
         "bits_per_key": round(bits_per_key, 3),
         "query_ns_median": round(query_ns, 1),
+        "peak_rss_bytes": peak_rss_bytes,
         "save_dir": os.path.abspath(args.save_dir) if args.save_dir else None,
     }
 
@@ -217,6 +229,7 @@ def main():
     print(f"Wall time        : {wall_s:.2f} s")
     print(f"Serialized size  : {size_bytes:,} bytes  ({bits_per_key:.2f} bits/key)")
     print(f"Query latency    : {query_ns:.1f} ns/query (median)")
+    print(f"Peak RSS         : {peak_rss_bytes / 1e6:.1f} MB")
 
     if args.output_json:
         os.makedirs(os.path.dirname(os.path.abspath(args.output_json)) or ".", exist_ok=True)

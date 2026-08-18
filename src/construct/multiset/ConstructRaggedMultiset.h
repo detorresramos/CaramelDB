@@ -105,8 +105,9 @@ constructRaggedMultisetCsf(const std::vector<std::string> &keys,
     shared_cb = std::make_shared<CsfCodebook<T>>(canonicalHuffman<T>(pooled));
   }
 
-  using ColumnState = typename RaggedMultisetCsf<T>::ColumnState;
-  std::vector<ColumnState> columns(max_length);
+  using Group = typename RaggedMultisetCsf<T>::Group;
+  using GroupColumn = typename MultisetCsf<T>::GroupColumn;
+  std::vector<Group> groups(max_length);
 
   for (size_t c = 0; c < max_length; c++) {
     const auto &active_keys = col_keys[c];
@@ -135,62 +136,61 @@ constructRaggedMultisetCsf(const std::vector<std::string> &keys,
     const auto &build_keys = using_filter ? filtered_keys : active_keys;
     const auto &build_values = using_filter ? filtered_values : active_values;
 
-    // Handle case where filter removed all keys
+    // Per-column codebook (or shared) + single-column group assembly.
+    auto col_codebook = config.shared_codebook
+        ? shared_cb
+        : std::make_shared<CsfCodebook<T>>(
+              build_values.empty()
+                  ? CsfCodebook<T>{}
+                  : canonicalHuffman<T>(build_values));
+
+    Group group;
+    GroupColumn gc;
+    gc.output_index = static_cast<uint32_t>(c);
+    gc.codebook = col_codebook;
+    gc.filter = col_filter;
+    gc.most_common_value = mcv;
+    gc.uses_shared_codebook = config.shared_codebook;
+    gc.max_codelength = col_codebook ? col_codebook->max_codelength : 0;
+
     if (build_keys.empty()) {
-      columns[c].filter = col_filter;
-      columns[c].most_common_value = mcv;
-      columns[c].codebook = shared_cb ? shared_cb
-          : std::make_shared<CsfCodebook<T>>();
-      columns[c].buildQueryCache();
+      group.hash_store_seed = 0;
+      group.arena.num_cols = 1;
+      group.arena.num_buckets = 0;
+      group.columns.push_back(std::move(gc));
+      groups[c] = std::move(group);
       continue;
     }
 
-    auto col_codebook = config.shared_codebook
-        ? shared_cb
-        : std::make_shared<CsfCodebook<T>>(canonicalHuffman<T>(build_values));
+    uint64_t num_buckets =
+        targetBucketCount(build_values, col_codebook->codedict);
 
-    const CodeDict<T> &codedict = col_codebook->codedict;
-    uint32_t max_cl = col_codebook->max_codelength;
+    KeyPartition part =
+        partitionKeys(build_keys, static_cast<uint32_t>(num_buckets));
+    group.hash_store_seed = static_cast<uint32_t>(part.seed);
 
-    uint64_t num_buckets = targetBucketCount(build_values, codedict);
+    // One group per column (M=1): stream-solve directly into the arena. Values
+    // are provided here (no row-major buffer to re-extract from).
+    std::vector<std::vector<T>> source_values_per_col(1);
+    source_values_per_col[0] = std::move(build_values);
+    std::vector<std::shared_ptr<CsfCodebook<T>>> codebooks{col_codebook};
+    std::vector<uint32_t> col_indices{0};
+    fillArena<T>(group.arena, part, source_values_per_col, codebooks,
+                 col_indices, /*data=*/nullptr, /*num_columns=*/0,
+                 /*codebooks_disposable=*/!config.shared_codebook, DELTA);
 
-    BucketedHashStore<T> hash_store =
-        partitionToBuckets<T>(build_keys, build_values, num_buckets);
-
-    std::exception_ptr exception = nullptr;
-    std::vector<SubsystemSolutionSeedPair> solutions_and_seeds(
-        hash_store.num_buckets);
-
-#pragma omp parallel for default(none)                                         \
-    shared(hash_store, solutions_and_seeds, exception, codedict, max_cl, DELTA)
-    for (uint32_t j = 0; j < hash_store.num_buckets; j++) {
-      if (exception) {
-        continue;
-      }
-      try {
-        solutions_and_seeds[j] = constructAndSolveSubsystem<T>(
-            hash_store.key_buckets[j], hash_store.value_buckets[j], codedict,
-            max_cl, DELTA);
-      } catch (std::exception &) {
-#pragma omp critical
-        { exception = std::current_exception(); }
-      }
-    }
-
-    if (exception) {
-      std::rethrow_exception(exception);
-    }
-
-    columns[c].solutions_and_seeds = std::move(solutions_and_seeds);
-    columns[c].hash_store_seed = hash_store.seed;
-    columns[c].codebook = col_codebook;
-    columns[c].filter = col_filter;
-    columns[c].most_common_value = mcv;
-    columns[c].buildQueryCache();
+    group.columns.push_back(std::move(gc));
+    groups[c] = std::move(group);
   }
 
-  return std::make_shared<RaggedMultisetCsf<T>>(std::move(length_csf),
-                                                 std::move(columns));
+  // Shared codebook reused across columns; free its construction-only codedict
+  // now that every column is solved (queries never touch it).
+  if (config.shared_codebook && shared_cb) {
+    shared_cb->codedict = CodeDict<T>();
+  }
+
+  return std::make_shared<RaggedMultisetCsf<T>>(
+      std::move(length_csf), std::move(groups), shared_cb);
 }
 
 } // namespace caramel
