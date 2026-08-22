@@ -47,7 +47,9 @@ class CMakeCythonBuild(build_ext):
             if archs:
                 cmake_args += ["-DCMAKE_OSX_ARCHITECTURES={}".format(";".join(archs))]
 
-        jobs = multiprocessing.cpu_count() * 2
+        jobs = int(
+            os.environ.get("CARAMEL_BUILD_JOBS", multiprocessing.cpu_count() * 2)
+        )
 
         # Configure and build caramel_lib only
         subprocess.check_call(["cmake", project_root] + cmake_args, cwd=build_dir)
