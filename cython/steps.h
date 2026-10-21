@@ -39,7 +39,7 @@ inline std::string makeSpec(PreFilterConfigPtr filter, bool shared_filter,
 }
 
 template <typename T>
-std::string countStep(const std::string &spec, const Keys &keys, const T *data,
+std::string countStep(const std::string &spec, const Signatures &keys, const T *data,
                      uint64_t rows, uint32_t cols, const uint64_t *offsets,
                      const std::string &filters) {
   auto f = maybeFromBytes<Filters<T>>(filters);
@@ -66,7 +66,7 @@ std::string chooseFiltersStep(const std::string &spec, const std::string &counts
 
 template <typename T>
 std::string findExceptionsStep(const std::string &choice,
-                                   const Keys &keys, const T *data,
+                                   const Signatures &keys, const T *data,
                                    uint64_t rows, uint32_t cols,
                                    const uint64_t *offsets) {
   return toBytes(findExceptions(fromBytes<FilterChoice<T>>(choice), keys,
@@ -108,7 +108,7 @@ std::vector<uint32_t> planPartitions(const std::string &plan, uint32_t count) {
 }
 
 template <typename T>
-Blobs splitStep(const std::string &plan_bytes, const Keys &keys, const T *data,
+Blobs splitStep(const std::string &plan_bytes, const Signatures &keys, const T *data,
                  uint64_t rows, uint32_t cols, const uint64_t *offsets,
                  const std::vector<uint32_t> &flat_partitions) {
   auto plan = fromBytes<Plan<T>>(plan_bytes);

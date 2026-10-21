@@ -6,7 +6,7 @@
 #include <cereal/types/vector.hpp>
 #include <iostream>
 #include <memory>
-#include <src/construct/SpookyHash.h>
+#include <src/construct/Hashing.h>
 #include <vector>
 
 namespace caramel {
@@ -89,7 +89,7 @@ public:
   }
 
   void add(const std::string &key) {
-    addHash(SpookyHash::Hash64(key.data(), key.size(), 0));
+    addHash(filterHash(key.data(), key.size()));
   }
 
   void addHash(uint64_t key_hash) { _keys.push_back(key_hash); }
@@ -132,7 +132,7 @@ public:
 
   bool contains(const char *data, size_t length) const {
     return containsHash(
-        SpookyHash::Hash64(static_cast<const void *>(data), length, 0));
+        filterHash(data, length));
   }
 
   bool containsHash(uint64_t key_hash) const {

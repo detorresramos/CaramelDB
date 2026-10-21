@@ -50,15 +50,36 @@ cdef vector[string] _to_cpp_strings(keys) except *:
         result.push_back(_to_cpp_string(k))
     return result
 
-cdef vector[string] _uint32_array_to_cpp_strings(np.ndarray keys):
-    cdef Py_ssize_t n = keys.shape[0]
-    cdef vector[string] result
-    result.reserve(n)
-    cdef unsigned int* ptr = <unsigned int*>keys.data
-    cdef Py_ssize_t i
-    for i in range(n):
-        result.push_back(string(<const char*>&ptr[i], 4))
-    return result
+cdef cpp.Signatures _hash_keys(keys) except *:
+    """The signature of every key, read in place from the str/bytes objects
+    (or a uint32 array, as 4-byte keys); the keys are never copied."""
+    cdef np.ndarray arr
+    cdef cpp.Signatures sigs
+    cdef Py_ssize_t n
+    if isinstance(keys, np.ndarray) and (<np.ndarray>keys).dtype == np.uint32:
+        arr = np.ascontiguousarray(keys)
+        n = arr.shape[0]
+        with nogil:
+            sigs = cpp.hashFixedWidthKeys(<const char*>arr.data, 4, n)
+        return sigs
+    if not isinstance(keys, list):
+        keys = list(keys)  # keeps any temporary key objects alive
+    n = len(keys)
+    cdef vector[const char*] data
+    cdef vector[uint64_t] lengths
+    data.resize(n)
+    lengths.resize(n)
+    cdef const char* buf
+    cdef Py_ssize_t length
+    cdef Py_ssize_t i = 0
+    for k in <list>keys:
+        _key_to_buf(k, &buf, &length)
+        data[i] = buf
+        lengths[i] = length
+        i += 1
+    with nogil:
+        sigs = cpp.hashKeys(data.data(), lengths.data(), n)
+    return sigs
 
 
 
@@ -737,7 +758,7 @@ cdef class CSFUint32:
     cdef shared_ptr[cpp.Csf_uint32] _ptr
 
     def __init__(self, list keys, values, prefilter=None, bint verbose=True):
-        cdef vector[string] cpp_keys = _to_cpp_strings(keys)
+        cdef cpp.Signatures cpp_keys = _hash_keys(keys)
         cdef vector[unsigned int] cpp_values
         cdef shared_ptr[cpp.PreFilterConfig] filter_config
         cdef Py_ssize_t n = len(values)
@@ -800,7 +821,7 @@ cdef class CSFUint64:
     cdef shared_ptr[cpp.Csf_uint64] _ptr
 
     def __init__(self, list keys, values, prefilter=None, bint verbose=True):
-        cdef vector[string] cpp_keys = _to_cpp_strings(keys)
+        cdef cpp.Signatures cpp_keys = _hash_keys(keys)
         cdef vector[uint64_t] cpp_values
         cdef shared_ptr[cpp.PreFilterConfig] filter_config
         cdef Py_ssize_t n = len(values)
@@ -863,7 +884,7 @@ cdef class CSFChar10:
     cdef shared_ptr[cpp.Csf_Char10] _ptr
 
     def __init__(self, list keys, values, prefilter=None, bint verbose=True):
-        cdef vector[string] cpp_keys = _to_cpp_strings(keys)
+        cdef cpp.Signatures cpp_keys = _hash_keys(keys)
         cdef vector[cpp.Char10] cpp_values
         cdef shared_ptr[cpp.PreFilterConfig] filter_config
 
@@ -922,7 +943,7 @@ cdef class CSFChar12:
     cdef shared_ptr[cpp.Csf_Char12] _ptr
 
     def __init__(self, list keys, values, prefilter=None, bint verbose=True):
-        cdef vector[string] cpp_keys = _to_cpp_strings(keys)
+        cdef cpp.Signatures cpp_keys = _hash_keys(keys)
         cdef vector[cpp.Char12] cpp_values
         cdef shared_ptr[cpp.PreFilterConfig] filter_config
 
@@ -981,7 +1002,7 @@ cdef class CSFString:
     cdef shared_ptr[cpp.Csf_string] _ptr
 
     def __init__(self, list keys, values, prefilter=None, bint verbose=True):
-        cdef vector[string] cpp_keys = _to_cpp_strings(keys)
+        cdef cpp.Signatures cpp_keys = _hash_keys(keys)
         cdef vector[string] cpp_values
         cdef shared_ptr[cpp.PreFilterConfig] filter_config
 
@@ -1051,11 +1072,7 @@ cdef class MultisetCSFUint32:
         """
         Note: when `permutation` is set, `values` is mutated in place.
         """
-        cdef vector[string] cpp_keys
-        if isinstance(keys, np.ndarray) and (<np.ndarray>keys).dtype == np.uint32:
-            cpp_keys = _uint32_array_to_cpp_strings(np.ascontiguousarray(keys))
-        else:
-            cpp_keys = _to_cpp_strings(keys)
+        cdef cpp.Signatures cpp_keys = _hash_keys(keys)
 
         values = np.ascontiguousarray(values, dtype=np.uint32)
         if values.ndim != 2:
@@ -1120,11 +1137,7 @@ cdef class MultisetCSFUint64:
         """
         Note: when `permutation` is set, `values` is mutated in place.
         """
-        cdef vector[string] cpp_keys
-        if isinstance(keys, np.ndarray) and (<np.ndarray>keys).dtype == np.uint32:
-            cpp_keys = _uint32_array_to_cpp_strings(np.ascontiguousarray(keys))
-        else:
-            cpp_keys = _to_cpp_strings(keys)
+        cdef cpp.Signatures cpp_keys = _hash_keys(keys)
 
         values = np.ascontiguousarray(values, dtype=np.uint64)
         if values.ndim != 2:
@@ -1184,7 +1197,7 @@ cdef class MultisetCSFChar10:
 
     def __init__(self, list keys, values, prefilter=None, permutation=None,
                  bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
-        cdef vector[string] cpp_keys = _to_cpp_strings(keys)
+        cdef cpp.Signatures cpp_keys = _hash_keys(keys)
         cdef vector[vector[cpp.Char10]] cpp_values
 
         values = np.asarray(values)
@@ -1243,7 +1256,7 @@ cdef class MultisetCSFChar12:
 
     def __init__(self, list keys, values, prefilter=None, permutation=None,
                  bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
-        cdef vector[string] cpp_keys = _to_cpp_strings(keys)
+        cdef cpp.Signatures cpp_keys = _hash_keys(keys)
         cdef vector[vector[cpp.Char12]] cpp_values
 
         values = np.asarray(values)
@@ -1302,7 +1315,7 @@ cdef class MultisetCSFString:
 
     def __init__(self, list keys, values, prefilter=None, permutation=None,
                  bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
-        cdef vector[string] cpp_keys = _to_cpp_strings(keys)
+        cdef cpp.Signatures cpp_keys = _hash_keys(keys)
         cdef vector[vector[string]] cpp_values
 
         if permutation is not None:
@@ -1364,7 +1377,7 @@ cdef class RaggedMultisetCSFUint32:
 
     def __init__(self, list keys, values, prefilter=None, permutation=None,
                  bint shared_codebook=False, bint verbose=True):
-        cdef vector[string] cpp_keys = _to_cpp_strings(keys)
+        cdef cpp.Signatures cpp_keys = _hash_keys(keys)
         cdef vector[vector[unsigned int]] cpp_values
 
         for row in values:
@@ -1409,7 +1422,7 @@ cdef class PackedCSFUint32:
     cdef shared_ptr[cpp.PackedCsf_uint32] _ptr
 
     def __init__(self, list keys, values, bint verbose=True):
-        cdef vector[string] cpp_keys = _to_cpp_strings(keys)
+        cdef cpp.Signatures cpp_keys = _hash_keys(keys)
         cdef vector[vector[unsigned int]] cpp_values
 
         for row in values:
@@ -1511,10 +1524,6 @@ def permute_char12(np.ndarray array not None, config=None):
 # ── Build steps ───────────────────────────────────────────────────
 # Thin byte-string bindings for carameldb.steps; see that module for the API.
 
-cdef vector[string] _step_keys(keys) except *:
-    if isinstance(keys, np.ndarray) and (<np.ndarray>keys).dtype == np.uint32:
-        return _uint32_array_to_cpp_strings(np.ascontiguousarray(keys))
-    return _to_cpp_strings(keys)
 
 
 def _step_values(values, dtype, bint csr):
@@ -1559,7 +1568,7 @@ def _step_spec(prefilter, bint shared_filter, bint shared_codebook, bint packed,
 
 
 def _step_count(str dtype, bytes spec, keys, values, bint csr, bytes filters):
-    cdef vector[string] k = _step_keys(keys)
+    cdef cpp.Signatures k = _hash_keys(keys)
     flat, offsets, rows, cols = _step_values(values, dtype, csr)
     cdef string s = spec, f = filters, out
     cdef const uint64_t* off = _offsets_ptr(offsets)
@@ -1594,7 +1603,7 @@ def _step_choose_filters(str dtype, bytes spec, bytes stats):
 
 
 def _step_find_exceptions(str dtype, bytes filter_plan, keys, values, bint csr):
-    cdef vector[string] k = _step_keys(keys)
+    cdef cpp.Signatures k = _hash_keys(keys)
     flat, offsets, rows, cols = _step_values(values, dtype, csr)
     cdef string fp = filter_plan, out
     cdef const uint64_t* off = _offsets_ptr(offsets)
@@ -1642,7 +1651,7 @@ def _step_partitions(str dtype, bytes plan, uint32_t splits):
 
 
 def _step_split(str dtype, bytes plan, keys, values, bint csr, list ranges):
-    cdef vector[string] k = _step_keys(keys)
+    cdef cpp.Signatures k = _hash_keys(keys)
     flat, offsets, rows, cols = _step_values(values, dtype, csr)
     cdef string p = plan
     cdef vector[string] out

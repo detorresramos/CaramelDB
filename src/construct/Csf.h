@@ -51,7 +51,10 @@ public:
   T query(const std::string &key) const { return query(key.data(), key.size()); }
 
   T query(const char *data, size_t length) const {
-    const __uint128_t signature = hashKey(data, length);
+    return queryHashed(hashKey(data, length));
+  }
+
+  T queryHashed(const __uint128_t &signature) const {
     const auto &col = _group.columns[0];
     if (col.filter && !col.filter->containsHash(filterHash(signature))) {
       return *col.most_common_value;
@@ -63,8 +66,7 @@ public:
       throw std::runtime_error("Cannot query empty CSF without filter");
     }
     const uint32_t bucket = getBucketID(signature, _group.arena.num_buckets);
-    return decodeBucketColumn<T>(signature, _group.cell(bucket, 0),
-                                 col.max_codelength,
+    return decodeBucketColumn<T>(RibbonHash(signature), _group.cell(bucket, 0),
                                  col.codebook->code_length_counts,
                                  col.codebook->ordered_symbols);
   }
@@ -95,7 +97,7 @@ public:
     bs.min_solution_bits = arena.num_buckets ? std::numeric_limits<size_t>::max() : 0;
     bs.max_solution_bits = 0;
     for (uint32_t vars : arena.per_col_vars) {
-      size_t bits = vars + col.max_codelength;
+      size_t bits = vars + RIBBON_WIDTH - 1;
       bs.total_solution_bits += bits;
       bs.min_solution_bits = std::min(bs.min_solution_bits, bits);
       bs.max_solution_bits = std::max(bs.max_solution_bits, bits);
@@ -129,8 +131,8 @@ public:
 
     size_t metadata = hs.code_length_distribution.size() * sizeof(uint32_t) +
                       hs.num_unique_symbols * sizeof(T) + sizeof(uint32_t);
-    // Per bucket: vars, seed, word offset.
-    metadata += arena.num_buckets * (sizeof(uint32_t) * 2 + sizeof(uint64_t));
+    // Per bucket: band starts and seed.
+    metadata += arena.num_buckets * (sizeof(uint32_t) + sizeof(uint8_t));
     stats.metadata_bytes = static_cast<double>(metadata);
 
     stats.in_memory_bytes = static_cast<size_t>(

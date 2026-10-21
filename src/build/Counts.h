@@ -4,33 +4,33 @@
 #include "Rows.h"
 #include "Spec.h"
 #include <algorithm>
-#include <cereal/types/unordered_map.hpp>
 #include <cereal/types/vector.hpp>
 #include <omp.h>
 #include <src/construct/ConstructUtils.h>
-#include <unordered_map>
+#include <src/construct/FlatMap.h>
 
 namespace caramel::build {
 
+template <typename T> using Frequencies = FlatMap<T, uint64_t>;
+
 template <typename T> struct ColumnCounts {
-  std::unordered_map<T, uint64_t> freq;
+  Frequencies<T> freq;
   uint64_t count = 0; // values seen (Packed: rows seen)
 
   void merge(const ColumnCounts &other) {
     count += other.count;
-    for (const auto &[value, f] : other.freq) {
-      freq[value] += f;
-    }
+    freq.reserve(freq.size() + other.freq.size());
+    other.freq.forEach([&](const T &value, uint64_t f) { freq[value] += f; });
   }
 
   // Ties go to the smaller value so every worker picks the same MCV.
   std::pair<T, uint64_t> mostCommon() const {
     std::pair<T, uint64_t> best{T{}, 0};
-    for (const auto &[value, f] : freq) {
+    freq.forEach([&](const T &value, uint64_t f) {
       if (f > best.second || (f == best.second && value < best.first)) {
         best = {value, f};
       }
-    }
+    });
     return best;
   }
 
@@ -68,9 +68,50 @@ template <typename T> struct Counts {
 
 namespace detail {
 
-template <typename T> inline uint32_t valuePartition(const T &v, uint32_t parts) {
-  uint64_t h = std::hash<T>{}(v) * 0x9E3779B97F4A7C15ULL;
-  return static_cast<uint32_t>((h >> 32) % parts);
+// Merges maps into one. Outside a parallel region, large inputs scatter by
+// hash into P disjoint partitions, merge those in parallel, then concatenate.
+template <typename T>
+Frequencies<T> mergeFrequencies(std::vector<Frequencies<T> *> parts) {
+  size_t total = 0;
+  for (auto *p : parts) {
+    total += p->size();
+  }
+  if (parts.size() == 1 || total < (1u << 16) || omp_in_parallel()) {
+    Frequencies<T> out = std::move(*parts[0]);
+    for (size_t i = 1; i < parts.size(); i++) {
+      out.reserve(out.size() + parts[i]->size());
+      parts[i]->forEach([&](const T &v, uint64_t f) { out[v] += f; });
+    }
+    return out;
+  }
+  const size_t B = parts.size();
+  const uint32_t P = static_cast<uint32_t>(omp_get_max_threads());
+  std::vector<std::vector<std::vector<std::pair<T, uint64_t>>>> scattered(
+      B, std::vector<std::vector<std::pair<T, uint64_t>>>(P));
+#pragma omp parallel for schedule(dynamic, 1) default(none) shared(parts, scattered, B, P)
+  for (size_t b = 0; b < B; b++) {
+    parts[b]->forEach([&](const T &v, uint64_t f) {
+      scattered[b][(Frequencies<T>::hash(v) >> 32) % P].emplace_back(v, f);
+    });
+    *parts[b] = {};
+  }
+  std::vector<Frequencies<T>> shards(P);
+#pragma omp parallel for schedule(dynamic, 1) default(none) shared(scattered, shards, B, P)
+  for (uint32_t p = 0; p < P; p++) {
+    for (size_t b = 0; b < B; b++) {
+      for (const auto &[v, f] : scattered[b][p]) {
+        shards[p][v] += f;
+      }
+      scattered[b][p] = {};
+    }
+  }
+  Frequencies<T> out;
+  out.reserve(total);
+  for (auto &shard : shards) {
+    shard.forEach([&](const T &v, uint64_t f) { out[v] = f; });
+    shard = {};
+  }
+  return out;
 }
 
 } // namespace detail
@@ -79,18 +120,18 @@ template <typename T> inline uint32_t valuePartition(const T &v, uint32_t parts)
 // a filtered column only counts the keys its filter passes (exceptions
 // plus false positives), which is exactly what its codebook must cover.
 template <typename T>
-Counts<T> countValues(const BuildSpec &spec, const Keys &keys, const Rows<T> &rows,
+Counts<T> countValues(const BuildSpec &spec, const Signatures &sigs, const Rows<T> &rows,
              const Filters<T> *filters = nullptr) {
   const bool packed = spec.encoding == Encoding::Packed;
   const uint64_t n = rows.numRows();
   const uint32_t C = packed ? 1 : rows.numCols();
-  if (keys.size() != n) {
+  if (sigs.size() != n) {
     throw std::invalid_argument("Keys and values must have the same length.");
   }
 
   std::vector<std::vector<uint64_t>> masks;
   if (filters && !filters->empty()) {
-    masks = filters->passMasks(keys);
+    masks = filters->passMasks(sigs);
   }
   auto active = [&](uint64_t r, uint32_t c) {
     if (!rows.present(r, c)) {
@@ -100,39 +141,31 @@ Counts<T> countValues(const BuildSpec &spec, const Keys &keys, const Rows<T> &ro
     return f < 0 || maskBit(masks[f], r);
   };
 
-  // A column is split into P value partitions so a single high-entropy column
-  // still histograms on every thread, and the partials stay disjoint.
-  const uint32_t threads = static_cast<uint32_t>(omp_get_max_threads());
-  const uint32_t P = std::clamp<uint32_t>(threads / std::max<uint32_t>(C, 1), 1, 16);
-  std::vector<std::unordered_map<T, uint64_t>> partial(static_cast<size_t>(C) * P);
-  std::vector<uint64_t> col_counts(C, 0);
+  // One pass over the rows in B blocks, each counting into its own map per
+  // column; then the blocks' maps merge per column.
+  const uint32_t B = static_cast<uint32_t>(omp_get_max_threads());
+  std::vector<std::vector<Frequencies<T>>> local(B, std::vector<Frequencies<T>>(C));
+  std::vector<std::vector<uint64_t>> local_counts(B, std::vector<uint64_t>(C, 0));
 
-#pragma omp parallel for schedule(dynamic, 1) default(none)                    \
-    shared(rows, partial, col_counts, active, n, C, P, packed)
-  for (size_t task = 0; task < static_cast<size_t>(C) * P; task++) {
-    const uint32_t c = task / P;
-    const uint32_t p = task % P;
-    auto &local = partial[task];
-    uint64_t count = 0;
-    for (uint64_t r = 0; r < n; r++) {
+#pragma omp parallel for schedule(static, 1) default(none)                     \
+    shared(rows, local, local_counts, active, n, C, B, packed)
+  for (uint32_t block = 0; block < B; block++) {
+    auto &mine = local[block];
+    auto &counts = local_counts[block];
+    for (uint64_t r = n * block / B, end = n * (block + 1) / B; r < end; r++) {
       if (packed) {
-        count++;
+        counts[0]++;
         for (uint32_t k = 0; k < rows.length(r); k++) {
-          const T &v = rows.at(r, k);
-          if (P == 1 || detail::valuePartition(v, P) == p) {
-            ++local[v];
-          }
+          ++mine[0][rows.at(r, k)];
         }
-      } else if (active(r, c)) {
-        count++;
-        const T &v = rows.at(r, c);
-        if (P == 1 || detail::valuePartition(v, P) == p) {
-          ++local[v];
+        continue;
+      }
+      for (uint32_t c = 0; c < C; c++) {
+        if (active(r, c)) {
+          counts[c]++;
+          ++mine[c][rows.at(r, c)];
         }
       }
-    }
-    if (p == 0) {
-      col_counts[c] = count;
     }
   }
 
@@ -141,21 +174,18 @@ Counts<T> countValues(const BuildSpec &spec, const Keys &keys, const Rows<T> &ro
   out.num_cols = rows.numCols();
   out.ragged = rows.isRagged();
   out.cols.resize(C);
+  // Columns merge in parallel; a few high-cardinality columns parallelize
+  // inside mergeFrequencies instead.
+  const bool nested = C * 4 <= B;
 #pragma omp parallel for schedule(dynamic, 1) default(none)                    \
-    shared(out, partial, col_counts, C, P)
+    shared(out, local, local_counts, C, B) if (!nested)
   for (uint32_t c = 0; c < C; c++) {
-    auto &freq = out.cols[c].freq;
-    size_t total = 0;
-    for (uint32_t p = 0; p < P; p++) {
-      total += partial[c * P + p].size();
+    std::vector<Frequencies<T> *> parts;
+    for (uint32_t block = 0; block < B; block++) {
+      parts.push_back(&local[block][c]);
+      out.cols[c].count += local_counts[block][c];
     }
-    freq.reserve(total);
-    for (uint32_t p = 0; p < P; p++) {
-      auto &part = partial[c * P + p];
-      freq.insert(part.begin(), part.end());
-      part = {};
-    }
-    out.cols[c].count = col_counts[c];
+    out.cols[c].freq = detail::mergeFrequencies(std::move(parts));
   }
   return out;
 }

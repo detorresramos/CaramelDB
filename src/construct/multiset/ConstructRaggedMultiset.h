@@ -57,7 +57,7 @@ void permuteRagged(std::vector<T> &flat, const std::vector<uint64_t> &offsets,
 
 template <typename T>
 RaggedMultisetCsfPtr<T>
-constructRaggedMultisetCsf(const std::vector<std::string> &keys,
+constructRaggedMultisetCsf(const build::Signatures &keys,
                            const std::vector<std::vector<T>> &values,
                            const MultisetConfig &config) {
   std::vector<uint32_t> lengths(values.size());
@@ -83,6 +83,14 @@ constructRaggedMultisetCsf(const std::vector<std::string> &keys,
       build::buildLocal(spec, keys,
                         build::Rows<T>::ragged(flat.data(), offsets.data(),
                                                values.size())));
+}
+
+template <typename T>
+RaggedMultisetCsfPtr<T>
+constructRaggedMultisetCsf(const std::vector<std::string> &keys,
+                           const std::vector<std::vector<T>> &values,
+                           const MultisetConfig &config) {
+  return constructRaggedMultisetCsf<T>(build::hashKeys(keys), values, config);
 }
 
 } // namespace caramel

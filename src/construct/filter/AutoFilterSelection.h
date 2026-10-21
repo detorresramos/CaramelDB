@@ -1,6 +1,7 @@
 #pragma once
 
 #include "FilterConfig.h"
+#include <src/construct/Ribbon.h>
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -9,7 +10,6 @@
 
 namespace caramel {
 
-static constexpr double AUTO_DELTA = 1.089;
 static constexpr double XOR_C = 1.23;
 static constexpr double BINARY_FUSE_C_ASYMPTOTIC = 1.075;
 
@@ -36,7 +36,7 @@ inline double binaryFuseC(size_t n_filter) {
 
 inline double autoLowerBound(double alpha, double eps, double b_eps,
                              double n_over_N) {
-  return AUTO_DELTA * alpha * (1.0 - eps) - n_over_N - b_eps * (1.0 - alpha);
+  return RIBBON_OVERHEAD * alpha * (1.0 - eps) - n_over_N - b_eps * (1.0 - alpha);
 }
 
 inline DiscreteFilterResult bestDiscreteXor(double alpha, double n_over_N,

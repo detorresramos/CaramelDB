@@ -109,16 +109,16 @@ template <typename T> struct Piece {
   }
 };
 
-// Groups each requested partition's keys by bucket: hash every key once, keep the
-// keys its group encodes (row present, filter passes), and counting-sort them
+// Groups each requested partition's keys by bucket: keep the keys its group
+// encodes (row present, filter passes), and counting-sort them
 // into their bucket's slot. Ranges may come from any groups; a local build asks
 // for one whole group at a time, a worker asks for every partition at once.
 template <typename T>
-std::vector<Piece<T>> split(const Plan<T> &plan, const Keys &keys,
+std::vector<Piece<T>> split(const Plan<T> &plan, const Signatures &sigs,
                                   const Rows<T> &rows,
                                   const std::vector<Partition> &partitions) {
   const uint64_t n = rows.numRows();
-  if (keys.size() != n) {
+  if (sigs.size() != n) {
     throw std::invalid_argument("Keys and values must have the same length.");
   }
   if (n > std::numeric_limits<uint32_t>::max()) {
@@ -144,7 +144,7 @@ std::vector<Piece<T>> split(const Plan<T> &plan, const Keys &keys,
   // Calls visit(row, slot, sig) for every kept key of rows [begin, end).
   auto forEachKept = [&](uint64_t begin, uint64_t end, auto &&visit) {
     for (uint64_t r = begin; r < end; r++) {
-      const __uint128_t sig = hashKey(keys[r]);
+      const __uint128_t sig = sigs[r];
       const uint64_t fh = filterHash(sig);
       for (uint32_t g : groups_used) {
         const auto &group = plan.groups[g];
@@ -164,7 +164,7 @@ std::vector<Piece<T>> split(const Plan<T> &plan, const Keys &keys,
   };
 
   // Two passes over fixed row blocks (count, then place) keep every bucket in
-  // input order with no per-row buffer; the second pass re-hashes instead.
+  // input order with no per-row buffer.
   const size_t blocks = static_cast<size_t>(omp_get_max_threads());
   std::vector<std::vector<uint64_t>> counts(blocks,
                                             std::vector<uint64_t>(num_slots, 0));
@@ -191,16 +191,16 @@ std::vector<Piece<T>> split(const Plan<T> &plan, const Keys &keys,
     slot_start[s + 1] = pos;
   }
 
-  std::vector<__uint128_t> sigs(slot_start[num_slots]);
+  std::vector<__uint128_t> sorted(slot_start[num_slots]);
   std::vector<uint32_t> row_ids(slot_start[num_slots]);
 #pragma omp parallel for schedule(static, 1) default(none)                     \
-    shared(counts, forEachKept, sigs, row_ids, n, blocks)
+    shared(counts, forEachKept, sorted, row_ids, n, blocks)
   for (size_t block = 0; block < blocks; block++) {
     auto &cursor = counts[block];
     forEachKept(n * block / blocks, n * (block + 1) / blocks,
                   [&](uint64_t r, uint64_t slot, const __uint128_t &sig) {
                     const uint64_t pos = cursor[slot]++;
-                    sigs[pos] = sig;
+                    sorted[pos] = sig;
                     row_ids[pos] = static_cast<uint32_t>(r);
                   });
   }
@@ -219,10 +219,10 @@ std::vector<Piece<T>> split(const Plan<T> &plan, const Keys &keys,
       piece.offsets[b] = slot_start[slot + b] - first;
     }
     if (partitions.size() == 1) {
-      piece.sigs = std::move(sigs);
+      piece.sigs = std::move(sorted);
       piece.rows = std::move(row_ids);
     } else {
-      piece.sigs.assign(sigs.begin() + first, sigs.begin() + last);
+      piece.sigs.assign(sorted.begin() + first, sorted.begin() + last);
       piece.rows.assign(row_ids.begin() + first, row_ids.begin() + last);
     }
     slot += partitions[k].size();

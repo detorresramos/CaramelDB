@@ -16,17 +16,15 @@ namespace caramel {
 // starts on a 64-bit word boundary.
 struct BucketArena {
   std::vector<uint64_t> solution_bits; // + 1 trailing guard word
-  std::vector<uint32_t> per_col_vars;  // variables of each cell's system
-  std::vector<uint32_t> per_col_seeds; // solve seed of each cell
-  std::vector<uint64_t> per_col_word_off;
+  std::vector<uint32_t> per_col_vars;  // band start positions of each cell
+  std::vector<uint8_t> per_col_seeds;  // solve seed of each cell
   uint32_t num_cols = 0;
   uint32_t num_buckets = 0;
 
 private:
   friend class cereal::access;
   template <class Archive> void serialize(Archive &archive) {
-    archive(solution_bits, per_col_vars, per_col_seeds, per_col_word_off,
-            num_cols, num_buckets);
+    archive(solution_bits, per_col_vars, per_col_seeds, num_cols, num_buckets);
   }
 };
 
@@ -73,11 +71,11 @@ template <typename T> struct Group {
   void buildQueryCache() {
     const size_t cells = static_cast<size_t>(arena.num_cols) * arena.num_buckets;
     bucket_col_info.resize(cells);
-    const uint64_t *backing = arena.solution_bits.data();
+    const uint64_t *data = arena.solution_bits.data();
     for (size_t idx = 0; idx < cells; idx++) {
-      bucket_col_info[idx] = BucketQueryInfo{
-          backing + arena.per_col_word_off[idx], arena.per_col_vars[idx],
-          arena.per_col_seeds[idx]};
+      bucket_col_info[idx] = BucketQueryInfo{data, arena.per_col_vars[idx],
+                                             arena.per_col_seeds[idx]};
+      data += cellWords(arena.per_col_vars[idx]);
     }
   }
 
@@ -93,7 +91,7 @@ template <typename T> struct Group {
     return bucket_col_info[static_cast<size_t>(bucket_id) * arena.num_cols + ci];
   }
 
-  T queryColumn(size_t ci, const __uint128_t &signature,
+  T queryColumn(size_t ci, const __uint128_t &signature, const RibbonHash &hash,
                 uint32_t bucket_id) const {
     const auto &col = columns[ci];
     if (col.filter && !col.filter->containsHash(filterHash(signature))) {
@@ -102,8 +100,7 @@ template <typename T> struct Group {
     if (arena.num_buckets == 0 || !col.codebook) {
       return col.most_common_value.value_or(T{});
     }
-    return decodeBucketColumn<T>(signature, cell(bucket_id, ci),
-                                 col.max_codelength,
+    return decodeBucketColumn<T>(hash, cell(bucket_id, ci),
                                  col.codebook->code_length_counts,
                                  col.codebook->ordered_symbols);
   }

@@ -3,7 +3,6 @@
 #include <set>
 #include <src/build/Build.h>
 #include <src/build/Bytes.h>
-#include <src/construct/SpookyHash.h>
 
 namespace caramel::tests {
 
@@ -11,12 +10,12 @@ using namespace caramel::build;
 
 namespace {
 
-Keys makeKeys(size_t n) {
-  Keys keys;
+Signatures makeKeys(size_t n) {
+  std::vector<std::string> keys;
   for (size_t i = 0; i < n; i++) {
     keys.push_back("key_" + std::to_string(i));
   }
-  return keys;
+  return hashKeys(keys);
 }
 
 // Mostly zeros, so filters have something to do.
@@ -31,7 +30,7 @@ std::vector<uint32_t> skewedValues(size_t n, uint32_t seed) {
 
 // One chunk: the contiguous input rows [begin, end).
 struct Chunk {
-  Keys keys;
+  Signatures keys;
   Rows<uint32_t> rows;
 };
 
@@ -98,7 +97,7 @@ std::string indexBytes(const Index<uint32_t> &index) {
   if (index.shared_codebook) {
     out += toBytes(*index.shared_codebook);
   }
-  return out + std::to_string(index.max_pad);
+  return out + std::to_string(index.max_row_bits);
 }
 
 struct Case {
@@ -142,9 +141,9 @@ class DistributedBuildTest : public ::testing::TestWithParam<Case> {};
 // serialized in between, is byte-identical to a single-process build.
 TEST_P(DistributedBuildTest, MatchesLocalBuildByteForByte) {
   const Case &c = GetParam();
-  const uint64_t n = 6000;
+  const uint64_t n = 60000;
   const uint32_t cols = c.layout == Case::Single ? 1 : 5;
-  Keys keys = makeKeys(n);
+  Signatures keys = makeKeys(n);
   std::vector<uint32_t> values = skewedValues(n * cols, 7);
   std::vector<uint64_t> offsets(n + 1, 0);
   for (uint64_t r = 0; r < n; r++) {
@@ -160,7 +159,7 @@ TEST_P(DistributedBuildTest, MatchesLocalBuildByteForByte) {
                                     cols);
   };
   ChunkFn chunk_of = [&](uint64_t begin, uint64_t end) {
-    return Chunk{Keys(keys.begin() + begin, keys.begin() + end),
+    return Chunk{Signatures(keys.begin() + begin, keys.begin() + end),
                       rows_of(begin, end)};
   };
 
@@ -176,9 +175,25 @@ INSTANTIATE_TEST_SUITE_P(AllIndexTypes, DistributedBuildTest,
 
 TEST(StagedBuildTest, FilterHashIsHighHalfOfSignature) {
   for (int i = 0; i < 100; i++) {
-    std::string key = "key" + std::to_string(i);
-    EXPECT_EQ(filterHash(hashKey(key)),
-              SpookyHash::Hash64(key.data(), key.size(), 0));
+    std::string key = "key" + std::to_string(i) + std::string(i % 20, 'x');
+    EXPECT_EQ(filterHash(key.data(), key.size()),
+              static_cast<uint64_t>(hashKey(key) >> 64));
+  }
+}
+
+TEST(StagedBuildTest, SequentialKeysFillBucketsEvenly) {
+  // Short keys (< 16 bytes) and long keys use different hash functions.
+  for (const std::string pad : {"", "-a-long-suffix"}) {
+    const uint32_t num_buckets = 1000;
+    std::vector<uint32_t> counts(num_buckets, 0);
+    for (int i = 0; i < 1000000; i++) {
+      counts[getBucketID(hashKey("key" + std::to_string(i) + pad), num_buckets)]++;
+    }
+    // Mean 1000, standard deviation ~32.
+    for (uint32_t c : counts) {
+      ASSERT_GT(c, 840u);
+      ASSERT_LT(c, 1160u);
+    }
   }
 }
 
@@ -219,7 +234,7 @@ TEST(StagedBuildTest, RowViewsAgree) {
 }
 
 TEST(StagedBuildTest, SplitGroupsByBucketInInputOrder) {
-  Keys keys = makeKeys(5000);
+  Signatures keys = makeKeys(50000);
   auto values = skewedValues(keys.size(), 3);
   auto rows = Rows<uint32_t>::single(values);
   BuildSpec spec;
@@ -231,7 +246,7 @@ TEST(StagedBuildTest, SplitGroupsByBucketInInputOrder) {
   for (uint32_t b = 0; b < nb; b++) {
     for (uint64_t i = piece.offsets[b]; i < piece.offsets[b + 1]; i++) {
       EXPECT_EQ(getBucketID(piece.sigs[i], nb), b);
-      EXPECT_EQ(piece.sigs[i], hashKey(keys[piece.rows[i]]));
+      EXPECT_EQ(piece.sigs[i], keys[piece.rows[i]]);
       if (i > piece.offsets[b]) {
         EXPECT_LT(piece.rows[i - 1], piece.rows[i]);
       }
@@ -240,11 +255,11 @@ TEST(StagedBuildTest, SplitGroupsByBucketInInputOrder) {
 }
 
 TEST(StagedBuildTest, StatsMergeEqualsWholeFit) {
-  Keys keys = makeKeys(4000);
+  Signatures keys = makeKeys(4000);
   auto values = skewedValues(keys.size(), 5);
   BuildSpec spec;
   auto whole = countValues(spec, keys, Rows<uint32_t>::single(values));
-  Keys head(keys.begin(), keys.begin() + 1500), tail(keys.begin() + 1500, keys.end());
+  Signatures head(keys.begin(), keys.begin() + 1500), tail(keys.begin() + 1500, keys.end());
   auto merged = countValues(spec, head, Rows<uint32_t>::rowMajor(values.data(), 1500, 1));
   merged.merge(countValues(spec, tail, Rows<uint32_t>::rowMajor(values.data() + 1500, 2500, 1)));
   EXPECT_EQ(merged.num_rows, whole.num_rows);
@@ -253,7 +268,7 @@ TEST(StagedBuildTest, StatsMergeEqualsWholeFit) {
 }
 
 TEST(StagedBuildTest, SharedFilterGroupsColumnsByMostCommonValue) {
-  Keys keys = makeKeys(3000);
+  Signatures keys = makeKeys(30000);
   // Columns 0 and 2 are mostly 0, column 1 mostly 7.
   std::vector<uint32_t> values(keys.size() * 3);
   std::mt19937 rng(11);
@@ -273,7 +288,7 @@ TEST(StagedBuildTest, SharedFilterGroupsColumnsByMostCommonValue) {
 }
 
 TEST(StagedBuildTest, DuplicateKeyIsRejected) {
-  Keys keys = {"a", "b", "c", "a"};
+  Signatures keys = hashKeys(std::vector<std::string>{"a", "b", "c", "a"});
   std::vector<uint32_t> values = {1, 2, 3, 4};
   BuildSpec spec;
   EXPECT_THROW(buildLocal(spec, keys, Rows<uint32_t>::single(values)),
@@ -281,7 +296,7 @@ TEST(StagedBuildTest, DuplicateKeyIsRejected) {
 }
 
 TEST(StagedBuildTest, SolvedPartitionsMustTileTheGroup) {
-  Keys keys = makeKeys(3000);
+  Signatures keys = makeKeys(30000);
   auto values = skewedValues(keys.size(), 9);
   auto rows = Rows<uint32_t>::single(values);
   BuildSpec spec;

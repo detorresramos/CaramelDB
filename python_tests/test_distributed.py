@@ -8,8 +8,8 @@ import pytest
 import carameldb
 from carameldb import distributed, steps
 
-N = 6000
-CUTS = [0, 1700, 4100, N]
+N = 60000
+CUTS = [0, 17000, 41000, N]
 
 
 def dataset(kind, wide=False):

@@ -26,16 +26,17 @@ public:
   }
 
   std::vector<T> query(const char *data, size_t length) const {
-    uint32_t num_values = _length_csf->query(data, length);
-    num_values = std::min(num_values, static_cast<uint32_t>(_groups.size()));
     const __uint128_t signature = hashKey(data, length);
+    const RibbonHash hash(signature);
+    uint32_t num_values = _length_csf->queryHashed(signature);
+    num_values = std::min(num_values, static_cast<uint32_t>(_groups.size()));
 
     std::vector<T> outputs(num_values);
     for (size_t i = 0; i < num_values; i++) {
       const auto &group = _groups[i];
       const uint32_t bucket_id =
           group.num_buckets() ? getBucketID(signature, group.num_buckets()) : 0;
-      outputs[i] = group.queryColumn(0, signature, bucket_id);
+      outputs[i] = group.queryColumn(0, signature, hash, bucket_id);
     }
     return outputs;
   }

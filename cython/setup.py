@@ -118,6 +118,15 @@ def get_include_dirs():
     return dirs
 
 
+def get_header_deps():
+    # setuptools rebuilds an extension only when a listed source or dependency
+    # is newer than it; nearly all of the library is headers.
+    project_root = Path(__file__).resolve().parent.parent
+    headers = list((project_root / "src").rglob("*.h"))
+    headers += list((project_root / "cython").glob("*.h"))
+    return [str(h) for h in headers]
+
+
 def get_library_dirs():
     project_root = str(Path(__file__).resolve().parent.parent)
     build_dir = os.path.join(project_root, "build")
@@ -128,6 +137,7 @@ extensions = [
     Extension(
         "carameldb._caramel",
         sources=["_caramel.pyx"],
+        depends=get_header_deps(),
         include_dirs=get_include_dirs(),
         library_dirs=get_library_dirs(),
         libraries=["caramel_lib"],

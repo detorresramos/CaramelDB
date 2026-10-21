@@ -6,7 +6,7 @@
 namespace caramel {
 
 template <typename T>
-PackedCsfPtr<T> constructPackedCsf(const std::vector<std::string> &keys,
+PackedCsfPtr<T> constructPackedCsf(const build::Signatures &keys,
                                    const std::vector<std::vector<T>> &values,
                                    bool verbose = true) {
   if (keys.size() != values.size()) {
@@ -19,6 +19,13 @@ PackedCsfPtr<T> constructPackedCsf(const std::vector<std::string> &keys,
   return std::make_shared<PackedCsf<T>>(build::buildLocal(
       spec, keys,
       build::Rows<T>::ragged(flat.data(), offsets.data(), values.size())));
+}
+
+template <typename T>
+PackedCsfPtr<T> constructPackedCsf(const std::vector<std::string> &keys,
+                                   const std::vector<std::vector<T>> &values,
+                                   bool verbose = true) {
+  return constructPackedCsf<T>(build::hashKeys(keys), values, verbose);
 }
 
 } // namespace caramel

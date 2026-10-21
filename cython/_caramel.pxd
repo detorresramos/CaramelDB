@@ -7,6 +7,15 @@ from libcpp.memory cimport shared_ptr
 from libcpp.string cimport string
 from libcpp.vector cimport vector
 
+# ── Key signatures ────────────────────────────────────────────────────────
+
+cdef extern from "src/build/Rows.h" namespace "caramel::build":
+    cppclass Signatures "caramel::build::Signatures":
+        Signatures()
+        size_t size()
+    Signatures hashKeys(const char *const *data, const uint64_t *lengths, size_t n) nogil
+    Signatures hashFixedWidthKeys(const char *data, size_t width, size_t n) nogil
+
 # ── Char10/Char12 typedefs ────────────────────────────────────────────────
 
 cdef extern from "cython/caramel_types.h":
@@ -277,23 +286,23 @@ cdef extern from "src/construct/Csf.h" namespace "caramel":
 
 cdef extern from "src/construct/Construct.h" namespace "caramel":
     shared_ptr[Csf_uint32] constructCsf_uint32 "caramel::constructCsf<uint32_t>"(
-        const vector[string] &keys, const vector[unsigned int] &values,
+        const Signatures &keys, const vector[unsigned int] &values,
         shared_ptr[PreFilterConfig] filter_config, cbool verbose) except +
 
     shared_ptr[Csf_uint64] constructCsf_uint64 "caramel::constructCsf<uint64_t>"(
-        const vector[string] &keys, const vector[uint64_t] &values,
+        const Signatures &keys, const vector[uint64_t] &values,
         shared_ptr[PreFilterConfig] filter_config, cbool verbose) except +
 
     shared_ptr[Csf_Char10] constructCsf_Char10 "caramel::constructCsf<Char10>"(
-        const vector[string] &keys, const vector[Char10] &values,
+        const Signatures &keys, const vector[Char10] &values,
         shared_ptr[PreFilterConfig] filter_config, cbool verbose) except +
 
     shared_ptr[Csf_Char12] constructCsf_Char12 "caramel::constructCsf<Char12>"(
-        const vector[string] &keys, const vector[Char12] &values,
+        const Signatures &keys, const vector[Char12] &values,
         shared_ptr[PreFilterConfig] filter_config, cbool verbose) except +
 
     shared_ptr[Csf_string] constructCsf_string "caramel::constructCsf<std::string>"(
-        const vector[string] &keys, const vector[string] &values,
+        const Signatures &keys, const vector[string] &values,
         shared_ptr[PreFilterConfig] filter_config, cbool verbose) except +
 
 # ── MultisetCsf ───────────────────────────────────────────────────────────
@@ -366,23 +375,23 @@ cdef extern from "src/construct/multiset/MultisetConfig.h" namespace "caramel":
 
 cdef extern from "src/construct/multiset/ConstructMultiset.h" namespace "caramel":
     shared_ptr[MultisetCsf_uint32] constructMultisetCsfConfig_uint32 "caramel::constructMultisetCsf<uint32_t>"(
-        const vector[string] &keys, const vector[vector[unsigned int]] &values,
+        const Signatures &keys, const vector[vector[unsigned int]] &values,
         const MultisetConfig &config) except +
 
     shared_ptr[MultisetCsf_uint64] constructMultisetCsfConfig_uint64 "caramel::constructMultisetCsf<uint64_t>"(
-        const vector[string] &keys, const vector[vector[uint64_t]] &values,
+        const Signatures &keys, const vector[vector[uint64_t]] &values,
         const MultisetConfig &config) except +
 
     shared_ptr[MultisetCsf_Char10] constructMultisetCsfConfig_Char10 "caramel::constructMultisetCsf<Char10>"(
-        const vector[string] &keys, const vector[vector[Char10]] &values,
+        const Signatures &keys, const vector[vector[Char10]] &values,
         const MultisetConfig &config) except +
 
     shared_ptr[MultisetCsf_Char12] constructMultisetCsfConfig_Char12 "caramel::constructMultisetCsf<Char12>"(
-        const vector[string] &keys, const vector[vector[Char12]] &values,
+        const Signatures &keys, const vector[vector[Char12]] &values,
         const MultisetConfig &config) except +
 
     shared_ptr[MultisetCsf_string] constructMultisetCsfConfig_string "caramel::constructMultisetCsf<std::string>"(
-        const vector[string] &keys, const vector[vector[string]] &values,
+        const Signatures &keys, const vector[vector[string]] &values,
         const MultisetConfig &config) except +
 
 
@@ -400,11 +409,11 @@ cdef extern from "src/construct/multiset/ConstructMultiset.h" namespace "caramel
         double build_seconds
 
     MultisetConstructionResult_uint32 constructMultisetCsfRowMajor_uint32 "caramel::constructMultisetCsfRowMajor<uint32_t>"(
-        const vector[string] &keys, unsigned int *data, int num_rows, int num_cols,
+        const Signatures &keys, unsigned int *data, int num_rows, int num_cols,
         const MultisetConfig &config) except +
 
     MultisetConstructionResult_uint64 constructMultisetCsfRowMajor_uint64 "caramel::constructMultisetCsfRowMajor<uint64_t>"(
-        const vector[string] &keys, uint64_t *data, int num_rows, int num_cols,
+        const Signatures &keys, uint64_t *data, int num_rows, int num_cols,
         const MultisetConfig &config) except +
 
 # ── RaggedMultisetCsf ─────────────────────────────────────────────────────
@@ -422,7 +431,7 @@ cdef extern from "src/construct/multiset/RaggedMultisetCsf.h" namespace "caramel
 
 cdef extern from "src/construct/multiset/ConstructRaggedMultiset.h" namespace "caramel":
     shared_ptr[RaggedMultisetCsf_uint32] constructRaggedMultisetCsf_uint32 "caramel::constructRaggedMultisetCsf<uint32_t>"(
-        const vector[string] &keys, const vector[vector[unsigned int]] &values,
+        const Signatures &keys, const vector[vector[unsigned int]] &values,
         const MultisetConfig &config) except +
 
 # ── PackedCsf ─────────────────────────────────────────────────────────────
@@ -440,7 +449,7 @@ cdef extern from "src/construct/multiset/PackedCsf.h" namespace "caramel":
 
 cdef extern from "src/construct/multiset/ConstructPacked.h" namespace "caramel":
     shared_ptr[PackedCsf_uint32] constructPackedCsf_uint32 "caramel::constructPackedCsf<uint32_t>"(
-        const vector[string] &keys, const vector[vector[unsigned int]] &values,
+        const Signatures &keys, const vector[vector[unsigned int]] &values,
         cbool verbose) except +
 
 # ── UnorderedMapBaseline ───────────────────────────────────────────────────
@@ -470,13 +479,13 @@ cdef extern from "src/construct/multiset/permute/GlobalSortPermutation.h" namesp
 cdef extern from "cython/steps.h" namespace "caramel::py":
     string makeSpec(shared_ptr[PreFilterConfig] filter, cbool shared_filter,
                     cbool shared_codebook, cbool packed, cbool verbose) except +
-    string countStep[T](const string &spec, const vector[string] &keys, const T *data,
+    string countStep[T](const string &spec, const Signatures &keys, const T *data,
                        uint64_t rows, uint32_t cols, const uint64_t *offsets,
                        const string &filters) except + nogil
     string mergeCounts[T](const vector[string] &parts) except +
     string chooseFiltersStep[T](const string &spec, const string &stats,
                                uint32_t *num_specs) except +
-    string findExceptionsStep[T](const string &filter_plan, const vector[string] &keys,
+    string findExceptionsStep[T](const string &filter_plan, const Signatures &keys,
                                      const T *data, uint64_t rows, uint32_t cols,
                                      const uint64_t *offsets) except + nogil
     string mergeExceptions(const vector[string] &parts) except +
@@ -485,7 +494,7 @@ cdef extern from "cython/steps.h" namespace "caramel::py":
     string makePlanStep[T](const string &spec, const string &stats,
                             const string &filters) except +
     vector[uint32_t] planPartitions[T](const string &plan, uint32_t splits) except +
-    vector[string] splitStep[T](const string &plan, const vector[string] &keys,
+    vector[string] splitStep[T](const string &plan, const Signatures &keys,
                                  const T *data, uint64_t rows, uint32_t cols,
                                  const uint64_t *offsets,
                                  const vector[uint32_t] &ranges) except + nogil

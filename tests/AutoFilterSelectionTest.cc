@@ -24,8 +24,8 @@ TEST(AutoFilterSelectionTest, BinaryFuseC_EdgeCase) {
 TEST(AutoFilterSelectionTest, LowerBound_HighAlpha) {
   // alpha=0.9, 1-bit xor: eps=0.5, b_eps=1.23, n_over_N=0.1
   double lb = autoLowerBound(0.9, 0.5, 1.23, 0.1);
-  // = 1.089 * 0.9 * 0.5 - 0.1 - 1.23 * 0.1 = 0.49005 - 0.1 - 0.123 = 0.26705
-  EXPECT_NEAR(lb, 0.26705, 0.001);
+  // = 1.05 * 0.9 * 0.5 - 0.1 - 1.23 * 0.1 = 0.4725 - 0.1 - 0.123 = 0.2495
+  EXPECT_NEAR(lb, 0.2495, 0.001);
 }
 
 TEST(AutoFilterSelectionTest, LowerBound_LowAlpha) {

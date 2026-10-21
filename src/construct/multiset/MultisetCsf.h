@@ -43,16 +43,17 @@ public:
                        bool parallelize = true) const {
     std::vector<T> outputs(_total_cols);
     const __uint128_t signature = hashKey(data, length);
+    const RibbonHash hash(signature);
 
 #pragma omp parallel for default(none)                                         \
-    shared(signature, _groups, outputs) if (parallelize)
+    shared(signature, hash, _groups, outputs) if (parallelize)
     for (size_t gi = 0; gi < _groups.size(); gi++) {
       const auto &group = _groups[gi];
       const uint32_t bucket_id =
           group.num_buckets() ? getBucketID(signature, group.num_buckets()) : 0;
       for (size_t ci = 0; ci < group.columns.size(); ci++) {
         outputs[group.columns[ci].output_index] =
-            group.queryColumn(ci, signature, bucket_id);
+            group.queryColumn(ci, signature, hash, bucket_id);
       }
     }
     return outputs;
