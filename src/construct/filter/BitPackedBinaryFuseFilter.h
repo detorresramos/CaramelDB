@@ -5,23 +5,19 @@
 #include <algorithm>
 #include <cstring>
 #include <memory>
-#include <random>
 #include <stdexcept>
 #include <vector>
 
 namespace caramel {
 
-// Hasher for Binary Fuse filter with random seed generation and Murmur64 mixing
+// Hasher for Binary Fuse filter: Murmur64 mixing under a seed derived from
+// the construction attempt, so the same keys always build the same filter.
 class BitPackedBinaryFuseHasher {
 public:
   uint64_t seed;
 
-  BitPackedBinaryFuseHasher() {
-    std::random_device random;
-    seed = random();
-    seed <<= 32;
-    seed |= random();
-  }
+  explicit BitPackedBinaryFuseHasher(uint64_t attempt = 0)
+      : seed(murmur64(attempt + UINT64_C(0x9E3779B97F4A7C15))) {}
 
   inline uint64_t operator()(uint64_t key) const {
     return murmur64(key + seed);
@@ -109,7 +105,7 @@ public:
     segmentCountLength = segmentCount * segmentLength;
 
     fingerprints = std::make_unique<BitPackedArray>(arrayLength, bits_per_fingerprint);
-    hasher = std::make_unique<BitPackedBinaryFuseHasher>();
+    hasher = std::make_unique<BitPackedBinaryFuseHasher>(0);
   }
 
   BitPackedBinaryFuseFilter()
@@ -239,7 +235,7 @@ public:
       if (hashIndex > 10) {
         return BinaryFuseStatus::NotEnoughSpace;
       }
-      hasher = std::make_unique<BitPackedBinaryFuseHasher>();
+      hasher = std::make_unique<BitPackedBinaryFuseHasher>(hashIndex);
     }
 
     for (int i = static_cast<int>(reverse_order_pos) - 1; i >= 0; i--) {

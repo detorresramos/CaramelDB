@@ -1,6 +1,6 @@
 #pragma once
 
-#include "BucketedHashStore.h"
+#include "Hashing.h"
 #include "CsfCodebook.h"
 #include "ConstructUtils.h"
 #include <vector>
@@ -13,9 +13,8 @@ struct BucketQueryInfo {
   uint32_t seed;
 };
 
-// Decodes one bucket's value for a key whose signature is already known. The
-// single source of the bit-slice + canonical-decode tail, shared by
-// queryCsfCore (single Csf) and MultisetCsf/RaggedMultisetCsf group queries.
+// Decodes one cell's value for a key whose signature is already known: the
+// bit-slice + canonical-decode tail shared by every index type.
 template <typename T>
 inline T __attribute__((always_inline))
 decodeBucketColumn(const __uint128_t &signature, const BucketQueryInfo &info,
@@ -39,18 +38,6 @@ decodeBucketColumn(const __uint128_t &signature, const BucketQueryInfo &info,
 
   return canonicalDecodeFromNumber<T>(encoded_value, code_length_counts,
                                       ordered_symbols, max_codelength);
-}
-
-template <typename T>
-T queryCsfCore(const char *data, size_t length, uint32_t hash_store_seed,
-               const std::vector<BucketQueryInfo> &bucket_info,
-               uint32_t num_buckets, uint32_t max_codelength,
-               const std::vector<uint32_t> &code_length_counts,
-               const std::vector<T> &ordered_symbols) {
-  __uint128_t signature = hashKey(data, length, hash_store_seed);
-  uint32_t bucket_id = getBucketID(signature, num_buckets);
-  return decodeBucketColumn<T>(signature, bucket_info[bucket_id], max_codelength,
-                               code_length_counts, ordered_symbols);
 }
 
 } // namespace caramel

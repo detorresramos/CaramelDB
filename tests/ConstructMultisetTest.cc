@@ -18,7 +18,7 @@ std::vector<std::string> makeKeys(size_t n) {
   return keys;
 }
 
-// Asserts the structural invariants fillArena() promises for one group's arena,
+// Asserts the structural invariants solve() + combine() promise for one group's arena,
 // independent of any query path:
 //   - ranges are packed bucket-major, contiguous, in whole words.
 //   - per_col_word_off matches the documented offset walk exactly.
@@ -34,7 +34,7 @@ void checkArenaInvariants(const typename MultisetCsf<T>::Group &group) {
     return;  // degenerate group: no arena content to validate.
   }
 
-  ASSERT_EQ(arena.per_col_bits.size(), static_cast<size_t>(B) * M);
+  ASSERT_EQ(arena.per_col_vars.size(), static_cast<size_t>(B) * M);
   ASSERT_EQ(arena.per_col_seeds.size(), static_cast<size_t>(B) * M);
   ASSERT_EQ(arena.per_col_word_off.size(), static_cast<size_t>(B) * M);
 
@@ -44,7 +44,8 @@ void checkArenaInvariants(const typename MultisetCsf<T>::Group &group) {
       size_t idx = static_cast<size_t>(b) * M + c;
       ASSERT_EQ(arena.per_col_word_off[idx], cursor_words)
           << "per_col_word_off mismatch at (b=" << b << ",c=" << c << ")";
-      cursor_words += (arena.per_col_bits[idx] + 63u) / 64u;
+      cursor_words +=
+          (arena.per_col_vars[idx] + group.columns[c].max_codelength + 63u) / 64u;
     }
   }
 

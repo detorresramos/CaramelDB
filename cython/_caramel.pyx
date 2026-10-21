@@ -1506,3 +1506,202 @@ def permute_char12(np.ndarray array not None, config=None):
                                          (<GlobalSortPermutationConfig>config)._refinement_iterations)
     else:
         cpp.entropyPermutation_Char12(<cpp.Char12*>array.data, num_rows, num_cols)
+
+
+# ── Build steps ───────────────────────────────────────────────────
+# Thin byte-string bindings for carameldb.steps; see that module for the API.
+
+cdef vector[string] _step_keys(keys) except *:
+    if isinstance(keys, np.ndarray) and (<np.ndarray>keys).dtype == np.uint32:
+        return _uint32_array_to_cpp_strings(np.ascontiguousarray(keys))
+    return _to_cpp_strings(keys)
+
+
+def _step_values(values, dtype, bint csr):
+    """Returns (flat, offsets or None, num_rows, num_cols) as contiguous arrays.
+
+    Dense values are row-major; csr=True (or a (flat, offsets) tuple, or a list
+    of rows) gives CSR rows."""
+    if isinstance(values, tuple):
+        flat, offsets = values
+        offsets = np.ascontiguousarray(offsets, dtype=np.uint64)
+        return np.ascontiguousarray(flat, dtype=dtype), offsets, len(offsets) - 1, 0
+    if isinstance(values, np.ndarray) and values.dtype != object:
+        arr = np.ascontiguousarray(values, dtype=dtype)
+        rows = arr.shape[0]
+        cols = 1 if arr.ndim == 1 else arr.shape[1]
+        if not csr:
+            return arr, None, rows, cols
+        offsets = np.arange(rows + 1, dtype=np.uint64) * cols
+        return arr.reshape(-1), offsets, rows, 0
+    lengths = np.fromiter((len(row) for row in values), dtype=np.uint64, count=len(values))
+    offsets = np.zeros(len(values) + 1, dtype=np.uint64)
+    np.cumsum(lengths, out=offsets[1:])
+    flat = np.fromiter((v for row in values for v in row), dtype=dtype, count=int(offsets[-1]))
+    return flat, offsets, len(values), 0
+
+
+cdef inline const uint64_t* _offsets_ptr(offsets):
+    if offsets is None:
+        return NULL
+    return <const uint64_t*>np.PyArray_DATA(<np.ndarray>offsets)
+
+
+cdef inline void* _data_ptr(flat):
+    return np.PyArray_DATA(<np.ndarray>flat)
+
+
+def _step_spec(prefilter, bint shared_filter, bint shared_codebook, bint packed, bint verbose):
+    cdef shared_ptr[cpp.PreFilterConfig] config
+    if prefilter is not None:
+        config = (<PreFilterConfig>prefilter)._ptr
+    return cpp.makeSpec(config, shared_filter, shared_codebook, packed, verbose)
+
+
+def _step_count(str dtype, bytes spec, keys, values, bint csr, bytes filters):
+    cdef vector[string] k = _step_keys(keys)
+    flat, offsets, rows, cols = _step_values(values, dtype, csr)
+    cdef string s = spec, f = filters, out
+    cdef const uint64_t* off = _offsets_ptr(offsets)
+    cdef void* data = _data_ptr(flat)
+    cdef uint64_t r = rows
+    cdef uint32_t c = cols
+    if dtype == "uint32":
+        with nogil:
+            out = cpp.countStep[uint32_t](s, k, <const uint32_t*>data, r, c, off, f)
+    else:
+        with nogil:
+            out = cpp.countStep[uint64_t](s, k, <const uint64_t*>data, r, c, off, f)
+    return out
+
+
+def _step_merge_counts(str dtype, list parts):
+    cdef vector[string] p = parts
+    if dtype == "uint32":
+        return cpp.mergeCounts[uint32_t](p)
+    return cpp.mergeCounts[uint64_t](p)
+
+
+def _step_choose_filters(str dtype, bytes spec, bytes stats):
+    """Returns (filter_plan, num_specs)."""
+    cdef uint32_t n = 0
+    cdef string out
+    if dtype == "uint32":
+        out = cpp.chooseFiltersStep[uint32_t](spec, stats, &n)
+    else:
+        out = cpp.chooseFiltersStep[uint64_t](spec, stats, &n)
+    return out, n
+
+
+def _step_find_exceptions(str dtype, bytes filter_plan, keys, values, bint csr):
+    cdef vector[string] k = _step_keys(keys)
+    flat, offsets, rows, cols = _step_values(values, dtype, csr)
+    cdef string fp = filter_plan, out
+    cdef const uint64_t* off = _offsets_ptr(offsets)
+    cdef void* data = _data_ptr(flat)
+    cdef uint64_t r = rows
+    cdef uint32_t c = cols
+    if dtype == "uint32":
+        with nogil:
+            out = cpp.findExceptionsStep[uint32_t](fp, k, <const uint32_t*>data, r, c, off)
+    else:
+        with nogil:
+            out = cpp.findExceptionsStep[uint64_t](fp, k, <const uint64_t*>data, r, c, off)
+    return out
+
+
+def _step_merge_exceptions(list parts):
+    cdef vector[string] p = parts
+    return cpp.mergeExceptions(p)
+
+
+def _step_build_filters(str dtype, bytes filter_plan, bytes filter_keys):
+    """Returns (filters, num_filters)."""
+    cdef uint32_t n = 0
+    cdef string out
+    if dtype == "uint32":
+        out = cpp.buildFiltersStep[uint32_t](filter_plan, filter_keys, &n)
+    else:
+        out = cpp.buildFiltersStep[uint64_t](filter_plan, filter_keys, &n)
+    return out, n
+
+
+def _step_make_plan(str dtype, bytes spec, bytes stats, bytes filters):
+    if dtype == "uint32":
+        return cpp.makePlanStep[uint32_t](spec, stats, filters)
+    return cpp.makePlanStep[uint64_t](spec, stats, filters)
+
+
+def _step_partitions(str dtype, bytes plan, uint32_t splits):
+    cdef vector[uint32_t] flat
+    if dtype == "uint32":
+        flat = cpp.planPartitions[uint32_t](plan, splits)
+    else:
+        flat = cpp.planPartitions[uint64_t](plan, splits)
+    return [(flat[i], flat[i + 1], flat[i + 2]) for i in range(0, flat.size(), 3)]
+
+
+def _step_split(str dtype, bytes plan, keys, values, bint csr, list ranges):
+    cdef vector[string] k = _step_keys(keys)
+    flat, offsets, rows, cols = _step_values(values, dtype, csr)
+    cdef string p = plan
+    cdef vector[string] out
+    cdef vector[uint32_t] rs
+    for g, b, e in ranges:
+        rs.push_back(g)
+        rs.push_back(b)
+        rs.push_back(e)
+    cdef const uint64_t* off = _offsets_ptr(offsets)
+    cdef void* data = _data_ptr(flat)
+    cdef uint64_t r = rows
+    cdef uint32_t c = cols
+    if dtype == "uint32":
+        with nogil:
+            out = cpp.splitStep[uint32_t](p, k, <const uint32_t*>data, r, c, off, rs)
+    else:
+        with nogil:
+            out = cpp.splitStep[uint64_t](p, k, <const uint64_t*>data, r, c, off, rs)
+    return list(out)
+
+
+def _step_solve(str dtype, bytes plan, list parts):
+    cdef string p = plan, out
+    cdef vector[string] ps = parts
+    if dtype == "uint32":
+        with nogil:
+            out = cpp.solveStep[uint32_t](p, ps)
+    else:
+        with nogil:
+            out = cpp.solveStep[uint64_t](p, ps)
+    return out
+
+
+def _step_combine(str kind, str dtype, bytes plan, list solved, lengths=None):
+    """Returns the finished index object for kind csf | multiset | packed | ragged."""
+    cdef vector[string] s = solved
+    if kind == "csf" and dtype == "uint32":
+        csf32 = CSFUint32.__new__(CSFUint32)
+        (<CSFUint32>csf32)._ptr = cpp.combineCsf_uint32(plan, s)
+        return csf32
+    if kind == "csf":
+        csf64 = CSFUint64.__new__(CSFUint64)
+        (<CSFUint64>csf64)._ptr = cpp.combineCsf_uint64(plan, s)
+        return csf64
+    if kind == "multiset" and dtype == "uint32":
+        ms32 = MultisetCSFUint32.__new__(MultisetCSFUint32)
+        (<MultisetCSFUint32>ms32)._ptr = cpp.combineMultiset_uint32(plan, s)
+        return ms32
+    if kind == "multiset":
+        ms64 = MultisetCSFUint64.__new__(MultisetCSFUint64)
+        (<MultisetCSFUint64>ms64)._ptr = cpp.combineMultiset_uint64(plan, s)
+        return ms64
+    if kind == "packed":
+        packed = PackedCSFUint32.__new__(PackedCSFUint32)
+        (<PackedCSFUint32>packed)._ptr = cpp.combinePacked_uint32(plan, s)
+        return packed
+    if kind == "ragged":
+        ragged = RaggedMultisetCSFUint32.__new__(RaggedMultisetCSFUint32)
+        (<RaggedMultisetCSFUint32>ragged)._ptr = cpp.combineRagged_uint32(
+            (<CSFUint32>lengths)._ptr, plan, s)
+        return ragged
+    raise ValueError(f"Unknown kind {kind!r}")

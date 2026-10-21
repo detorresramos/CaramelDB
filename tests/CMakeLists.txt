@@ -6,7 +6,7 @@ set(CARAMEL_TESTS
     AutoFilterSelectionTest
     ConstructMultisetTest
     BitArrayTest
-    BucketedHashStoreTest
+    StagedBuildTest
     CodecTest
     ConstructCsfTest
     EntropyPermutationTest

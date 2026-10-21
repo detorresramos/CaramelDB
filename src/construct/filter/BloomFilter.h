@@ -86,25 +86,36 @@ public:
         autotunedFixedK(num_elements, error_rate, num_hashes, verbose));
   }
 
-  void add(const std::string &key) {
-    add(key.data(), key.size());
-  }
+  void add(const std::string &key) { add(key.data(), key.size()); }
 
   void add(const char *data, size_t length) {
+    addHash(SpookyHash::Hash64(static_cast<const void *>(data), length, 0));
+  }
+
+  // Probe i is h + i * step (Kirsch-Mitzenmacher double hashing), so the
+  // filter is built from and queried with one 64-bit key hash.
+  void addHash(uint64_t key_hash) {
+    const uint64_t m = size();
+    const uint64_t step = probeStep(key_hash);
     for (size_t i = 0; i < _num_hashes; i++) {
-      uint64_t hash = SpookyHash::Hash64(static_cast<const void *>(data), length, i) % size();
-      _bitarray->setBit(hash);
+      _bitarray->setBit((key_hash + i * step) % m);
     }
   }
 
-  bool contains(const std::string &key) {
+  bool contains(const std::string &key) const {
     return contains(key.data(), key.size());
   }
 
-  bool contains(const char *data, size_t length) {
+  bool contains(const char *data, size_t length) const {
+    return containsHash(
+        SpookyHash::Hash64(static_cast<const void *>(data), length, 0));
+  }
+
+  bool containsHash(uint64_t key_hash) const {
+    const uint64_t m = size();
+    const uint64_t step = probeStep(key_hash);
     for (size_t i = 0; i < _num_hashes; i++) {
-      uint64_t hash = SpookyHash::Hash64(static_cast<const void *>(data), length, i) % size();
-      if (!(*_bitarray)[hash]) {
+      if (!(*_bitarray)[(key_hash + i * step) % m]) {
         return false;
       }
     }
@@ -116,6 +127,13 @@ public:
   size_t numHashes() const { return _num_hashes; }
 
 private:
+  static uint64_t probeStep(uint64_t key_hash) {
+    uint64_t h = key_hash;
+    h ^= h >> 33;
+    h *= 0xff51afd7ed558ccdULL;
+    h ^= h >> 33;
+    return h | 1;
+  }
 
   // Private constructor for cereal
   BloomFilter() {}
