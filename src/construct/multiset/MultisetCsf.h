@@ -43,16 +43,17 @@ public:
                        bool parallelize = true) const {
     std::vector<T> outputs(_total_cols);
     const __uint128_t signature = hashKey(data, length);
+    const RibbonHash hash(signature);
 
 #pragma omp parallel for default(none)                                         \
-    shared(signature, _groups, outputs) if (parallelize)
+    shared(signature, hash, _groups, outputs) if (parallelize)
     for (size_t gi = 0; gi < _groups.size(); gi++) {
       const auto &group = _groups[gi];
       const uint32_t bucket_id =
           group.num_buckets() ? getBucketID(signature, group.num_buckets()) : 0;
       for (size_t ci = 0; ci < group.columns.size(); ci++) {
         outputs[group.columns[ci].output_index] =
-            group.queryColumn(ci, signature, bucket_id);
+            group.queryColumn(ci, signature, hash, bucket_id);
       }
     }
     return outputs;
@@ -64,7 +65,7 @@ public:
       auto meta = SafeFileIO::ofstream(path + "/metadata.bin", std::ios::binary);
       uint32_t num_groups = _groups.size();
       uint8_t uses_shared = _shared_codebook ? 1 : 0;
-      meta.write(reinterpret_cast<const char *>(&type_id), sizeof(uint32_t));
+      writeHeader(meta, type_id);
       meta.write(reinterpret_cast<const char *>(&_total_cols), sizeof(uint32_t));
       meta.write(reinterpret_cast<const char *>(&num_groups), sizeof(uint32_t));
       meta.write(reinterpret_cast<const char *>(&uses_shared), sizeof(uint8_t));
@@ -86,15 +87,9 @@ public:
   static MultisetCsfPtr<T> load(const std::string &path,
                                 const uint32_t type_id = 0) {
     auto meta = SafeFileIO::ifstream(path + "/metadata.bin", std::ios::binary);
-    uint32_t type_id_found = 0, total_cols = 0, num_groups = 0;
+    uint32_t total_cols = 0, num_groups = 0;
     uint8_t uses_shared = 0;
-    meta.read(reinterpret_cast<char *>(&type_id_found), sizeof(uint32_t));
-    if (type_id != type_id_found) {
-      throw CsfDeserializationException(
-          "Expected type_id to be " + std::to_string(type_id) +
-          " but found type_id = " + std::to_string(type_id_found) +
-          " when deserializing " + path);
-    }
+    checkHeader(meta, type_id, path);
     meta.read(reinterpret_cast<char *>(&total_cols), sizeof(uint32_t));
     meta.read(reinterpret_cast<char *>(&num_groups), sizeof(uint32_t));
     meta.read(reinterpret_cast<char *>(&uses_shared), sizeof(uint8_t));

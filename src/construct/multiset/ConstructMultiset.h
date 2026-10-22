@@ -34,7 +34,7 @@ void permuteRowMajor(T *data, int64_t num_rows, int64_t num_cols,
 }
 
 template <typename T>
-MultisetCsfPtr<T> constructMultisetCsf(const std::vector<std::string> &keys,
+MultisetCsfPtr<T> constructMultisetCsf(const build::Signatures &keys,
                                        std::vector<std::vector<T>> values,
                                        const MultisetConfig &config) {
   if (values.empty() || values[0].empty()) {
@@ -58,6 +58,13 @@ MultisetCsfPtr<T> constructMultisetCsf(const std::vector<std::string> &keys,
       multisetSpec(config), keys, build::Rows<T>::columns(values)));
 }
 
+template <typename T>
+MultisetCsfPtr<T> constructMultisetCsf(const std::vector<std::string> &keys,
+                                       std::vector<std::vector<T>> values,
+                                       const MultisetConfig &config) {
+  return constructMultisetCsf<T>(build::hashKeys(keys), std::move(values), config);
+}
+
 template <typename T> struct MultisetConstructionResult {
   MultisetCsfPtr<T> csf;
   double permutation_seconds = 0.0;
@@ -68,7 +75,7 @@ template <typename T> struct MultisetConstructionResult {
 // permutation, if any, is applied to `data` in place.
 template <typename T>
 MultisetConstructionResult<T>
-constructMultisetCsfRowMajor(const std::vector<std::string> &keys, T *data,
+constructMultisetCsfRowMajor(const build::Signatures &keys, T *data,
                              int num_rows, int num_cols,
                              const MultisetConfig &config) {
   MultisetConstructionResult<T> result;
@@ -80,6 +87,15 @@ constructMultisetCsfRowMajor(const std::vector<std::string> &keys, T *data,
       build::Rows<T>::rowMajor(data, num_rows, num_cols)));
   result.build_seconds = timer.seconds();
   return result;
+}
+
+template <typename T>
+MultisetConstructionResult<T>
+constructMultisetCsfRowMajor(const std::vector<std::string> &keys, T *data,
+                             int num_rows, int num_cols,
+                             const MultisetConfig &config) {
+  return constructMultisetCsfRowMajor<T>(build::hashKeys(keys), data, num_rows,
+                                         num_cols, config);
 }
 
 } // namespace caramel

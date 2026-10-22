@@ -31,14 +31,14 @@ namespace caramel::build {
 // The plan for rows held in this process: count, then (when filtering) build
 // the filters and recount the rows they pass.
 template <typename T>
-Plan<T> planLocal(const BuildSpec &spec, const Keys &keys, const Rows<T> &rows) {
-  Counts<T> counts = countValues(spec, keys, rows);
+Plan<T> planLocal(const BuildSpec &spec, const Signatures &sigs, const Rows<T> &rows) {
+  Counts<T> counts = countValues(spec, sigs, rows);
   Filters<T> filters;
   if (spec.filter.kind != FilterType::None) {
     FilterChoice<T> choice = chooseFilters(spec, counts);
-    filters = buildFilters(choice, findExceptions(choice, keys, rows));
+    filters = buildFilters(choice, findExceptions(choice, sigs, rows));
     if (!filters.empty()) {
-      counts = countValues(spec, keys, rows, &filters);
+      counts = countValues(spec, sigs, rows, &filters);
     }
   }
   return makePlan(spec, counts, std::move(filters));
@@ -47,9 +47,9 @@ Plan<T> planLocal(const BuildSpec &spec, const Keys &keys, const Rows<T> &rows) 
 // Builds in this process. Groups are split and solved one at a time so only
 // one group's piece and codedicts are alive at once.
 template <typename T>
-Index<T> buildLocal(const BuildSpec &spec, const Keys &keys, const Rows<T> &rows) {
+Index<T> buildLocal(const BuildSpec &spec, const Signatures &sigs, const Rows<T> &rows) {
   Timer timer;
-  Plan<T> plan = planLocal(spec, keys, rows);
+  Plan<T> plan = planLocal(spec, sigs, rows);
   if (spec.verbose) {
     std::cout << "Planned " << plan.groups.size() << " groups in "
               << timer.seconds() << "s" << std::endl;
@@ -60,7 +60,7 @@ Index<T> buildLocal(const BuildSpec &spec, const Keys &keys, const Rows<T> &rows
     if (nb == 0) {
       continue;
     }
-    auto pieces = split(plan, keys, rows, {{g, 0, nb}});
+    auto pieces = split(plan, sigs, rows, {{g, 0, nb}});
     solved.push_back(solve(plan, pieces[0]));
     plan.releaseCodedicts(g);
   }

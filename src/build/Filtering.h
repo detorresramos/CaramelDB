@@ -95,7 +95,7 @@ FilterChoice<T> chooseFilters(const BuildSpec &spec, const Counts<T> &counts) {
 }
 
 template <typename T>
-Exceptions findExceptions(const FilterChoice<T> &plan, const Keys &keys,
+Exceptions findExceptions(const FilterChoice<T> &plan, const Signatures &sigs,
                              const Rows<T> &rows) {
   const uint64_t n = rows.numRows();
   const size_t S = plan.specs.size();
@@ -103,7 +103,7 @@ Exceptions findExceptions(const FilterChoice<T> &plan, const Keys &keys,
   std::vector<Exceptions> partial(blocks);
 
 #pragma omp parallel for schedule(dynamic, 1) default(none)                    \
-    shared(plan, keys, rows, partial, n, S, blocks)
+    shared(plan, sigs, rows, partial, n, S, blocks)
   for (size_t block = 0; block < blocks; block++) {
     auto &out = partial[block].per_spec;
     out.resize(S);
@@ -123,7 +123,7 @@ Exceptions findExceptions(const FilterChoice<T> &plan, const Keys &keys,
         }
         if (exception) {
           if (!hashed) {
-            h = filterHash(keys[r].data(), keys[r].size());
+            h = filterHash(sigs[r]);
             hashed = true;
           }
           out[s].push_back(h);

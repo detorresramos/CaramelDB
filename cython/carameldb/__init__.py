@@ -56,6 +56,8 @@ CLASS_LIST = [
     MultisetCSFString,
     MultisetCSFUint32,
     MultisetCSFUint64,
+    RaggedMultisetCSFUint32,
+    PackedCSFUint32,
 ]
 
 

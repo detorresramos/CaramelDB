@@ -9,7 +9,7 @@ namespace caramel::build {
 namespace detail {
 
 inline BucketArena concatSolved(std::vector<SolvedPartition> solved, uint32_t num_cols,
-                        uint32_t num_buckets, uint32_t guard_words) {
+                        uint32_t num_buckets) {
   std::sort(solved.begin(), solved.end(), [](const SolvedPartition &a, const SolvedPartition &b) {
     return a.partition.begin < b.partition.begin;
   });
@@ -31,13 +31,8 @@ inline BucketArena concatSolved(std::vector<SolvedPartition> solved, uint32_t nu
     arena.solution_bits = std::move(solved[0].words);
     arena.per_col_vars = std::move(solved[0].vars);
     arena.per_col_seeds = std::move(solved[0].seeds);
-    arena.per_col_word_off = std::move(solved[0].word_off);
   } else {
     for (auto &s : solved) {
-      const uint64_t base = arena.solution_bits.size();
-      for (uint64_t off : s.word_off) {
-        arena.per_col_word_off.push_back(base + off);
-      }
       arena.per_col_vars.insert(arena.per_col_vars.end(), s.vars.begin(),
                                 s.vars.end());
       arena.per_col_seeds.insert(arena.per_col_seeds.end(), s.seeds.begin(),
@@ -47,9 +42,8 @@ inline BucketArena concatSolved(std::vector<SolvedPartition> solved, uint32_t nu
       s = SolvedPartition();
     }
   }
-  // The decode reads arr[w] and arr[w + 1]; packed decodes read a whole
-  // window past the last cell's start.
-  arena.solution_bits.resize(arena.solution_bits.size() + guard_words, 0);
+  // ribbonWindow reads one word past the last cell.
+  arena.solution_bits.push_back(0);
   return arena;
 }
 
@@ -62,9 +56,8 @@ template <typename T> Index<T> combine(Plan<T> plan, std::vector<SolvedPartition
   index.num_cols = plan.packed() ? 1 : plan.num_cols;
   index.stop_symbol = plan.stop_symbol;
   for (const auto &s : solved) {
-    index.max_pad = std::max(index.max_pad, s.max_pad);
+    index.max_row_bits = std::max(index.max_row_bits, s.max_row_bits);
   }
-  const uint32_t guard_words = 1 + (plan.packed() ? index.max_pad / 64 + 1 : 0);
 
   std::vector<std::vector<SolvedPartition>> by_group(plan.groups.size());
   for (auto &s : solved) {
@@ -76,8 +69,7 @@ template <typename T> Index<T> combine(Plan<T> plan, std::vector<SolvedPartition
     const uint32_t M = plan.packed() ? 1 : gp.columns.size();
     Group<T> group;
     if (gp.num_buckets > 0) {
-      group.arena = detail::concatSolved(std::move(by_group[g]), M,
-                                           gp.num_buckets, guard_words);
+      group.arena = detail::concatSolved(std::move(by_group[g]), M, gp.num_buckets);
     } else {
       group.arena.num_cols = M;
     }

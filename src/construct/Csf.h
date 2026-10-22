@@ -19,16 +19,33 @@ public:
       : std::runtime_error("Cannot deserialize CSF: " + message) {};
 };
 
-// Checks the type_id header written by saveWithTypeId.
-inline void checkTypeId(std::istream &input, uint32_t type_id,
+// Bumped whenever the serialized layout or the query math changes: a file
+// from another version would otherwise decode into garbage lengths and
+// allocate without bound.
+static constexpr uint32_t CSF_FORMAT_VERSION = 2;
+
+inline void writeHeader(std::ostream &output, uint32_t type_id) {
+  output.write(reinterpret_cast<const char *>(&type_id), sizeof(uint32_t));
+  output.write(reinterpret_cast<const char *>(&CSF_FORMAT_VERSION), sizeof(uint32_t));
+}
+
+// Checks the header written by writeHeader.
+inline void checkHeader(std::istream &input, uint32_t type_id,
                         const std::string &filename) {
   uint32_t found = 0;
+  uint32_t version = 0;
   input.read(reinterpret_cast<char *>(&found), sizeof(uint32_t));
-  if (found != type_id) {
+  input.read(reinterpret_cast<char *>(&version), sizeof(uint32_t));
+  if (!input || found != type_id) {
     throw CsfDeserializationException(
         "Expected type_id to be " + std::to_string(type_id) +
         " but found type_id = " + std::to_string(found) +
         " when deserializing " + filename);
+  }
+  if (version != CSF_FORMAT_VERSION) {
+    throw CsfDeserializationException(
+        filename + " has format version " + std::to_string(version) +
+        "; this build reads version " + std::to_string(CSF_FORMAT_VERSION));
   }
 }
 
@@ -36,7 +53,7 @@ template <typename Obj>
 void saveWithTypeId(const Obj &obj, const std::string &filename,
                     uint32_t type_id) {
   auto output = SafeFileIO::ofstream(filename, std::ios::binary);
-  output.write(reinterpret_cast<const char *>(&type_id), sizeof(uint32_t));
+  writeHeader(output, type_id);
   cereal::BinaryOutputArchive archive(output);
   archive(obj);
 }
@@ -51,7 +68,10 @@ public:
   T query(const std::string &key) const { return query(key.data(), key.size()); }
 
   T query(const char *data, size_t length) const {
-    const __uint128_t signature = hashKey(data, length);
+    return queryHashed(hashKey(data, length));
+  }
+
+  T queryHashed(const __uint128_t &signature) const {
     const auto &col = _group.columns[0];
     if (col.filter && !col.filter->containsHash(filterHash(signature))) {
       return *col.most_common_value;
@@ -63,8 +83,7 @@ public:
       throw std::runtime_error("Cannot query empty CSF without filter");
     }
     const uint32_t bucket = getBucketID(signature, _group.arena.num_buckets);
-    return decodeBucketColumn<T>(signature, _group.cell(bucket, 0),
-                                 col.max_codelength,
+    return decodeBucketColumn<T>(RibbonHash(signature), _group.cell(bucket, 0),
                                  col.codebook->code_length_counts,
                                  col.codebook->ordered_symbols);
   }
@@ -75,7 +94,7 @@ public:
 
   static CsfPtr<T> load(const std::string &filename, uint32_t type_id = 0) {
     auto input = SafeFileIO::ifstream(filename, std::ios::binary);
-    checkTypeId(input, type_id, filename);
+    checkHeader(input, type_id, filename);
     cereal::BinaryInputArchive archive(input);
     CsfPtr<T> csf(new Csf<T>());
     archive(*csf);
@@ -95,7 +114,7 @@ public:
     bs.min_solution_bits = arena.num_buckets ? std::numeric_limits<size_t>::max() : 0;
     bs.max_solution_bits = 0;
     for (uint32_t vars : arena.per_col_vars) {
-      size_t bits = vars + col.max_codelength;
+      size_t bits = vars + RIBBON_WIDTH - 1;
       bs.total_solution_bits += bits;
       bs.min_solution_bits = std::min(bs.min_solution_bits, bits);
       bs.max_solution_bits = std::max(bs.max_solution_bits, bits);
@@ -129,8 +148,8 @@ public:
 
     size_t metadata = hs.code_length_distribution.size() * sizeof(uint32_t) +
                       hs.num_unique_symbols * sizeof(T) + sizeof(uint32_t);
-    // Per bucket: vars, seed, word offset.
-    metadata += arena.num_buckets * (sizeof(uint32_t) * 2 + sizeof(uint64_t));
+    // Per bucket: band starts and seed.
+    metadata += arena.num_buckets * (sizeof(uint32_t) + sizeof(uint8_t));
     stats.metadata_bytes = static_cast<double>(metadata);
 
     stats.in_memory_bytes = static_cast<size_t>(

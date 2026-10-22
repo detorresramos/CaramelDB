@@ -9,7 +9,7 @@ namespace caramel {
 // Builds a single-column CSF in this process. See src/build/Build.h for the
 // steps, which can also be run across machines.
 template <typename T>
-CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
+CsfPtr<T> constructCsf(const build::Signatures &keys,
                        const std::vector<T> &values,
                        PreFilterConfigPtr filter_config = nullptr,
                        bool verbose = true) {
@@ -24,6 +24,15 @@ CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
   spec.verbose = verbose;
   return std::make_shared<Csf<T>>(
       build::buildLocal(spec, keys, build::Rows<T>::single(values)));
+}
+
+template <typename T>
+CsfPtr<T> constructCsf(const std::vector<std::string> &keys,
+                       const std::vector<T> &values,
+                       PreFilterConfigPtr filter_config = nullptr,
+                       bool verbose = true) {
+  return constructCsf<T>(build::hashKeys(keys), values, std::move(filter_config),
+                         verbose);
 }
 
 } // namespace caramel

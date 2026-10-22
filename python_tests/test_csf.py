@@ -123,3 +123,32 @@ def test_unsolvable():
         match="Detected a key collision under 128-bit hash. Likely due to a duplicate key.",
     ):
         carameldb.Caramel(keys, values)
+
+
+@pytest.mark.parametrize(
+    "dist",
+    [
+        # 1-bit codes: the most keys per cell and the hardest cells to solve.
+        "two_values",
+        "zipf",
+        "unique",
+        "uint64",
+    ],
+)
+def test_every_key_decodes_at_scale(dist):
+    # Enough keys for a few hundred cells: a cell that decodes wrongly, or a
+    # failure that only shows once in many cells, shows up here and not in
+    # builds of a few thousand keys.
+    n = 300_000
+    rng = np.random.default_rng(1)
+    if dist == "two_values":
+        values = (rng.random(n) < 0.3).astype(np.uint32)
+    elif dist == "zipf":
+        values = np.minimum(rng.zipf(1.3, n), 2**31).astype(np.uint32)
+    elif dist == "unique":
+        values = rng.permutation(n).astype(np.uint32)
+    else:
+        values = rng.integers(2**62, 2**63, n, dtype=np.uint64)
+    keys = [f"key{i}" for i in range(n)]
+    csf = carameldb.Caramel(keys, values, prefilter=None, verbose=False)
+    assert np.array_equal(np.asarray(csf.query_batch(keys)), values)

@@ -9,7 +9,7 @@ TEST(CodecTest, TestSingleCanonicalHuffman) {
   std::vector<uint32_t> symbols = {2, 3, 4, 5, 6, 7, 3, 4, 5, 6};
   auto huffman_output = canonicalHuffman<uint32_t>(symbols);
 
-  for (auto [expected_key, code] : huffman_output.codedict) {
+  for (auto [expected_key, code] : huffman_output.codedict.entries()) {
     uint32_t actual_key =
         canonicalDecode<uint32_t>(code, huffman_output.code_length_counts,
                                    huffman_output.ordered_symbols);
@@ -24,7 +24,7 @@ TEST(CodecTest, TestRandomCanonicalHuffman) {
 
     auto huffman_output = canonicalHuffman<uint32_t>(symbols);
 
-    for (auto [expected_key, code] : huffman_output.codedict) {
+    for (auto [expected_key, code] : huffman_output.codedict.entries()) {
       uint32_t actual_key =
           canonicalDecode<uint32_t>(code, huffman_output.code_length_counts,
                                      huffman_output.ordered_symbols);
@@ -38,7 +38,7 @@ TEST(CodecTest, TestRepeatItemCanonicalHuffman) {
   auto huffman_output =
       canonicalHuffman<uint32_t>(symbols);
 
-  for (auto [expected_key, code] : huffman_output.codedict) {
+  for (auto [expected_key, code] : huffman_output.codedict.entries()) {
     uint32_t actual_key =
         canonicalDecode<uint32_t>(code, huffman_output.code_length_counts,
                                    huffman_output.ordered_symbols);

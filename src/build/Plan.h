@@ -93,12 +93,11 @@ template <typename T> struct Plan {
 namespace detail {
 
 template <typename T>
-uint64_t codedBits(const std::unordered_map<T, uint64_t> &freq,
-                   const CsfCodebook<T> &codebook) {
+uint64_t codedBits(const Frequencies<T> &freq, const CsfCodebook<T> &codebook) {
   uint64_t bits = 0;
-  for (const auto &[value, f] : freq) {
+  freq.forEach([&](const T &value, uint64_t f) {
     bits += f * codebook.codedict.at(value).length;
-  }
+  });
   return bits;
 }
 
@@ -155,8 +154,7 @@ Plan<T> makePlan(const BuildSpec &spec, const Counts<T> &counts,
     freq[plan.stop_symbol] = counts.cols[0].count;
     auto cb = std::make_shared<CsfCodebook<T>>(
         canonicalHuffmanFromFrequencies<T>(freq));
-    col_buckets[0] = packedBucketCount(detail::codedBits(freq, *cb),
-                                       counts.cols[0].count);
+    col_buckets[0] = packedBucketCount(cb->coded_bits, counts.cols[0].count);
     plan.codebooks = {cb};
     plan.groups.push_back({{0}, -1, static_cast<uint32_t>(col_buckets[0])});
     return plan;
@@ -186,7 +184,9 @@ Plan<T> makePlan(const BuildSpec &spec, const Counts<T> &counts,
                   ? shared
                   : std::make_shared<CsfCodebook<T>>(
                         canonicalHuffmanFromFrequencies<T>(col.freq));
-    col_buckets[c] = columnBucketCount(detail::codedBits(col.freq, *cb), col.count);
+    const uint64_t bits =
+        spec.shared_codebook ? detail::codedBits(col.freq, *cb) : cb->coded_bits;
+    col_buckets[c] = columnBucketCount(bits, col.count);
     plan.codebooks[c] = std::move(cb);
   }
 

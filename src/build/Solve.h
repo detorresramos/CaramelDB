@@ -11,14 +11,13 @@ namespace caramel::build {
 // each starting on a word boundary. Offsets are relative to this part.
 struct SolvedPartition {
   Partition partition;
-  std::vector<uint32_t> vars;
-  std::vector<uint32_t> seeds;
-  std::vector<uint64_t> word_off;
+  std::vector<uint32_t> vars; // band start positions of each cell
+  std::vector<uint8_t> seeds;
   std::vector<uint64_t> words;
-  uint32_t max_pad = 0;
+  uint32_t max_row_bits = 0; // Packed: the longest code stream of any row
 
   template <class Archive> void serialize(Archive &archive) {
-    archive(partition, vars, seeds, word_off, words, max_pad);
+    archive(partition, vars, seeds, words, max_row_bits);
   }
 };
 
@@ -66,12 +65,6 @@ template <typename T> struct EntryCodes {
   }
 };
 
-inline bool hasDuplicate(const __uint128_t *sigs, size_t n) {
-  std::vector<__uint128_t> sorted(sigs, sigs + n);
-  std::sort(sorted.begin(), sorted.end());
-  return std::adjacent_find(sorted.begin(), sorted.end()) != sorted.end();
-}
-
 } // namespace detail
 
 // Solves every cell of a piece: a sizing pass fixes each cell's width (so the
@@ -89,36 +82,28 @@ SolvedPartition solve(const Plan<T> &plan, const Piece<T> &piece) {
   part.partition = piece.partition;
   part.vars.resize(cells);
   part.seeds.resize(cells);
-  part.word_off.resize(cells);
-  std::vector<uint64_t> equations(cells);
-  std::vector<uint32_t> pads(cells);
+  std::vector<uint64_t> word_off(cells);
+  std::vector<uint32_t> widest(cells);
 
   std::exception_ptr error = nullptr;
 #pragma omp parallel for schedule(dynamic, 16) default(none)                   \
-    shared(piece, codes, part, equations, pads, error, M, nb)
+    shared(plan, piece, codes, part, widest, error, M, nb)
   for (uint32_t b = 0; b < nb; b++) {
     const uint64_t begin = piece.offsets[b];
     const uint64_t end = piece.offsets[b + 1];
     try {
-      if (detail::hasDuplicate(piece.sigs.data() + begin, end - begin)) {
-        throw std::runtime_error("Detected a key collision under 128-bit hash. "
-                                 "Likely due to a duplicate key.");
-      }
       for (uint32_t m = 0; m < M; m++) {
         const auto &cb = codes.codebook(m);
         uint64_t eq = 0;
-        uint32_t widest = 0;
+        uint32_t row_bits = 0;
         for (uint64_t i = begin; i < end; i++) {
           const uint32_t bits = codes.numBits(i, m, cb.codedict);
           eq += bits;
-          widest = std::max(widest, bits);
+          row_bits = std::max(row_bits, bits);
         }
         const size_t idx = static_cast<size_t>(b) * M + m;
-        equations[idx] = eq;
-        // A query reads a max_codelength window starting anywhere in the row's
-        // code stream, so the solution extends that far past the variables.
-        pads[idx] = cb.max_codelength + (codes.plan.packed() ? widest : 0);
-        part.vars[idx] = static_cast<uint32_t>(numVariables(eq));
+        widest[idx] = row_bits;
+        part.vars[idx] = ribbonStarts(eq, plan.spec.ribbon_overhead);
       }
     } catch (...) {
 #pragma omp critical
@@ -131,34 +116,40 @@ SolvedPartition solve(const Plan<T> &plan, const Piece<T> &piece) {
 
   uint64_t total_words = 0;
   for (size_t idx = 0; idx < cells; idx++) {
-    part.word_off[idx] = total_words;
-    total_words += (static_cast<uint64_t>(part.vars[idx]) + pads[idx] + 63) / 64;
-    part.max_pad = std::max(part.max_pad, pads[idx]);
+    word_off[idx] = total_words;
+    total_words += cellWords(part.vars[idx]);
+    part.max_row_bits = std::max(part.max_row_bits, widest[idx]);
   }
-  // Room for the guard words combine() appends, so a single-part build moves
+  // Room for the guard word combine() appends, so a single-part build moves
   // this buffer into the index without reallocating.
-  part.words.reserve(total_words + 2 + part.max_pad / 64);
+  part.words.reserve(total_words + 1);
   part.words.resize(total_words, 0);
 
+  // Solves cell idx in place; false if it needs more band starts.
+  auto solveInPlace = [&](size_t idx) {
+    const uint32_t b = static_cast<uint32_t>(idx / M);
+    const uint32_t m = static_cast<uint32_t>(idx % M);
+    const uint64_t begin = piece.offsets[b];
+    const auto &dict = codes.codebook(m).codedict;
+    const auto seed = solveCell(
+        piece.sigs.data() + begin, piece.offsets[b + 1] - begin, part.vars[idx],
+        part.words.data() + word_off[idx],
+        [&](size_t i, auto &&add) { codes.emit(begin + i, m, dict, add); });
+    part.seeds[idx] = seed.value_or(0);
+    return seed.has_value();
+  };
+
+  std::vector<uint8_t> unsolved(cells, 0);
 #pragma omp parallel for schedule(dynamic, 1) default(none)                    \
-    shared(piece, codes, part, equations, pads, error, M, nb)
+    shared(solveInPlace, unsolved, error, M, nb)
   for (uint32_t b = 0; b < nb; b++) {
     if (error) {
       continue;
     }
-    const uint64_t begin = piece.offsets[b];
-    const uint64_t n = piece.offsets[b + 1] - begin;
     try {
       for (uint32_t m = 0; m < M; m++) {
         const size_t idx = static_cast<size_t>(b) * M + m;
-        const auto &dict = codes.codebook(m).codedict;
-        auto [solution, seed] = solveCell(
-            piece.sigs.data() + begin, n, equations[idx], pads[idx],
-            [&](size_t i, auto &&add) { codes.emit(begin + i, m, dict, add); });
-        part.seeds[idx] = seed;
-        const uint64_t *src = solution->backingArrayPtr();
-        const uint64_t num_words = (solution->numBits() + 63) / 64;
-        std::copy(src, src + num_words, part.words.data() + part.word_off[idx]);
+        unsolved[idx] = !solveInPlace(idx);
       }
     } catch (...) {
 #pragma omp critical
@@ -167,6 +158,31 @@ SolvedPartition solve(const Plan<T> &plan, const Piece<T> &piece) {
   }
   if (error) {
     std::rethrow_exception(error);
+  }
+
+  // Rare: a cell no seed solves gets more band starts. The layout moves, so
+  // solved cells are copied to their new offsets and the rest re-solved.
+  while (std::find(unsolved.begin(), unsolved.end(), 1) != unsolved.end()) {
+    std::vector<uint64_t> old_words = std::move(part.words);
+    const std::vector<uint64_t> old_off = word_off;
+    total_words = 0;
+    for (size_t idx = 0; idx < cells; idx++) {
+      if (unsolved[idx]) {
+        part.vars[idx] = grownStarts(part.vars[idx]);
+      }
+      word_off[idx] = total_words;
+      total_words += cellWords(part.vars[idx]);
+    }
+    part.words.assign(total_words, 0);
+    part.words.reserve(total_words + 1);
+    for (size_t idx = 0; idx < cells; idx++) {
+      if (unsolved[idx]) {
+        unsolved[idx] = !solveInPlace(idx);
+      } else {
+        std::copy_n(old_words.data() + old_off[idx], cellWords(part.vars[idx]),
+                    part.words.data() + word_off[idx]);
+      }
+    }
   }
   return part;
 }

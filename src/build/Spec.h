@@ -3,6 +3,7 @@
 #include <cereal/access.hpp>
 #include <cstdint>
 #include <memory>
+#include <src/construct/Ribbon.h>
 #include <src/construct/filter/FilterConfig.h>
 #include <stdexcept>
 
@@ -73,9 +74,13 @@ struct BuildSpec {
   bool shared_codebook = false;
   Encoding encoding = Encoding::Columns;
   bool verbose = false;
+  // Initial solution bits per equation of every cell. Lower values make more
+  // cells fail and grow; tests use that to exercise growth.
+  double ribbon_overhead = RIBBON_OVERHEAD;
 
   template <class Archive> void serialize(Archive &archive) {
-    archive(filter, shared_filter, shared_codebook, encoding, verbose);
+    archive(filter, shared_filter, shared_codebook, encoding, verbose,
+            ribbon_overhead);
   }
 };
 

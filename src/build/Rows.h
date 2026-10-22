@@ -2,13 +2,46 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <src/construct/Hashing.h>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
 namespace caramel::build {
 
-using Keys = std::vector<std::string>;
+// Each key's 128-bit signature (hashKey): every step works on these, so a
+// key is hashed once, and the keys themselves are never copied.
+using Signatures = std::vector<__uint128_t>;
+
+// Key i is data[i][0 .. lengths[i]).
+inline Signatures hashKeys(const char *const *data, const uint64_t *lengths,
+                           size_t n) {
+  Signatures sigs(n);
+#pragma omp parallel for schedule(static) default(none) shared(sigs, data, lengths, n)
+  for (size_t i = 0; i < n; i++) {
+    sigs[i] = hashKey(data[i], lengths[i]);
+  }
+  return sigs;
+}
+
+// Key i is data[i * width .. (i + 1) * width).
+inline Signatures hashFixedWidthKeys(const char *data, size_t width, size_t n) {
+  Signatures sigs(n);
+#pragma omp parallel for schedule(static) default(none) shared(sigs, data, width, n)
+  for (size_t i = 0; i < n; i++) {
+    sigs[i] = hashKey(data + i * width, width);
+  }
+  return sigs;
+}
+
+inline Signatures hashKeys(const std::vector<std::string> &keys) {
+  Signatures sigs(keys.size());
+#pragma omp parallel for schedule(static) default(none) shared(sigs, keys)
+  for (size_t i = 0; i < keys.size(); i++) {
+    sigs[i] = hashKey(keys[i]);
+  }
+  return sigs;
+}
 
 // A non-owning view of the values to encode, one row per key. Dense rows have
 // num_cols values each, stored row-major or column-major. Ragged rows (CSR:

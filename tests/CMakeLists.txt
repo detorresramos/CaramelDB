@@ -7,14 +7,11 @@ set(CARAMEL_TESTS
     ConstructMultisetTest
     BitArrayTest
     StagedBuildTest
+    RibbonTest
     CodecTest
     ConstructCsfTest
     EntropyPermutationTest
     GlobalSortPermutationTest
-    GaussianEliminationTest
-    HypergraphPeelerTest
-    LazyGaussianEliminationTest
-    SolveTest
     BloomFilterTest
     XorFilterTest
     BitPackedXorFilterTest

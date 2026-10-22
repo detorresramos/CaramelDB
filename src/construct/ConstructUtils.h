@@ -4,28 +4,6 @@
 #include <array>
 #include <functional>
 
-namespace caramel {
-
-void inline signatureToEquation(const __uint128_t &signature,
-                                const uint64_t seed, uint64_t num_variables,
-                                uint64_t *e) {
-  if (num_variables == 0) {
-    // An empty bucket has no variables; __builtin_clzll(0) is undefined, so
-    // short-circuit. The caller decodes nothing from a zero-variable range.
-    e[0] = e[1] = e[2] = 0;
-    return;
-  }
-  uint64_t hash[4];
-  SpookyHash::SpookyShortRehash(signature, seed, hash);
-  const int shift = __builtin_clzll(num_variables);
-  const uint64_t mask = (UINT64_C(1) << shift) - 1;
-  e[0] = ((hash[0] & mask) * num_variables) >> shift;
-  e[1] = ((hash[1] & mask) * num_variables) >> shift;
-  e[2] = ((hash[2] & mask) * num_variables) >> shift;
-}
-
-} // namespace caramel
-
 namespace std {
 template <std::size_t N> struct hash<std::array<char, N>> {
   size_t operator()(const std::array<char, N> &arr) const {

@@ -21,7 +21,7 @@ std::vector<std::string> makeKeys(size_t n) {
 // Asserts the structural invariants solve() + combine() promise for one group's arena,
 // independent of any query path:
 //   - ranges are packed bucket-major, contiguous, in whole words.
-//   - per_col_word_off matches the documented offset walk exactly.
+//   - the query cache points each cell at the documented offset walk.
 //   - solution_bits has a trailing guard word so the decode's arr[w+1] read is
 //     always in-bounds.
 template <typename T>
@@ -36,16 +36,14 @@ void checkArenaInvariants(const typename MultisetCsf<T>::Group &group) {
 
   ASSERT_EQ(arena.per_col_vars.size(), static_cast<size_t>(B) * M);
   ASSERT_EQ(arena.per_col_seeds.size(), static_cast<size_t>(B) * M);
-  ASSERT_EQ(arena.per_col_word_off.size(), static_cast<size_t>(B) * M);
 
   uint64_t cursor_words = 0;
   for (uint32_t b = 0; b < B; b++) {
     for (uint32_t c = 0; c < M; c++) {
       size_t idx = static_cast<size_t>(b) * M + c;
-      ASSERT_EQ(arena.per_col_word_off[idx], cursor_words)
-          << "per_col_word_off mismatch at (b=" << b << ",c=" << c << ")";
-      cursor_words +=
-          (arena.per_col_vars[idx] + group.columns[c].max_codelength + 63u) / 64u;
+      ASSERT_EQ(group.cell(b, c).data, arena.solution_bits.data() + cursor_words)
+          << "cell offset mismatch at (b=" << b << ",c=" << c << ")";
+      cursor_words += cellWords(arena.per_col_vars[idx]);
     }
   }
 
