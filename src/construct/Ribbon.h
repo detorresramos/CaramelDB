@@ -12,8 +12,9 @@ namespace caramel {
 // solvable at a few percent overhead.
 static constexpr uint32_t RIBBON_WIDTH = 64;
 
-// Solution bits per equation. Measured on cells of 1k-6k equations: solvable
-// on the first seed in >= 98% of cells for every code length distribution.
+// Solution bits per equation. Measured on cells of 1.5k-6k equations: cells of
+// 1-bit codes fail the first seed in 3-11% of cases, cells of longer codes in
+// under 0.1%; the next seeds almost always solve them.
 static constexpr double RIBBON_OVERHEAD = 1.05;
 
 inline uint64_t ribbonMix(uint64_t k) {
@@ -37,6 +38,13 @@ struct RibbonHash {
         y(ribbonMix(static_cast<uint64_t>(signature >> 64))) {}
 };
 
+// The distance between a key's consecutive bands: starts / golden ratio. A
+// key with more code bits than starts / gcd(stride, starts) revisits band
+// starts, so the build only uses starts coprime to their stride.
+inline uint32_t ribbonStride(uint32_t starts) {
+  return static_cast<uint32_t>((uint64_t{starts} * 0x9E3779B9ULL) >> 32);
+}
+
 // One key's equations in one cell.
 struct RibbonKey {
   uint32_t start;
@@ -44,13 +52,17 @@ struct RibbonKey {
   uint32_t starts;
   uint64_t a;
 
+  // The seed goes through a multiply: XORed into the hash it would only
+  // permute blocks of starts and leave coefficient differences unchanged, so
+  // keys that make a cell unsolvable under one seed would under every seed.
   RibbonKey(const RibbonHash &h, uint32_t seed, uint32_t num_starts)
       : starts(num_starts) {
     const uint64_t s = (seed + 1) * 0x9E3779B97F4A7C15ULL;
+    const uint64_t u = (h.x + s) * 0xbf58476d1ce4e5b9ULL;
     start = static_cast<uint32_t>(
-        (static_cast<__uint128_t>((h.x + h.y) ^ s) * starts) >> 64);
-    stride = static_cast<uint32_t>((uint64_t{starts} * 0x9E3779B9ULL) >> 32);
-    a = h.x ^ s;
+        (static_cast<__uint128_t>(u ^ (u >> 29) ^ h.y) * starts) >> 64);
+    stride = ribbonStride(starts);
+    a = (h.y + s) * 0x94d049bb133111ebULL;
   }
 
   // Bit 0 is always set: it is the band's leading (pivot) position.

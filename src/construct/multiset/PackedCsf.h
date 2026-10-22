@@ -50,7 +50,7 @@ public:
 
   static PackedCsfPtr<T> load(const std::string &filename, uint32_t type_id = 0) {
     auto input = SafeFileIO::ifstream(filename, std::ios::binary);
-    checkTypeId(input, type_id, filename);
+    checkHeader(input, type_id, filename);
     cereal::BinaryInputArchive archive(input);
     PackedCsfPtr<T> csf(new PackedCsf<T>());
     archive(*csf);

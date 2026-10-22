@@ -87,7 +87,7 @@ SolvedPartition solve(const Plan<T> &plan, const Piece<T> &piece) {
 
   std::exception_ptr error = nullptr;
 #pragma omp parallel for schedule(dynamic, 16) default(none)                   \
-    shared(piece, codes, part, widest, error, M, nb)
+    shared(plan, piece, codes, part, widest, error, M, nb)
   for (uint32_t b = 0; b < nb; b++) {
     const uint64_t begin = piece.offsets[b];
     const uint64_t end = piece.offsets[b + 1];
@@ -103,7 +103,7 @@ SolvedPartition solve(const Plan<T> &plan, const Piece<T> &piece) {
         }
         const size_t idx = static_cast<size_t>(b) * M + m;
         widest[idx] = row_bits;
-        part.vars[idx] = ribbonStarts(eq);
+        part.vars[idx] = ribbonStarts(eq, plan.spec.ribbon_overhead);
       }
     } catch (...) {
 #pragma omp critical

@@ -3,6 +3,8 @@
 #include <set>
 #include <src/build/Build.h>
 #include <src/build/Bytes.h>
+#include <src/construct/Csf.h>
+#include <src/construct/multiset/PackedCsf.h>
 
 namespace caramel::tests {
 
@@ -10,13 +12,17 @@ using namespace caramel::build;
 
 namespace {
 
-Signatures makeKeys(size_t n) {
+std::vector<std::string> keyStrings(size_t n) {
   std::vector<std::string> keys;
   for (size_t i = 0; i < n; i++) {
     keys.push_back("key_" + std::to_string(i));
   }
-  return hashKeys(keys);
+  return keys;
 }
+
+Signatures makeKeys(size_t n) { return hashKeys(keyStrings(n)); }
+
+constexpr double STARVED_OVERHEAD = 0.85;
 
 // Mostly zeros, so filters have something to do.
 std::vector<uint32_t> skewedValues(size_t n, uint32_t seed) {
@@ -117,7 +123,15 @@ std::vector<Case> cases() {
   };
   BuildSpec packed;
   packed.encoding = Encoding::Packed;
+  auto grown = [](BuildSpec s, double overhead) {
+    s.ribbon_overhead = overhead;
+    return s;
+  };
   return {
+      {"CsfCellsGrow", grown(spec({}), STARVED_OVERHEAD), Case::Single},
+      {"MultisetCellsGrow", grown(spec({FilterType::Auto, 0, 0}), STARVED_OVERHEAD),
+       Case::Dense},
+      {"PackedCellsGrow", grown(packed, STARVED_OVERHEAD), Case::Ragged},
       {"CsfNoFilter", spec({}), Case::Single},
       {"CsfBloom", spec({FilterType::Bloom, 8, 3}), Case::Single},
       {"CsfXor", spec({FilterType::Xor, 8, 0}), Case::Single},
@@ -173,11 +187,102 @@ INSTANTIATE_TEST_SUITE_P(AllIndexTypes, DistributedBuildTest,
                          ::testing::ValuesIn(cases()),
                          [](const auto &info) { return info.param.name; });
 
+// Cells that no seed solves are grown and re-solved after the rest of the
+// partition, which moves every cell after them: solved cells must survive the
+// move and grown ones must decode. Solvability falls off sharply near one
+// solution bit per equation; at this overhead a few percent of these cells
+// exhaust their seeds.
+TEST(StagedBuildTest, CellsThatGrowStillDecode) {
+  constexpr double overhead = 1.005;
+  const uint64_t n = 200000;
+  const auto strings = keyStrings(n);
+  const Signatures keys = hashKeys(strings);
+  const auto values = skewedValues(n, 7);
+  const auto rows = Rows<uint32_t>::single(values);
+  BuildSpec spec;
+  spec.ribbon_overhead = overhead;
+  auto plan = makePlan(spec, countValues(spec, keys, rows));
+  const auto &dict = plan.codebooks[0]->codedict;
+
+  std::vector<SolvedPartition> solved;
+  uint64_t grown = 0, cells = 0;
+  for (const auto &piece : split(plan, keys, rows, plan.partitions(3))) {
+    solved.push_back(solve(plan, piece));
+    for (uint32_t b = 0; b < piece.partition.size(); b++, cells++) {
+      uint64_t eq = 0;
+      for (uint64_t i = piece.offsets[b]; i < piece.offsets[b + 1]; i++) {
+        eq += dict.at(values[piece.rows[i]]).length;
+      }
+      grown += solved.back().vars[b] != ribbonStarts(eq, overhead);
+    }
+  }
+  ASSERT_GT(grown, 0u);
+  ASSERT_LT(grown, cells);
+
+  Csf<uint32_t> csf(combine(std::move(plan), std::move(solved)));
+  for (uint64_t i = 0; i < n; i++) {
+    ASSERT_EQ(csf.query(strings[i]), values[i]) << "key " << i;
+  }
+}
+
+TEST(StagedBuildTest, PackedDecodesWhenEveryCellGrows) {
+  const uint64_t n = 10000;
+  const uint32_t cols = 4;
+  const auto strings = keyStrings(n);
+  const Signatures keys = hashKeys(strings);
+  const auto values = skewedValues(n * cols, 3);
+  BuildSpec spec;
+  spec.ribbon_overhead = STARVED_OVERHEAD;
+  spec.encoding = Encoding::Packed;
+  PackedCsf<uint32_t> packed(
+      buildLocal(spec, keys, Rows<uint32_t>::rowMajor(values.data(), n, cols)));
+  for (uint64_t i = 0; i < n; i++) {
+    std::vector<uint32_t> want(values.begin() + i * cols,
+                               values.begin() + (i + 1) * cols);
+    auto got = packed.query(strings[i]);
+    std::sort(got.begin(), got.end());
+    std::sort(want.begin(), want.end());
+    ASSERT_EQ(got, want) << "key " << i;
+  }
+}
+
 TEST(StagedBuildTest, FilterHashIsHighHalfOfSignature) {
   for (int i = 0; i < 100; i++) {
     std::string key = "key" + std::to_string(i) + std::string(i % 20, 'x');
     EXPECT_EQ(filterHash(key.data(), key.size()),
               static_cast<uint64_t>(hashKey(key) >> 64));
+  }
+}
+
+// Keys under 16 bytes get a Feistel permutation of their bytes, read with
+// overlapping loads that differ by length. Two same-length keys must never
+// share a signature: every key of up to 2 bytes, and every single-byte change
+// of longer short keys.
+TEST(StagedBuildTest, ShortKeysNeverCollide) {
+  std::set<__uint128_t> exhaustive;
+  std::string key;
+  exhaustive.insert(hashKey(key));
+  for (int a = 0; a < 256; a++) {
+    exhaustive.insert(hashKey(std::string(1, char(a))));
+    for (int b = 0; b < 256; b++) {
+      exhaustive.insert(hashKey(std::string{char(a), char(b)}));
+    }
+  }
+  EXPECT_EQ(exhaustive.size(), 1u + 256 + 256 * 256);
+
+  for (size_t len = 3; len < 16; len++) {
+    const std::string base(len, 'k');
+    std::set<__uint128_t> sigs = {hashKey(base)};
+    for (size_t pos = 0; pos < len; pos++) {
+      for (int v = 0; v < 256; v++) {
+        if (v != 'k') {
+          std::string k = base;
+          k[pos] = char(v);
+          sigs.insert(hashKey(k));
+        }
+      }
+    }
+    EXPECT_EQ(sigs.size(), 1 + len * 255) << "length " << len;
   }
 }
 

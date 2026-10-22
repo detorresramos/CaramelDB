@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <numeric>
 #include <optional>
 #include <random>
 #include <src/build/Kernel.h>
@@ -82,6 +83,37 @@ TEST(RibbonTest, SolvesTinyCells) {
 TEST(RibbonTest, LongRowsUseManyStrides) {
   // Packed rows: one key's code stream is longer than the cell has starts.
   solveAndCheck(randomCell(2000, 400, 900, 7));
+}
+
+// A cell that fails one seed must not be likely to fail the next: if seeds
+// were correlated, cells would exhaust all of them and grow. 1-bit codes are
+// the hardest case (one band per key, the most keys per cell).
+TEST(RibbonTest, SeedsAreIndependent) {
+  for (uint64_t c = 0; c < 2000; c++) {
+    solveAndCheck(randomCell(3000, 1, 1, 1000 + c));
+  }
+}
+
+// One key's code stream longer than the cell has starts (packed rows) wraps
+// around the cell; a stride sharing a factor with starts would make it reuse
+// band starts early, and no seed fixes that.
+TEST(RibbonTest, LongSingleRowsSolveAtTheirInitialSize) {
+  for (uint64_t c = 0; c < 2000; c++) {
+    solveAndCheck(randomCell(64, 400, 900, 5000 + c));
+  }
+}
+
+TEST(RibbonTest, StartsAreCoprimeWithTheirStride) {
+  for (uint64_t eq = 0; eq < 200000; eq += 7) {
+    const uint32_t s = ribbonStarts(eq);
+    ASSERT_GE(s, 1u);
+    if (s > 1) {
+      ASSERT_EQ(std::gcd(ribbonStride(s), s), 1u) << "starts " << s;
+    }
+    const uint32_t g = build::grownStarts(s);
+    ASSERT_GT(g, s);
+    ASSERT_EQ(std::gcd(ribbonStride(g), g), 1u) << "grown starts " << g;
+  }
 }
 
 TEST(RibbonTest, OverfullCellGrowsUntilItSolves) {

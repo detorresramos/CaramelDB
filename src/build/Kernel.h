@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <numeric>
 #include <optional>
 #include <src/construct/Ribbon.h>
 #include <stdexcept>
@@ -27,13 +28,23 @@ inline double targetEquationsPerBucket(uint64_t num_equations, uint64_t num_keys
                     double{MIN_EQUATIONS_PER_BUCKET}, double{MAX_EQUATIONS_PER_BUCKET});
 }
 
+// The smallest starts >= s whose stride is coprime to it, so that a key with
+// a long code stream visits every band start before reusing one.
+inline uint32_t coprimeStarts(uint32_t s) {
+  while (s > 1 && std::gcd(ribbonStride(s), s) != 1) {
+    s++;
+  }
+  return s;
+}
+
 // Band start positions of a cell with `num_equations` equations. Its solution
 // has starts + RIBBON_WIDTH - 1 bits.
-inline uint32_t ribbonStarts(uint64_t num_equations) {
+inline uint32_t ribbonStarts(uint64_t num_equations,
+                             double overhead = RIBBON_OVERHEAD) {
   const auto bits = static_cast<uint64_t>(
-      std::ceil(static_cast<double>(num_equations) * RIBBON_OVERHEAD));
-  return static_cast<uint32_t>(
-      std::max<uint64_t>(1, bits > RIBBON_WIDTH ? bits - (RIBBON_WIDTH - 1) : 1));
+      std::ceil(static_cast<double>(num_equations) * overhead));
+  return coprimeStarts(static_cast<uint32_t>(
+      std::max<uint64_t>(1, bits > RIBBON_WIDTH ? bits - (RIBBON_WIDTH - 1) : 1)));
 }
 
 // Buckets for a column with `num_keys` keys and `num_equations` code bits.
@@ -138,7 +149,7 @@ std::optional<uint8_t> solveCell(const __uint128_t *sigs, size_t n,
 
 // Band starts for a cell that did not solve with `starts`.
 inline uint32_t grownStarts(uint32_t starts) {
-  return starts + std::max<uint32_t>(64, starts / 20);
+  return coprimeStarts(starts + std::max<uint32_t>(64, starts / 20));
 }
 
 } // namespace caramel::build
