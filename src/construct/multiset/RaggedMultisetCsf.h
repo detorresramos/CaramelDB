@@ -9,17 +9,15 @@ template <typename T> class RaggedMultisetCsf;
 template <typename T>
 using RaggedMultisetCsfPtr = std::shared_ptr<RaggedMultisetCsf<T>>;
 
-// Ragged multiset: one Group per column (key sets differ per column because
-// of variable row lengths, so hash-store sharing across columns is not
-// applicable). Still benefits from the flat arena layout per column.
+// Ragged multiset: a length CSF plus one group per column (row presence
+// differs per column, so columns cannot share a key set).
 template <typename T> class RaggedMultisetCsf {
 public:
-  using Group = typename MultisetCsf<T>::Group;
+  using Group = caramel::Group<T>;
 
-  RaggedMultisetCsf(CsfPtr<uint32_t> length_csf, std::vector<Group> groups,
-                    std::shared_ptr<CsfCodebook<T>> shared_codebook = nullptr)
-      : _length_csf(std::move(length_csf)), _groups(std::move(groups)),
-        _shared_codebook(std::move(shared_codebook)) {
+  RaggedMultisetCsf(CsfPtr<uint32_t> length_csf, build::Index<T> columns)
+      : _length_csf(std::move(length_csf)), _groups(std::move(columns.groups)),
+        _shared_codebook(std::move(columns.shared_codebook)) {
     injectSharedCodebookAndBuildCaches();
   }
 
@@ -30,60 +28,39 @@ public:
   std::vector<T> query(const char *data, size_t length) const {
     uint32_t num_values = _length_csf->query(data, length);
     num_values = std::min(num_values, static_cast<uint32_t>(_groups.size()));
+    const __uint128_t signature = hashKey(data, length);
 
     std::vector<T> outputs(num_values);
-
     for (size_t i = 0; i < num_values; i++) {
       const auto &group = _groups[i];
-      __uint128_t signature = hashKey(data, length, group.hash_store_seed);
-      uint32_t bucket_id = group.num_buckets()
-                               ? getBucketID(signature, group.num_buckets())
-                               : 0;
-      outputs[i] = group.queryColumn(0, data, length, signature, bucket_id);
+      const uint32_t bucket_id =
+          group.num_buckets() ? getBucketID(signature, group.num_buckets()) : 0;
+      outputs[i] = group.queryColumn(0, signature, bucket_id);
     }
-
     return outputs;
   }
 
-  void save(const std::string &filename, const uint32_t type_id = 0) const {
-    auto output_stream = SafeFileIO::ofstream(filename, std::ios::binary);
-    output_stream.write(reinterpret_cast<const char *>(&type_id),
-                        sizeof(uint32_t));
-    cereal::BinaryOutputArchive oarchive(output_stream);
-    oarchive(*this);
+  void save(const std::string &filename, uint32_t type_id = 0) const {
+    saveWithTypeId(*this, filename, type_id);
   }
 
   static RaggedMultisetCsfPtr<T> load(const std::string &filename,
-                                      const uint32_t type_id = 0) {
-    auto input_stream = SafeFileIO::ifstream(filename, std::ios::binary);
-    uint32_t type_id_found = 0;
-    input_stream.read(reinterpret_cast<char *>(&type_id_found),
-                      sizeof(uint32_t));
-    if (type_id != type_id_found) {
-      throw CsfDeserializationException(
-          "Expected type_id to be " + std::to_string(type_id) +
-          " but found type_id = " + std::to_string(type_id_found) +
-          " when deserializing " + filename);
-    }
-    cereal::BinaryInputArchive iarchive(input_stream);
-    RaggedMultisetCsfPtr<T> deserialize_into(new RaggedMultisetCsf<T>());
-    iarchive(*deserialize_into);
-    return deserialize_into;
+                                      uint32_t type_id = 0) {
+    auto input = SafeFileIO::ifstream(filename, std::ios::binary);
+    checkTypeId(input, type_id, filename);
+    cereal::BinaryInputArchive archive(input);
+    RaggedMultisetCsfPtr<T> csf(new RaggedMultisetCsf<T>());
+    archive(*csf);
+    return csf;
   }
 
 private:
-  RaggedMultisetCsf() {}
+  RaggedMultisetCsf() = default;
 
-  // Inject the shared codebook into the columns that use it (their codebook
-  // ptr is null after load), then build the per-group query caches.
   void injectSharedCodebookAndBuildCaches() {
     for (auto &g : _groups) {
       if (_shared_codebook) {
-        for (auto &col : g.columns) {
-          if (col.uses_shared_codebook) {
-            col.codebook = _shared_codebook;
-          }
-        }
+        g.injectSharedCodebook(_shared_codebook);
       }
       g.buildQueryCache();
     }
@@ -92,9 +69,8 @@ private:
   friend class cereal::access;
   template <class Archive> void save(Archive &archive) const {
     archive(_length_csf, _groups);
-    // Serialize the shared codebook by value behind a presence flag, rather
-    // than as a shared_ptr, to avoid cereal aliasing it with the same-typed
-    // codebook inside _length_csf.
+    // The shared codebook goes by value behind a presence flag rather than as
+    // a shared_ptr, so cereal cannot alias it with a codebook of _length_csf.
     bool has_shared = _shared_codebook != nullptr;
     archive(has_shared);
     if (has_shared) {

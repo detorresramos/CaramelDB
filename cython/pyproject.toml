@@ -17,6 +17,7 @@ dependencies = ["numpy"]
 test = ["pytest>=6.0"]
 format = ["black", "isort"]
 dev = ["pytest>=6.0", "black", "isort"]
+ray = ["ray"]
 
 [tool.setuptools.packages.find]
 where = ["."]

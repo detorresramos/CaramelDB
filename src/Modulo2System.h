@@ -11,14 +11,41 @@
 
 namespace caramel {
 
+// One spare buffer per thread and buffer kind. Solves create and drop the
+// same large buffers back to back on every thread; recycling them keeps the
+// allocator from fragmenting and holding on to memory per thread.
+template <int Kind> class RecycledWords {
+public:
+  static std::vector<uint64_t> take() { return std::move(spare()); }
+
+  static void give(std::vector<uint64_t> &&words) {
+    if (words.capacity() > spare().capacity()) {
+      spare() = std::move(words);
+    }
+  }
+
+private:
+  static std::vector<uint64_t> &spare() {
+    thread_local std::vector<uint64_t> words;
+    return words;
+  }
+};
+
 class SparseSystem {
 public:
   static constexpr size_t EQUATION_SIZE = 4;
 
   SparseSystem(uint64_t num_equations, uint64_t solution_size)
-      : _num_equations(num_equations), _solution_size(solution_size) {
+      : _num_equations(num_equations), _solution_size(solution_size),
+        _equations(RecycledWords<0>::take()) {
+    _equations.clear();
     _equations.reserve(num_equations * EQUATION_SIZE);
   }
+
+  SparseSystem(const SparseSystem &) = delete;
+  SparseSystem &operator=(const SparseSystem &) = delete;
+
+  ~SparseSystem() { RecycledWords<0>::give(std::move(_equations)); }
 
   static std::shared_ptr<SparseSystem> make(uint64_t num_equations,
                                             uint64_t solution_size) {
@@ -67,7 +94,14 @@ public:
   DenseSystem(uint64_t solution_size, uint64_t num_equations)
       : _solution_size(solution_size),
         _blocks_per_equation(((solution_size - 1) / BLOCK_SIZE) + 1),
-        _equations(num_equations * (_blocks_per_equation + 2), 0) {}
+        _equations(RecycledWords<1>::take()) {
+    _equations.assign(num_equations * (_blocks_per_equation + 2), 0);
+  }
+
+  DenseSystem(const DenseSystem &) = delete;
+  DenseSystem &operator=(const DenseSystem &) = delete;
+
+  ~DenseSystem() { RecycledWords<1>::give(std::move(_equations)); }
 
   static std::shared_ptr<DenseSystem> make(uint64_t solution_size,
                                            uint64_t num_equations) {

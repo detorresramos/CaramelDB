@@ -89,8 +89,10 @@ public:
   }
 
   void add(const std::string &key) {
-    _keys.push_back(SpookyHash::Hash64(key.data(), key.size(), 0));
+    addHash(SpookyHash::Hash64(key.data(), key.size(), 0));
   }
+
+  void addHash(uint64_t key_hash) { _keys.push_back(key_hash); }
 
   void build() {
     if (_keys.empty()) {
@@ -116,20 +118,28 @@ public:
     }
     _binary_fuse_filter = std::move(filter);
     _is_built = true;
+    _keys = std::vector<uint64_t>();
   }
 
-  bool contains(const std::string &key) {
+  void buildFromHashes(std::vector<uint64_t> key_hashes) {
+    _keys = std::move(key_hashes);
+    build();
+  }
+
+  bool contains(const std::string &key) const {
     return contains(key.data(), key.size());
   }
 
-  bool contains(const char *data, size_t length) {
+  bool contains(const char *data, size_t length) const {
+    return containsHash(
+        SpookyHash::Hash64(static_cast<const void *>(data), length, 0));
+  }
+
+  bool containsHash(uint64_t key_hash) const {
     if (!_is_built || !_binary_fuse_filter) {
       return false;
     }
-
-    uint64_t hash = SpookyHash::Hash64(static_cast<const void *>(data), length, 0);
-    auto status = _binary_fuse_filter->Contain(hash);
-    return status == BinaryFuseStatus::Ok;
+    return _binary_fuse_filter->Contain(key_hash) == BinaryFuseStatus::Ok;
   }
 
   size_t size() const {

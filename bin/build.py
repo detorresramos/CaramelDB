@@ -58,7 +58,7 @@ def main():
             "uv sync --directory cython --no-editable --extra dev --reinstall-package carameldb"
         )
     else:
-        python_exec = "$(uv run --directory cython which python)"
+        python_exec = "$(uv run --no-sync --directory cython which python)"
         cmake_command = f"cmake -B build -S . -DPYTHON_EXECUTABLE={python_exec} -DCMAKE_BUILD_TYPE={args.build_mode}"
         build_command = f"cmake --build build --target {args.target}"
 

@@ -1,29 +1,17 @@
 #pragma once
 
-#include "CsfCodebook.h"
-#include "CsfQueryCore.h"
 #include "CsfStats.h"
-#include <cereal/access.hpp>
+#include "Group.h"
 #include <cereal/archives/binary.hpp>
-#include <cereal/types/array.hpp>
-#include <cereal/types/memory.hpp>
-#include <cereal/types/optional.hpp>
-#include <cereal/types/utility.hpp>
-#include <cereal/types/vector.hpp>
 #include <limits>
 #include <memory>
-#include <src/BitArray.h>
-#include <src/construct/filter/PreFilter.h>
+#include <src/build/Index.h>
 #include <src/utils/SafeFileIO.h>
-#include <vector>
 
 namespace caramel {
 
 template <typename T> class Csf;
-
 template <typename T> using CsfPtr = std::shared_ptr<Csf<T>>;
-
-using SubsystemSolutionSeedPair = std::pair<BitArrayPtr, uint32_t>;
 
 class CsfDeserializationException : public std::runtime_error {
 public:
@@ -31,205 +19,136 @@ public:
       : std::runtime_error("Cannot deserialize CSF: " + message) {};
 };
 
-template <typename T> class MultisetCsf;
+// Checks the type_id header written by saveWithTypeId.
+inline void checkTypeId(std::istream &input, uint32_t type_id,
+                        const std::string &filename) {
+  uint32_t found = 0;
+  input.read(reinterpret_cast<char *>(&found), sizeof(uint32_t));
+  if (found != type_id) {
+    throw CsfDeserializationException(
+        "Expected type_id to be " + std::to_string(type_id) +
+        " but found type_id = " + std::to_string(found) +
+        " when deserializing " + filename);
+  }
+}
 
+template <typename Obj>
+void saveWithTypeId(const Obj &obj, const std::string &filename,
+                    uint32_t type_id) {
+  auto output = SafeFileIO::ofstream(filename, std::ios::binary);
+  output.write(reinterpret_cast<const char *>(&type_id), sizeof(uint32_t));
+  cereal::BinaryOutputArchive archive(output);
+  archive(obj);
+}
+
+// A single-column CSF: one group with one column.
 template <typename T> class Csf {
 public:
-  Csf(const std::vector<SubsystemSolutionSeedPair> &solutions_and_seeds,
-      const std::vector<uint32_t> &code_length_counts,
-      const std::vector<T> &ordered_symbols, uint32_t hash_store_seed,
-      const PreFilterPtr<T> &filter)
-      : _solutions_and_seeds(solutions_and_seeds),
-        _code_length_counts(code_length_counts),
-        _ordered_symbols(ordered_symbols), _hash_store_seed(hash_store_seed),
-        _filter(filter), _max_codelength(_code_length_counts.size() - 1) {
-    _buildQueryCache();
+  explicit Csf(build::Index<T> index) : _group(std::move(index.groups.at(0))) {
+    _group.buildQueryCache();
   }
 
-  static CsfPtr<T>
-  make(const std::vector<SubsystemSolutionSeedPair> &solutions_and_seeds,
-       const std::vector<uint32_t> &code_length_counts,
-       const std::vector<T> &ordered_symbols, uint32_t hash_store_seed,
-       const PreFilterPtr<T> &filter) {
-    return std::make_shared<Csf<T>>(solutions_and_seeds, code_length_counts,
-                                    ordered_symbols, hash_store_seed, filter);
-  }
-
-  T query(const std::string &key) const {
-    if (_filter && !_filter->contains(key)) {
-      return *_filter->getMostCommonValue();
-    }
-    return _queryCore(key.data(), key.size());
-  }
+  T query(const std::string &key) const { return query(key.data(), key.size()); }
 
   T query(const char *data, size_t length) const {
-    if (_filter && !_filter->contains(data, length)) {
-      return *_filter->getMostCommonValue();
+    const __uint128_t signature = hashKey(data, length);
+    const auto &col = _group.columns[0];
+    if (col.filter && !col.filter->containsHash(filterHash(signature))) {
+      return *col.most_common_value;
     }
-    return _queryCore(data, length);
-  }
-
-  void save(const std::string &filename, const uint32_t type_id = 0) const {
-    auto output_stream = SafeFileIO::ofstream(filename, std::ios::binary);
-    output_stream.write(reinterpret_cast<const char *>(&type_id),
-                        sizeof(uint32_t));
-    cereal::BinaryOutputArchive oarchive(output_stream);
-    oarchive(*this);
-  }
-
-  static CsfPtr<T> load(const std::string &filename,
-                        const uint32_t type_id = 0) {
-    auto input_stream = SafeFileIO::ifstream(filename, std::ios::binary);
-    // Check the type_id before deserializing a (potentially large) CSF.
-    uint32_t type_id_found = 0;
-    input_stream.read(reinterpret_cast<char *>(&type_id_found),
-                      sizeof(uint32_t));
-    if (type_id != type_id_found) {
-      throw CsfDeserializationException(
-          "Expected type_id to be " + std::to_string(type_id) +
-          " but found type_id = " + std::to_string(type_id_found) +
-          " when deserializing " + filename);
+    if (_group.arena.num_buckets == 0) {
+      if (col.most_common_value) {
+        return *col.most_common_value;
+      }
+      throw std::runtime_error("Cannot query empty CSF without filter");
     }
-    cereal::BinaryInputArchive iarchive(input_stream);
-    CsfPtr<T> deserialize_into(new Csf<T>());
-    iarchive(*deserialize_into);
-
-    return deserialize_into;
+    const uint32_t bucket = getBucketID(signature, _group.arena.num_buckets);
+    return decodeBucketColumn<T>(signature, _group.cell(bucket, 0),
+                                 col.max_codelength,
+                                 col.codebook->code_length_counts,
+                                 col.codebook->ordered_symbols);
   }
 
-  PreFilterPtr<T> getFilter() const { return _filter; }
+  void save(const std::string &filename, uint32_t type_id = 0) const {
+    saveWithTypeId(*this, filename, type_id);
+  }
+
+  static CsfPtr<T> load(const std::string &filename, uint32_t type_id = 0) {
+    auto input = SafeFileIO::ifstream(filename, std::ios::binary);
+    checkTypeId(input, type_id, filename);
+    cereal::BinaryInputArchive archive(input);
+    CsfPtr<T> csf(new Csf<T>());
+    archive(*csf);
+    return csf;
+  }
+
+  PreFilterPtr<T> getFilter() const { return _group.columns[0].filter; }
 
   CsfStats getStats() const {
+    const auto &arena = _group.arena;
+    const auto &col = _group.columns[0];
     CsfStats stats;
 
-    // Bucket statistics
-    stats.bucket_stats.num_buckets = _solutions_and_seeds.size();
-    stats.bucket_stats.total_solution_bits = 0;
-    stats.bucket_stats.min_solution_bits = std::numeric_limits<size_t>::max();
-    stats.bucket_stats.max_solution_bits = 0;
-
-    for (const auto &[solution, seed] : _solutions_and_seeds) {
-      size_t bits = solution->numBits();
-      stats.bucket_stats.total_solution_bits += bits;
-      stats.bucket_stats.min_solution_bits =
-          std::min(stats.bucket_stats.min_solution_bits, bits);
-      stats.bucket_stats.max_solution_bits =
-          std::max(stats.bucket_stats.max_solution_bits, bits);
+    auto &bs = stats.bucket_stats;
+    bs.num_buckets = arena.num_buckets;
+    bs.total_solution_bits = 0;
+    bs.min_solution_bits = arena.num_buckets ? std::numeric_limits<size_t>::max() : 0;
+    bs.max_solution_bits = 0;
+    for (uint32_t vars : arena.per_col_vars) {
+      size_t bits = vars + col.max_codelength;
+      bs.total_solution_bits += bits;
+      bs.min_solution_bits = std::min(bs.min_solution_bits, bits);
+      bs.max_solution_bits = std::max(bs.max_solution_bits, bits);
     }
+    bs.avg_solution_bits =
+        bs.num_buckets ? static_cast<double>(bs.total_solution_bits) / bs.num_buckets
+                       : 0;
 
-    stats.bucket_stats.avg_solution_bits =
-        stats.bucket_stats.num_buckets > 0
-            ? static_cast<double>(stats.bucket_stats.total_solution_bits) /
-                  stats.bucket_stats.num_buckets
-            : 0;
-    if (stats.bucket_stats.num_buckets == 0)
-      stats.bucket_stats.min_solution_bits = 0;
-
-    // Huffman statistics
-    stats.huffman_stats.num_unique_symbols = _ordered_symbols.size();
-    stats.huffman_stats.max_code_length = _max_codelength;
-    stats.huffman_stats.code_length_distribution = _code_length_counts;
-
+    auto &hs = stats.huffman_stats;
+    hs.num_unique_symbols = col.codebook ? col.codebook->ordered_symbols.size() : 0;
+    hs.max_code_length = col.max_codelength;
+    hs.code_length_distribution =
+        col.codebook ? col.codebook->code_length_counts : std::vector<uint32_t>{};
     size_t total_symbols = 0, total_bits = 0;
-    for (size_t len = 1; len < _code_length_counts.size(); len++) {
-      total_symbols += _code_length_counts[len];
-      total_bits += _code_length_counts[len] * len;
+    for (size_t len = 1; len < hs.code_length_distribution.size(); len++) {
+      total_symbols += hs.code_length_distribution[len];
+      total_bits += hs.code_length_distribution[len] * len;
     }
-    stats.huffman_stats.avg_bits_per_symbol =
-        total_symbols > 0 ? static_cast<double>(total_bits) / total_symbols
-                          : 0.0;
+    hs.avg_bits_per_symbol =
+        total_symbols ? static_cast<double>(total_bits) / total_symbols : 0.0;
 
-    // Solution memory (bits to bytes, rounding up to 64-bit blocks)
-    size_t solution_bytes = 0;
-    for (const auto &[solution, seed] : _solutions_and_seeds) {
-      uint32_t num_blocks = ((solution->numBits() - 1) / 64) + 1;
-      solution_bytes += num_blocks * sizeof(uint64_t);
-    }
-    stats.solution_bytes = static_cast<double>(solution_bytes);
+    stats.solution_bytes = static_cast<double>(arena.solution_bits.size() * 8);
 
-    // Filter statistics
     stats.filter_bytes = 0;
-    if (_filter) {
-      stats.filter_stats = getFilterStats();
+    if (col.filter) {
+      stats.filter_stats = col.filter->getStats();
       if (stats.filter_stats) {
-        stats.filter_bytes =
-            static_cast<double>(stats.filter_stats->size_bytes);
+        stats.filter_bytes = static_cast<double>(stats.filter_stats->size_bytes);
       }
     }
 
-    // Metadata bytes
-    size_t metadata_bytes = 0;
-    metadata_bytes += _code_length_counts.size() * sizeof(uint32_t);
-    metadata_bytes += _ordered_symbols.size() * sizeof(T);
-    metadata_bytes += sizeof(_hash_store_seed) + sizeof(_max_codelength);
-    // Per-bucket: seed (4) + BitArray serialization framing (13):
-    //   shared_ptr id (4) + _num_bits (4) + _num_blocks (4) + _owns_data (1)
-    metadata_bytes += _solutions_and_seeds.size() * (sizeof(uint32_t) + 13);
-    stats.metadata_bytes = static_cast<double>(metadata_bytes);
+    size_t metadata = hs.code_length_distribution.size() * sizeof(uint32_t) +
+                      hs.num_unique_symbols * sizeof(T) + sizeof(uint32_t);
+    // Per bucket: vars, seed, word offset.
+    metadata += arena.num_buckets * (sizeof(uint32_t) * 2 + sizeof(uint64_t));
+    stats.metadata_bytes = static_cast<double>(metadata);
 
     stats.in_memory_bytes = static_cast<size_t>(
         stats.solution_bytes + stats.filter_bytes + stats.metadata_bytes);
-
     return stats;
   }
 
 private:
-  std::optional<FilterStats> getFilterStats() const {
-    if (!_filter)
-      return std::nullopt;
-    return _filter->getStats();
-  }
-
-  T _queryCore(const char *data, size_t length) const {
-    if (_bucket_info.empty()) {
-      if (_filter && _filter->getMostCommonValue()) {
-        return *_filter->getMostCommonValue();
-      }
-      throw std::runtime_error("Cannot query empty CSF without filter");
-    }
-
-    return queryCsfCore<T>(data, length, _hash_store_seed, _bucket_info,
-                           _num_buckets, _max_codelength, _code_length_counts,
-                           _ordered_symbols);
-  }
-
-  // Private constructor for cereal
-  Csf() {}
-
-  void _buildQueryCache() {
-    _num_buckets = _solutions_and_seeds.size();
-    _bucket_info.resize(_num_buckets);
-    for (uint32_t i = 0; i < _num_buckets; i++) {
-      auto &[solution, seed] = _solutions_and_seeds[i];
-      _bucket_info[i] = {solution->backingArrayPtr(),
-                         solution->numBits() - _max_codelength, seed};
-    }
-  }
+  Csf() = default;
 
   friend class cereal::access;
-  friend class MultisetCsf<T>;
-
-  template <class Archive> void save(Archive &archive) const {
-    archive(_solutions_and_seeds, _code_length_counts, _ordered_symbols,
-            _hash_store_seed, _filter, _max_codelength);
-  }
-
+  template <class Archive> void save(Archive &archive) const { archive(_group); }
   template <class Archive> void load(Archive &archive) {
-    archive(_solutions_and_seeds, _code_length_counts, _ordered_symbols,
-            _hash_store_seed, _filter, _max_codelength);
-    _buildQueryCache();
+    archive(_group);
+    _group.buildQueryCache();
   }
 
-  std::vector<SubsystemSolutionSeedPair> _solutions_and_seeds;
-  std::vector<uint32_t> _code_length_counts;
-  std::vector<T> _ordered_symbols;
-  uint32_t _hash_store_seed;
-  PreFilterPtr<T> _filter = nullptr;
-  uint32_t _max_codelength;
-
-  // Query cache (built from _solutions_and_seeds, not serialized)
-  uint32_t _num_buckets = 0;
-  std::vector<BucketQueryInfo> _bucket_info;
+  Group<T> _group;
 };
 
 } // namespace caramel

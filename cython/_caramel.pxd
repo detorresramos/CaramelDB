@@ -464,3 +464,41 @@ cdef extern from "src/construct/multiset/permute/GlobalSortPermutation.h" namesp
     void globalSortPermutation_uint64 "caramel::globalSortPermutation<uint64_t>"(uint64_t *M, int64_t num_rows, int64_t num_cols, int refinement_iterations) nogil
     void globalSortPermutation_Char10 "caramel::globalSortPermutation<Char10>"(Char10 *M, int64_t num_rows, int64_t num_cols, int refinement_iterations) nogil
     void globalSortPermutation_Char12 "caramel::globalSortPermutation<Char12>"(Char12 *M, int64_t num_rows, int64_t num_cols, int refinement_iterations) nogil
+
+# ── Build steps (byte-string facade) ──────────────────────────────
+
+cdef extern from "cython/steps.h" namespace "caramel::py":
+    string makeSpec(shared_ptr[PreFilterConfig] filter, cbool shared_filter,
+                    cbool shared_codebook, cbool packed, cbool verbose) except +
+    string countStep[T](const string &spec, const vector[string] &keys, const T *data,
+                       uint64_t rows, uint32_t cols, const uint64_t *offsets,
+                       const string &filters) except + nogil
+    string mergeCounts[T](const vector[string] &parts) except +
+    string chooseFiltersStep[T](const string &spec, const string &stats,
+                               uint32_t *num_specs) except +
+    string findExceptionsStep[T](const string &filter_plan, const vector[string] &keys,
+                                     const T *data, uint64_t rows, uint32_t cols,
+                                     const uint64_t *offsets) except + nogil
+    string mergeExceptions(const vector[string] &parts) except +
+    string buildFiltersStep[T](const string &filter_plan, const string &keys,
+                                uint32_t *num_filters) except +
+    string makePlanStep[T](const string &spec, const string &stats,
+                            const string &filters) except +
+    vector[uint32_t] planPartitions[T](const string &plan, uint32_t splits) except +
+    vector[string] splitStep[T](const string &plan, const vector[string] &keys,
+                                 const T *data, uint64_t rows, uint32_t cols,
+                                 const uint64_t *offsets,
+                                 const vector[uint32_t] &ranges) except + nogil
+    string solveStep[T](const string &plan, const vector[string] &parts) except + nogil
+    shared_ptr[Csf_uint32] combineCsf_uint32 "caramel::py::combineCsf<uint32_t>"(
+        const string &plan, const vector[string] &solved) except +
+    shared_ptr[Csf_uint64] combineCsf_uint64 "caramel::py::combineCsf<uint64_t>"(
+        const string &plan, const vector[string] &solved) except +
+    shared_ptr[MultisetCsf_uint32] combineMultiset_uint32 "caramel::py::combineMultiset<uint32_t>"(
+        const string &plan, const vector[string] &solved) except +
+    shared_ptr[MultisetCsf_uint64] combineMultiset_uint64 "caramel::py::combineMultiset<uint64_t>"(
+        const string &plan, const vector[string] &solved) except +
+    shared_ptr[PackedCsf_uint32] combinePacked_uint32 "caramel::py::combinePacked<uint32_t>"(
+        const string &plan, const vector[string] &solved) except +
+    shared_ptr[RaggedMultisetCsf_uint32] combineRagged_uint32 "caramel::py::combineRagged<uint32_t>"(
+        shared_ptr[Csf_uint32] lengths, const string &plan, const vector[string] &solved) except +

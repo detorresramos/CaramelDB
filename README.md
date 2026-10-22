@@ -101,9 +101,32 @@ stats.huffman_stats          # code lengths, symbol count
 stats.bucket_stats           # per-bucket solution sizes
 ```
 
+### Distributed construction
+
+`Caramel` builds in one process. `carameldb.distributed.build` builds the same index from chunks of the input on any `concurrent.futures`-style executor: a local process pool by default, or a Ray cluster via `RayExecutor`. It takes the same options as `Caramel`, and the result is byte-identical to `Caramel` on the concatenated chunks.
+
+```python
+import glob
+import numpy as np
+from carameldb import AutoFilterConfig
+from carameldb.distributed import RayExecutor, build
+
+class Chunk:  # picklable; called on a worker to load one slice of the input
+    def __init__(self, path): self.path = path
+    def __call__(self):
+        data = np.load(self.path)
+        return data["keys"].tolist(), data["values"]
+
+chunks = [Chunk(p) for p in sorted(glob.glob("data/part-*.npz"))]
+csf = build(chunks, prefilter=AutoFilterConfig())                          # local processes
+csf = build(chunks, prefilter=AutoFilterConfig(), executor=RayExecutor())  # Ray cluster
+```
+
+To drive the build from another system, `carameldb.steps` exposes its four steps: plan (a few passes over the chunks), split each chunk into pieces by partition, solve each partition, combine. Every input and output is a small picklable value; the module docstring shows the data flow.
+
 ## C++ API
 
-The C++ API lives in `src/construct/Csf.h` (single-valued) and `src/construct/MultisetCsf.h` (multi-valued). The templated `Csf<T>` class supports custom value backends. See the [tests](tests/) for usage examples.
+The index classes live in `src/construct/` (`Csf.h`, `multiset/MultisetCsf.h`, `multiset/RaggedMultisetCsf.h`, `multiset/PackedCsf.h`). They are all built by the pipeline in `src/build/` (`Build.h` lists the steps). `buildLocal` runs every step in one process. See the [tests](tests/) for usage examples.
 
 ## Development
 

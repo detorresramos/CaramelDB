@@ -10,7 +10,16 @@
 
 namespace caramel {
 
-template <typename T> using CodeDict = std::unordered_map<T, BitArray>;
+// A canonical Huffman codeword: `length` bits, most significant bit first.
+struct Code {
+  uint64_t bits = 0;
+  uint32_t length = 0;
+
+  uint32_t numBits() const { return length; }
+  bool operator[](uint32_t i) const { return (bits >> (length - 1 - i)) & 1; }
+};
+
+template <typename T> using CodeDict = std::unordered_map<T, Code>;
 
 /*
   A: List of symbol frequencies in non-decreasing order.
@@ -91,8 +100,8 @@ inline void minRedundancyCodewordLengths(std::vector<uint64_t> &A) {
 
   Source: https://github.com/madler/zlib/blob/master/contrib/puff/puff.c#L235
 */
-template <typename T>
-T canonicalDecode(const BitArray &bitarray,
+template <typename T, typename Bits>
+T canonicalDecode(const Bits &bitarray,
                    const std::vector<uint32_t> &code_length_counts,
                    const std::vector<T> &symbols) {
   int code = 0;
@@ -139,9 +148,25 @@ template <typename T> struct CsfCodebook {
   std::vector<uint32_t> code_length_counts;
   std::vector<T> ordered_symbols;
   uint32_t max_codelength = 0;
+  // Construction-only value -> code map. Not serialized: it is a pure function
+  // of (code_length_counts, ordered_symbols), rebuilt by buildCodedict().
   CodeDict<T> codedict;
 
   CsfCodebook() = default;
+
+  void buildCodedict() {
+    codedict.clear();
+    codedict.reserve(ordered_symbols.size());
+    uint64_t code = 0;
+    size_t i = 0;
+    for (uint32_t len = 1; len < code_length_counts.size(); len++) {
+      for (uint32_t k = 0; k < code_length_counts[len]; k++, i++) {
+        codedict.emplace(ordered_symbols[i], Code{code, len});
+        code++;
+      }
+      code <<= 1;
+    }
+  }
 
 private:
   friend class cereal::access;
@@ -178,18 +203,9 @@ canonicalHuffmanFromFrequencies(const std::unordered_map<T, uint64_t> &frequenci
 
   // TODO(any) add length limiting
 
-  uint32_t code = 0;
-  CodeDict<T> codedict;
   std::vector<uint32_t> code_length_counts(codeword_lengths.back() + 1, 0);
-  for (uint32_t i = 0; i < symbol_frequency_pairs.size(); i++) {
-    auto &[symbol, _] = symbol_frequency_pairs[i];
-    uint32_t current_length = static_cast<uint32_t>(codeword_lengths[i]);
-    codedict.emplace(symbol, BitArray::fromNumber(code, current_length));
-    code_length_counts[current_length]++;
-    if (i + 1 < codeword_lengths.size()) {
-      code++;
-      code <<= codeword_lengths[i + 1] - current_length;
-    }
+  for (uint64_t len : codeword_lengths) {
+    code_length_counts[len]++;
   }
 
   std::vector<T> ordered_symbols;
@@ -201,7 +217,7 @@ canonicalHuffmanFromFrequencies(const std::unordered_map<T, uint64_t> &frequenci
   cb.code_length_counts = std::move(code_length_counts);
   cb.ordered_symbols = std::move(ordered_symbols);
   cb.max_codelength = cb.code_length_counts.size() - 1;
-  cb.codedict = std::move(codedict);
+  cb.buildCodedict();
   return cb;
 }
 

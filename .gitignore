@@ -17,7 +17,8 @@ compile_commands.json
 
 # CMake Build and Testing output
 __pycache__
-build
+/build
+cython/build
 *.egg-info
 
 # Standard CMake gitignores

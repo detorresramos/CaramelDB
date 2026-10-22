@@ -96,24 +96,14 @@ inline DiscreteBloomResult bestDiscreteBloomAllK(double alpha, double n_over_N,
   return best;
 }
 
-template <typename T>
-PreFilterConfigPtr selectBestFilter(const std::vector<T> &values,
-                                    bool verbose = false) {
-  const size_t N = values.size();
+// Picks the filter that maximizes the space lower bound, from counts alone:
+// N keys in the filter's universe, highest_freq of them holding the most
+// common value, n_unique distinct values.
+inline PreFilterConfigPtr selectBestFilter(size_t N, size_t highest_freq,
+                                           size_t n_unique,
+                                           bool verbose = false) {
   if (N == 0) {
     return nullptr;
-  }
-
-  std::unordered_map<T, size_t> frequencies;
-  for (const auto &v : values) {
-    frequencies[v]++;
-  }
-
-  size_t highest_freq = 0;
-  for (const auto &[value, freq] : frequencies) {
-    if (freq > highest_freq) {
-      highest_freq = freq;
-    }
   }
 
   double alpha = static_cast<double>(highest_freq) / N;
@@ -121,7 +111,6 @@ PreFilterConfigPtr selectBestFilter(const std::vector<T> &values,
     return nullptr;
   }
 
-  size_t n_unique = frequencies.size();
   double n_over_N = static_cast<double>(n_unique) / N;
   size_t n_filter = N - highest_freq;
 
@@ -168,6 +157,21 @@ PreFilterConfigPtr selectBestFilter(const std::vector<T> &values,
   }
 
   return best->config;
+}
+
+template <typename T>
+PreFilterConfigPtr selectBestFilter(const std::vector<T> &values,
+                                    bool verbose = false) {
+  std::unordered_map<T, size_t> frequencies;
+  for (const auto &v : values) {
+    frequencies[v]++;
+  }
+  size_t highest_freq = 0;
+  for (const auto &[value, freq] : frequencies) {
+    highest_freq = std::max(highest_freq, freq);
+  }
+  return selectBestFilter(values.size(), highest_freq, frequencies.size(),
+                          verbose);
 }
 
 } // namespace caramel
