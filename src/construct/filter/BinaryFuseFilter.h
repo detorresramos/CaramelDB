@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BitPackedBinaryFuseFilter.h"
+#include <cmath>
 #include <cereal/access.hpp>
 #include <cereal/archives/binary.hpp>
 #include <cereal/types/vector.hpp>

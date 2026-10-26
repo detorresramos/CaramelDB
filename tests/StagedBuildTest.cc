@@ -114,11 +114,11 @@ struct Case {
 
 std::vector<Case> cases() {
   auto spec = [](FilterType f, bool shared_filter = false,
-                 bool shared_codebook = false) {
+                 CodebookMode codebook = CodebookMode::Auto) {
     BuildSpec s;
     s.filter = f;
     s.shared_filter = shared_filter;
-    s.shared_codebook = shared_codebook;
+    s.codebook = codebook;
     return s;
   };
   BuildSpec packed;
@@ -140,7 +140,9 @@ std::vector<Case> cases() {
       {"MultisetNoFilter", spec({}), Case::Dense},
       {"MultisetAuto", spec({FilterType::Auto, 0, 0}), Case::Dense},
       {"MultisetSharedFilter", spec({FilterType::Xor, 6, 0}, true), Case::Dense},
-      {"MultisetSharedEverything", spec({FilterType::Bloom, 6, 2}, true, true),
+      {"MultisetSharedEverything",
+       spec({FilterType::Bloom, 6, 2}, true, CodebookMode::Shared), Case::Dense},
+      {"MultisetPerColumnCodebooks", spec({}, false, CodebookMode::PerColumn),
        Case::Dense},
       {"RaggedAuto", spec({FilterType::Auto, 0, 0}), Case::Ragged},
       {"Packed", packed, Case::Ragged},
@@ -357,6 +359,41 @@ TEST(StagedBuildTest, SplitGroupsByBucketInInputOrder) {
       }
     }
   }
+}
+
+// Each column draws from its own `distinct` values, offset by column * shift:
+// shift 0 gives every column the same distribution, a large shift disjoint ones.
+bool autoPicksShared(uint64_t n, uint32_t distinct, uint32_t shift) {
+  const uint32_t cols = 8;
+  Signatures keys = makeKeys(n);
+  std::mt19937 rng(5);
+  std::vector<uint32_t> values(n * cols);
+  for (uint64_t i = 0; i < values.size(); i++) {
+    values[i] = static_cast<uint32_t>(i % cols) * shift + rng() % distinct;
+  }
+  auto rows = Rows<uint32_t>::rowMajor(values.data(), n, cols);
+  BuildSpec spec;
+  return makePlan(spec, countValues(spec, keys, rows)).shared_codebook;
+}
+
+TEST(StagedBuildTest, AutoCodebookSharesTablesWhenColumnsAlike) {
+  // Few rows per distinct value: eight symbol tables would cost more than
+  // per-column codes could save.
+  EXPECT_TRUE(autoPicksShared(4000, 2000, 0));
+  EXPECT_TRUE(autoPicksShared(4000, 2000, 100));
+}
+
+TEST(StagedBuildTest, AutoCodebookKeepsColumnsApartWhenTheyDiffer) {
+  // Disjoint columns under one codebook pay log2(cols) extra bits per code.
+  EXPECT_FALSE(autoPicksShared(50000, 16, 1000));
+}
+
+TEST(StagedBuildTest, AutoCodebookIsPerColumnForOneColumn) {
+  Signatures keys = makeKeys(20000);
+  auto values = skewedValues(keys.size(), 3);
+  auto rows = Rows<uint32_t>::single(values);
+  BuildSpec spec;
+  EXPECT_FALSE(makePlan(spec, countValues(spec, keys, rows)).shared_codebook);
 }
 
 TEST(StagedBuildTest, StatsMergeEqualsWholeFit) {

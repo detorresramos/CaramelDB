@@ -28,11 +28,11 @@ template <typename Obj> Obj maybeFromBytes(const std::string &bytes) {
 }
 
 inline std::string makeSpec(PreFilterConfigPtr filter, bool shared_filter,
-                            bool shared_codebook, bool packed, bool verbose) {
+                            CodebookMode codebook, bool packed, bool verbose) {
   BuildSpec spec;
   spec.filter = FilterType::from(filter);
   spec.shared_filter = shared_filter;
-  spec.shared_codebook = shared_codebook;
+  spec.codebook = codebook;
   spec.encoding = packed ? Encoding::Packed : Encoding::Columns;
   spec.verbose = verbose;
   return toBytes(spec);

@@ -82,7 +82,7 @@ template <typename T> Index<T> combine(Plan<T> plan, std::vector<SolvedPartition
         gc.filter = plan.filters.filters[gp.filter];
         gc.most_common_value = gc.filter->getMostCommonValue();
       }
-      gc.uses_shared_codebook = plan.spec.shared_codebook;
+      gc.uses_shared_codebook = plan.shared_codebook;
       gc.max_codelength = gc.codebook ? gc.codebook->max_codelength : 0;
       group.columns.push_back(std::move(gc));
     }
@@ -92,7 +92,7 @@ template <typename T> Index<T> combine(Plan<T> plan, std::vector<SolvedPartition
   for (auto &cb : plan.codebooks) {
     if (cb) {
       cb->codedict = CodeDict<T>();
-      if (plan.spec.shared_codebook) {
+      if (plan.shared_codebook) {
         index.shared_codebook = cb;
       }
     }

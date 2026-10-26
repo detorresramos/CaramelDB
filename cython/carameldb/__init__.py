@@ -78,7 +78,7 @@ def Caramel(
     values,
     prefilter=AutoFilterConfig(),
     permutation=None,
-    shared_codebook=False,
+    shared_codebook=None,
     shared_filter=False,
     strategy=None,
     max_to_infer=None,
@@ -99,8 +99,10 @@ def Caramel(
         prefilter: The type of prefilter to use.
         permutation: A PermutationConfig specifying the permutation algorithm.
             Supported for multiset (2D) and ragged values.
-        shared_codebook: If true, uses a single shared Huffman codebook across
-            all columns. Only valid for multiset (2D) and ragged values.
+        shared_codebook: None (default) chooses at build time between one
+            Huffman codebook per column and one shared by all columns,
+            whichever gives the smaller CSF. True / False force shared /
+            per-column codebooks. Only valid for multiset (2D) and ragged values.
         shared_filter: If true, columns that share the same most common value
             (MCV) use a single shared prefilter. Only valid for fixed-length
             multiset (2D) values. Requires prefilter.

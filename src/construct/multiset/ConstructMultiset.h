@@ -13,7 +13,7 @@ inline build::BuildSpec multisetSpec(const MultisetConfig &config) {
   build::BuildSpec spec;
   spec.filter = build::FilterType::from(config.filter_config);
   spec.shared_filter = config.shared_filter;
-  spec.shared_codebook = config.shared_codebook;
+  spec.codebook = config.codebook;
   spec.verbose = config.verbose;
   return spec;
 }

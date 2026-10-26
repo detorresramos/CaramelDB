@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BitPackedArray.h"
+#include <cmath>
 #include <src/construct/SpookyHash.h>
 #include <algorithm>
 #include <cstring>

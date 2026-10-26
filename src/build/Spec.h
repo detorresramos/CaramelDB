@@ -62,16 +62,22 @@ enum class Encoding : uint8_t {
   Packed,
 };
 
+// Huffman codebooks of a multi-column build. Auto picks whichever of one
+// codebook per column or one shared by all columns makes the smaller index:
+// per-column codes are shorter, but every column pays for its own symbol
+// table, which dominates when columns have many distinct values and few rows.
+enum class CodebookMode : uint8_t { PerColumn, Shared, Auto };
+
 // Everything that shapes a build, identical on every worker. Each flag maps
 // to one isolated piece of the pipeline:
 //   filter          chooseFilters / findExceptions / buildFilters
 //   shared_filter   chooseFilters (which columns share a filter)
-//   shared_codebook makePlan (one codebook instead of one per column)
+//   codebook        makePlan (one codebook per column, one shared, or auto)
 //   encoding        countValues / solve (what a row's equations are)
 struct BuildSpec {
   FilterType filter;
   bool shared_filter = false;
-  bool shared_codebook = false;
+  CodebookMode codebook = CodebookMode::Auto;
   Encoding encoding = Encoding::Columns;
   bool verbose = false;
   // Initial solution bits per equation of every cell. Lower values make more
@@ -79,7 +85,7 @@ struct BuildSpec {
   double ribbon_overhead = RIBBON_OVERHEAD;
 
   template <class Archive> void serialize(Archive &archive) {
-    archive(filter, shared_filter, shared_codebook, encoding, verbose,
+    archive(filter, shared_filter, codebook, encoding, verbose,
             ribbon_overhead);
   }
 };

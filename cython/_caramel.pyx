@@ -1062,13 +1062,20 @@ cdef class CSFString:
 
 # ── MultisetCSF wrappers ──────────────────────────────────────────────────
 
+cdef cpp.CodebookMode _codebook_mode(shared_codebook):
+    """None: choose at build time; True / False: one shared / one per column."""
+    if shared_codebook is None:
+        return cpp.CodebookMode.Auto
+    return cpp.CodebookMode.Shared if shared_codebook else cpp.CodebookMode.PerColumn
+
+
 cdef class MultisetCSFUint32:
     cdef shared_ptr[cpp.MultisetCsf_uint32] _ptr
     cdef public double permutation_seconds
     cdef public double build_seconds
 
     def __init__(self, keys, values, prefilter=None, permutation=None,
-                 bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
+                 shared_codebook=None, bint shared_filter=False, bint verbose=True):
         """
         Note: when `permutation` is set, `values` is mutated in place.
         """
@@ -1085,7 +1092,7 @@ cdef class MultisetCSFUint32:
         if permutation is not None and isinstance(permutation, PermutationConfig):
             config.permutation_config = (<PermutationConfig>permutation)._ptr
         config.verbose = verbose
-        config.shared_codebook = shared_codebook
+        config.codebook = _codebook_mode(shared_codebook)
         config.shared_filter = shared_filter
         if prefilter is not None and isinstance(prefilter, PreFilterConfig):
             config.filter_config = (<PreFilterConfig>prefilter)._ptr
@@ -1133,7 +1140,7 @@ cdef class MultisetCSFUint64:
     cdef public double build_seconds
 
     def __init__(self, keys, values, prefilter=None, permutation=None,
-                 bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
+                 shared_codebook=None, bint shared_filter=False, bint verbose=True):
         """
         Note: when `permutation` is set, `values` is mutated in place.
         """
@@ -1150,7 +1157,7 @@ cdef class MultisetCSFUint64:
         if permutation is not None and isinstance(permutation, PermutationConfig):
             config.permutation_config = (<PermutationConfig>permutation)._ptr
         config.verbose = verbose
-        config.shared_codebook = shared_codebook
+        config.codebook = _codebook_mode(shared_codebook)
         config.shared_filter = shared_filter
         if prefilter is not None and isinstance(prefilter, PreFilterConfig):
             config.filter_config = (<PreFilterConfig>prefilter)._ptr
@@ -1196,7 +1203,7 @@ cdef class MultisetCSFChar10:
     cdef shared_ptr[cpp.MultisetCsf_Char10] _ptr
 
     def __init__(self, list keys, values, prefilter=None, permutation=None,
-                 bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
+                 shared_codebook=None, bint shared_filter=False, bint verbose=True):
         cdef cpp.Signatures cpp_keys = _hash_keys(keys)
         cdef vector[vector[cpp.Char10]] cpp_values
 
@@ -1217,7 +1224,7 @@ cdef class MultisetCSFChar10:
         if permutation is not None and isinstance(permutation, PermutationConfig):
             config.permutation_config = (<PermutationConfig>permutation)._ptr
         config.verbose = verbose
-        config.shared_codebook = shared_codebook
+        config.codebook = _codebook_mode(shared_codebook)
         config.shared_filter = shared_filter
         if prefilter is not None and isinstance(prefilter, PreFilterConfig):
             config.filter_config = (<PreFilterConfig>prefilter)._ptr
@@ -1255,7 +1262,7 @@ cdef class MultisetCSFChar12:
     cdef shared_ptr[cpp.MultisetCsf_Char12] _ptr
 
     def __init__(self, list keys, values, prefilter=None, permutation=None,
-                 bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
+                 shared_codebook=None, bint shared_filter=False, bint verbose=True):
         cdef cpp.Signatures cpp_keys = _hash_keys(keys)
         cdef vector[vector[cpp.Char12]] cpp_values
 
@@ -1276,7 +1283,7 @@ cdef class MultisetCSFChar12:
         if permutation is not None and isinstance(permutation, PermutationConfig):
             config.permutation_config = (<PermutationConfig>permutation)._ptr
         config.verbose = verbose
-        config.shared_codebook = shared_codebook
+        config.codebook = _codebook_mode(shared_codebook)
         config.shared_filter = shared_filter
         if prefilter is not None and isinstance(prefilter, PreFilterConfig):
             config.filter_config = (<PreFilterConfig>prefilter)._ptr
@@ -1314,7 +1321,7 @@ cdef class MultisetCSFString:
     cdef shared_ptr[cpp.MultisetCsf_string] _ptr
 
     def __init__(self, list keys, values, prefilter=None, permutation=None,
-                 bint shared_codebook=False, bint shared_filter=False, bint verbose=True):
+                 shared_codebook=None, bint shared_filter=False, bint verbose=True):
         cdef cpp.Signatures cpp_keys = _hash_keys(keys)
         cdef vector[vector[string]] cpp_values
 
@@ -1339,7 +1346,7 @@ cdef class MultisetCSFString:
 
         cdef cpp.MultisetConfig config
         config.verbose = verbose
-        config.shared_codebook = shared_codebook
+        config.codebook = _codebook_mode(shared_codebook)
         config.shared_filter = shared_filter
         if prefilter is not None and isinstance(prefilter, PreFilterConfig):
             config.filter_config = (<PreFilterConfig>prefilter)._ptr
@@ -1376,7 +1383,7 @@ cdef class RaggedMultisetCSFUint32:
     cdef shared_ptr[cpp.RaggedMultisetCsf_uint32] _ptr
 
     def __init__(self, list keys, values, prefilter=None, permutation=None,
-                 bint shared_codebook=False, bint verbose=True):
+                 shared_codebook=None, bint verbose=True):
         cdef cpp.Signatures cpp_keys = _hash_keys(keys)
         cdef vector[vector[unsigned int]] cpp_values
 
@@ -1387,7 +1394,7 @@ cdef class RaggedMultisetCSFUint32:
         if permutation is not None and isinstance(permutation, PermutationConfig):
             config.permutation_config = (<PermutationConfig>permutation)._ptr
         config.verbose = verbose
-        config.shared_codebook = shared_codebook
+        config.codebook = _codebook_mode(shared_codebook)
         if prefilter is not None and isinstance(prefilter, PreFilterConfig):
             config.filter_config = (<PreFilterConfig>prefilter)._ptr
 
@@ -1560,11 +1567,11 @@ cdef inline void* _data_ptr(flat):
     return np.PyArray_DATA(<np.ndarray>flat)
 
 
-def _step_spec(prefilter, bint shared_filter, bint shared_codebook, bint packed, bint verbose):
+def _step_spec(prefilter, bint shared_filter, shared_codebook, bint packed, bint verbose):
     cdef shared_ptr[cpp.PreFilterConfig] config
     if prefilter is not None:
         config = (<PreFilterConfig>prefilter)._ptr
-    return cpp.makeSpec(config, shared_filter, shared_codebook, packed, verbose)
+    return cpp.makeSpec(config, shared_filter, _codebook_mode(shared_codebook), packed, verbose)
 
 
 def _step_count(str dtype, bytes spec, keys, values, bint csr, bytes filters):

@@ -32,7 +32,7 @@ from multiprocessing import get_context
 from . import AutoFilterConfig, steps
 
 
-def build(chunks, prefilter=AutoFilterConfig(), shared_codebook=False,
+def build(chunks, prefilter=AutoFilterConfig(), shared_codebook=None,
           shared_filter=False, strategy=None, executor=None, num_partitions=None,
           verbose=False):
     """Builds a CSF from `chunks` on `executor`.

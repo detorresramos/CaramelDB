@@ -4,6 +4,7 @@
 #include <cereal/access.hpp>
 #include <cereal/archives/binary.hpp>
 #include <cereal/types/vector.hpp>
+#include <cmath>
 #include <iostream>
 #include <memory>
 #include <src/construct/Hashing.h>

@@ -362,12 +362,18 @@ cdef extern from "src/construct/multiset/permute/PermutationConfig.h" namespace 
         GlobalSortPermutationConfig(int refinement_iterations) except +
         int refinement_iterations
 
+cdef extern from "src/build/Spec.h" namespace "caramel::build":
+    enum class CodebookMode:
+        PerColumn
+        Shared
+        Auto
+
 cdef extern from "src/construct/multiset/MultisetConfig.h" namespace "caramel":
     cppclass MultisetConfig:
         MultisetConfig()
         shared_ptr[PermutationConfig] permutation_config
         shared_ptr[PreFilterConfig] filter_config
-        cbool shared_codebook
+        CodebookMode codebook
         cbool shared_filter
         cbool verbose
 
@@ -478,7 +484,7 @@ cdef extern from "src/construct/multiset/permute/GlobalSortPermutation.h" namesp
 
 cdef extern from "cython/steps.h" namespace "caramel::py":
     string makeSpec(shared_ptr[PreFilterConfig] filter, cbool shared_filter,
-                    cbool shared_codebook, cbool packed, cbool verbose) except +
+                    CodebookMode codebook, cbool packed, cbool verbose) except +
     string countStep[T](const string &spec, const Signatures &keys, const T *data,
                        uint64_t rows, uint32_t cols, const uint64_t *offsets,
                        const string &filters) except + nogil

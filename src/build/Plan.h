@@ -4,6 +4,7 @@
 #include "Kernel.h"
 #include "Counts.h"
 #include <cereal/types/memory.hpp>
+#include <iostream>
 #include <limits>
 #include <src/construct/CsfCodebook.h>
 
@@ -40,6 +41,8 @@ template <typename T> struct Plan {
   BuildSpec spec;
   uint32_t num_cols = 0;
   bool ragged = false;
+  // The codebook choice, resolved (spec.codebook may be Auto).
+  bool shared_codebook = false;
   // Per column (Packed: one). Null when the column encodes nothing. With a
   // shared codebook every entry points at the same codebook.
   std::vector<std::shared_ptr<CsfCodebook<T>>> codebooks;
@@ -66,7 +69,7 @@ template <typename T> struct Plan {
   // The value -> code maps are construction-only. A local build drops a
   // group's maps once it is solved to keep peak memory down.
   void releaseCodedicts(uint32_t group) {
-    if (spec.shared_codebook) {
+    if (shared_codebook) {
       return;
     }
     for (uint32_t c : groups[group].columns) {
@@ -77,11 +80,13 @@ template <typename T> struct Plan {
   }
 
   template <class Archive> void save(Archive &archive) const {
-    archive(spec, num_cols, ragged, codebooks, filters, groups, stop_symbol);
+    archive(spec, num_cols, ragged, shared_codebook, codebooks, filters, groups,
+            stop_symbol);
   }
 
   template <class Archive> void load(Archive &archive) {
-    archive(spec, num_cols, ragged, codebooks, filters, groups, stop_symbol);
+    archive(spec, num_cols, ragged, shared_codebook, codebooks, filters, groups,
+            stop_symbol);
     for (auto &cb : codebooks) {
       if (cb && cb->codedict.empty()) {
         cb->buildCodedict();
@@ -99,6 +104,12 @@ uint64_t codedBits(const Frequencies<T> &freq, const CsfCodebook<T> &codebook) {
     bits += f * codebook.codedict.at(value).length;
   });
   return bits;
+}
+
+// Serialized size of a codebook's symbol table.
+template <typename T> uint64_t tableBits(const CsfCodebook<T> &codebook) {
+  return 8 * (sizeof(T) * codebook.ordered_symbols.size() +
+              sizeof(uint32_t) * (codebook.code_length_counts.size() + 1));
 }
 
 // Splits columns that share a key set into groups whose target bucket counts
@@ -160,8 +171,11 @@ Plan<T> makePlan(const BuildSpec &spec, const Counts<T> &counts,
     return plan;
   }
 
+  const bool try_own = spec.codebook != CodebookMode::Shared;
+  const bool try_shared = spec.codebook == CodebookMode::Shared ||
+                          (spec.codebook == CodebookMode::Auto && C > 1);
   std::shared_ptr<CsfCodebook<T>> shared;
-  if (spec.shared_codebook) {
+  if (try_shared) {
     ColumnCounts<T> pooled;
     for (const auto &col : counts.cols) {
       pooled.merge(col);
@@ -172,22 +186,52 @@ Plan<T> makePlan(const BuildSpec &spec, const Counts<T> &counts,
     }
   }
 
-  plan.codebooks.resize(C);
+  std::vector<std::shared_ptr<CsfCodebook<T>>> own(C);
+  std::vector<uint64_t> own_bits(C, 0), shared_bits(C, 0);
 #pragma omp parallel for schedule(dynamic, 1) default(none)                    \
-    shared(plan, counts, shared, spec, col_buckets, C)
+    shared(counts, shared, own, own_bits, shared_bits, try_own, C)
   for (uint32_t c = 0; c < C; c++) {
     const auto &col = counts.cols[c];
     if (col.count == 0) {
       continue;
     }
-    auto cb = spec.shared_codebook
-                  ? shared
-                  : std::make_shared<CsfCodebook<T>>(
-                        canonicalHuffmanFromFrequencies<T>(col.freq));
-    const uint64_t bits =
-        spec.shared_codebook ? detail::codedBits(col.freq, *cb) : cb->coded_bits;
-    col_buckets[c] = columnBucketCount(bits, col.count);
-    plan.codebooks[c] = std::move(cb);
+    if (try_own) {
+      own[c] = std::make_shared<CsfCodebook<T>>(
+          canonicalHuffmanFromFrequencies<T>(col.freq));
+      own_bits[c] = own[c]->coded_bits;
+    }
+    if (shared) {
+      shared_bits[c] = detail::codedBits(col.freq, *shared);
+    }
+  }
+
+  plan.shared_codebook = shared && spec.codebook == CodebookMode::Shared;
+  if (shared && spec.codebook == CodebookMode::Auto) {
+    // Solutions cost ribbon_overhead bits per code bit in either mode, so
+    // the modes differ by code bits and by how many symbol tables are stored.
+    double own_cost = 0, shared_cost = detail::tableBits(*shared);
+    for (uint32_t c = 0; c < C; c++) {
+      if (own[c]) {
+        own_cost += spec.ribbon_overhead * own_bits[c] + detail::tableBits(*own[c]);
+        shared_cost += spec.ribbon_overhead * shared_bits[c];
+      }
+    }
+    plan.shared_codebook = shared_cost < own_cost;
+    if (spec.verbose) {
+      std::cout << "Codebook: " << (plan.shared_codebook ? "shared" : "per column")
+                << " (estimated " << own_cost / 8 << " B per column, "
+                << shared_cost / 8 << " B shared)" << std::endl;
+    }
+  }
+
+  plan.codebooks.resize(C);
+  for (uint32_t c = 0; c < C; c++) {
+    if (counts.cols[c].count == 0) {
+      continue;
+    }
+    plan.codebooks[c] = plan.shared_codebook ? shared : std::move(own[c]);
+    col_buckets[c] = columnBucketCount(
+        plan.shared_codebook ? shared_bits[c] : own_bits[c], counts.cols[c].count);
   }
 
   if (counts.ragged) {

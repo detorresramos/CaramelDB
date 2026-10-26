@@ -49,7 +49,7 @@ class BuildConfig:
     kind: str  # csf | multiset | ragged | packed
     dtype: str  # uint32 | uint64
     prefilter: object = None
-    shared_codebook: bool = False
+    shared_codebook: bool | None = None  # None: chosen at build time
     shared_filter: bool = False
     verbose: bool = False
     # The serialized C++ spec: a config unpickled on a worker, where the
@@ -75,10 +75,10 @@ class BuildConfig:
                 self.prefilter, self.shared_filter, self.shared_codebook,
                 self.kind == "packed", self.verbose))
             object.__setattr__(self, "_lengths_spec", _c._step_spec(
-                self.prefilter, False, False, False, self.verbose))
+                self.prefilter, False, None, False, self.verbose))
 
     @staticmethod
-    def for_values(values, prefilter=None, shared_codebook=False, shared_filter=False,
+    def for_values(values, prefilter=None, shared_codebook=None, shared_filter=False,
                    strategy=None, verbose=False):
         """The config `Caramel` would use for `values`."""
         kind, dtype = describe(values, strategy)
